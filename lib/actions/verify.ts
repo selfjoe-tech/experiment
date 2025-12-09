@@ -1,5 +1,6 @@
 "use server";
 import { supabase } from "@/lib/supabaseClient"; 
+import { getUserIdFromCookies } from "./auth";
 
 export type VerificationLinks = {
   onlyfans?: string;
@@ -47,7 +48,7 @@ export async function submitVerificationRequest(formData: FormData) {
   }
 
   const ext = selfie.type === "image/png" ? "png" : "jpg";
-  const filePath = `verify-selfies/2d78c663-73dc-4cc1-88e1-a113cc0fc47d/${Date.now()}.${ext}`;
+  const filePath = `verify-selfies/${await getUserIdFromCookies()}/${Date.now()}.${ext}`;
 
   const { error: uploadError } = await supabase.storage
     .from("media")
@@ -63,7 +64,7 @@ export async function submitVerificationRequest(formData: FormData) {
   }
 
   const { error: insertError } = await supabase.from("verify").insert({
-    creator_id: "2d78c663-73dc-4cc1-88e1-a113cc0fc47d",
+    creator_id: await getUserIdFromCookies(),
     links,
     selfie_path: filePath,
     status: "pending",
@@ -87,7 +88,7 @@ type VerificationState =
   
 
   const user = {
-        id: "2d78c663-73dc-4cc1-88e1-a113cc0fc47d"
+        id: await getUserIdFromCookies()
     }
 
 

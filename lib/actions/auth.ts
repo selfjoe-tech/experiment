@@ -5,6 +5,8 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { supabase } from "@/lib/supabaseClient";
 import nodemailer from "nodemailer";
+import { revalidatePath } from "next/cache";
+
 
 
 
@@ -31,7 +33,29 @@ export type ForgotPasswordFieldErrors = {
   confirmPassword?: string;
 };
 
+const ALLOWED_PREFERENCES = [
+  "straight",
+  "gay",
+  "bisexual",
+  "trans",
+  "lesbian",
+  "animated",
+] as const;
 
+type Preference = (typeof ALLOWED_PREFERENCES)[number];
+
+
+function normalizePreferences(raw: string[] | null | undefined): Preference[] {
+  if (!raw || !raw.length) return [];
+
+  const lower = raw
+    .map((p) => p.toLowerCase().trim())
+    .filter(Boolean);
+
+  const dedup = Array.from(new Set(lower));
+
+  return ALLOWED_PREFERENCES.filter((pref) => dedup.includes(pref));
+}
 
 
 export async function sendOtpEmail(to: string, code: string) {
@@ -220,7 +244,13 @@ function normalizeEmail(raw: string) {
   return raw.trim().toLowerCase();
 }
 
-async function setAuthCookies(userId: string, username: string, avatar: string = "") {
+export async function setAuthCookies(
+  userId: string,
+   username: string, 
+   avatar: string = "",
+  verified: boolean = false,
+  
+  ) {
   const store = await cookies();
   store.set("userId", userId, {
     httpOnly: true,
@@ -239,6 +269,14 @@ async function setAuthCookies(userId: string, username: string, avatar: string =
     sameSite: "lax",
     path: "/",
   });
+
+  store.set("verified", verified, {
+    httpOnly: false,
+    sameSite: "lax",
+    path: "/",
+  });
+
+
 
   if (avatar === "") {
       return ;
@@ -386,7 +424,7 @@ export async function loginAction(formData: FormData): Promise<AuthResult> {
 
   const { data: user, error } = await supabase
     .from("profiles")
-    .select("id, username, email, hash, avatar_url")
+    .select("id, username, email, hash, avatar_url, verified")
     .eq(isEmail ? "email" : "username", identifier)
     .maybeSingle();
 
@@ -408,7 +446,7 @@ export async function loginAction(formData: FormData): Promise<AuthResult> {
     };
   }
 
-  await setAuthCookies(user.id, user.username, user.avatar_url);
+  await setAuthCookies(user.id, user.username, user.avatar_url, user.verified);
 
   return { success: true };
 }
@@ -449,11 +487,20 @@ export async function getIsLoggedInFromCookies(): Promise<boolean> {
 }
 
 
+
+
 export async function getUserIdFromCookies(): Promise<string | null> {
   const store = await cookies();
   const userId = store.get("userId")?.value;
   return userId || null;
 }
+
+export async function getVerified(): Promise<string | null> {
+  const store = await cookies();
+  const verify = store.get("verified")?.value;
+  return verify || null;
+}
+
 
 export type SimpleResult = { success: boolean };
 
@@ -482,11 +529,14 @@ export async function logoutAction(): Promise<SimpleResult> {
 export async function getUserProfileFromCookies(): Promise<{
   username: string | null;
   avatarUrl: string | null;
+  isLoggedIn: string | null;
 }> {
   const store = await cookies();
 
   const username = store.get("username")?.value ?? null;
   const avatarPath = store.get("avatar")?.value ?? null;
+  const isLoggedIn = store.get("isLoggedIn")?.value ?? null;
+
 
   let avatarUrl: string | null = null;
 
@@ -497,7 +547,7 @@ export async function getUserProfileFromCookies(): Promise<{
     avatarUrl = data.publicUrl || null;
   }
 
-  return { username, avatarUrl };
+  return { username, avatarUrl, isLoggedIn };
 }
 
 const smtpTransporter = nodemailer.createTransport({
@@ -510,3 +560,64 @@ const smtpTransporter = nodemailer.createTransport({
   },
 });
 
+
+
+export async function updateUserPreferencesAction(
+  prefs: string[]
+): Promise<{ success: boolean; message?: string }> {
+  const store = await cookies();
+  const userId = store.get("userId")?.value ?? null;
+
+  // normalise + filter to allowed values
+  let normalized = normalizePreferences(prefs);
+
+  // If nothing selected, fall back to straight
+  if (!normalized.length) {
+    normalized = ["straight"];
+  }
+
+  // Update DB if we know who the user is
+  if (userId) {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ preferences: normalized })
+      .eq("id", userId);
+
+    if (error) {
+      console.error("updateUserPreferencesAction error", error);
+      return { success: false, message: "Failed to save preferences." };
+    }
+  }
+
+  // Store in cookies for client-side fetching
+  store.set("preferences", JSON.stringify(normalized), {
+    httpOnly: false,
+    sameSite: "lax",
+    path: "/",
+  });
+
+  return { success: true };
+}
+
+
+export async function getUserPreferencesFromCookies(): Promise<Preference[] | null> {
+  const store = await cookies();
+  const raw = store.get("preferences")?.value;
+
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      const normalized = normalizePreferences(parsed);
+      return normalized.length ? normalized : null;
+    }
+  } catch {
+    // maybe an older comma-separated format
+    const parts = raw.split(",").map((s) => s.trim());
+    const normalized = normalizePreferences(parts);
+    return normalized.length ? normalized : null;
+  }
+
+  return null;
+}

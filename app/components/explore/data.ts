@@ -339,7 +339,7 @@ function mapMediaRowToVideo(row: any): Video {
     src: row.src,
     type: row.type, // "gif" | "image" | "video"
     views: row.views ?? 0,
-    likes: row.likes ?? 0,
+    likes: row.like_count ?? 0,
     description: row.description ?? "",
     hashtags: row.hashtags ?? [],
     ownerId: row.owner_id,
@@ -368,7 +368,7 @@ export async function fetchByUserName(
   }
 
   // 2) Decide which media_type to fetch
-  const mediaType = tab === "gifs" ? "gif" : "image";
+  const mediaType = tab === "gifs" ? "video" : "image";
 
   // 3) Fetch media by owner_id + media_type, join profiles via FK media_owner_id_fkey
   const { data: mediaRows, error: mediaError } = await supabase
@@ -494,6 +494,7 @@ export async function getUserMedia({
           date: row.created_at
             ? new Date(row.created_at as string).getTime()
             : undefined,
+          likes: row.like_count,
         };
 
         if (tab === "gifs") {

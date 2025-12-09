@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Upskirt Candy",
-  description: "The site for the best upskirt fantasies you can find. Show us that triangle",
+  title: "Porn Videos | Upskirt Candy",
+  description: "The site for the best upskirt porn videos fantasies you can find. Show us that triangle",
 };
 
 export default function RootLayout({

@@ -339,3 +339,61 @@ export async function toggleMediaLike(mediaId: number): Promise<{
   return { liked: true };
 }
 
+
+export type FollowCounts = {
+  followers: number;
+  following: number;
+  views: number;
+};
+
+export async function getMyFollowCounts(): Promise<FollowCounts> {
+  const userId = await getUserIdFromCookies();
+  if (!userId) {
+    return { followers: 0, following: 0, views: 0 };
+  }
+
+  try {
+    const [
+      { count: followersCount, error: followersError },
+      { count: followingCount, error: followingError },
+      { data: mediaRows, error: mediaError },
+    ] = await Promise.all([
+      supabase
+        .from("follows")
+        .select("*", { count: "exact", head: true })
+        .eq("followee_id", userId),
+      supabase
+        .from("follows")
+        .select("*", { count: "exact", head: true })
+        .eq("follower_id", userId),
+      supabase
+        .from("media")
+        .select("view_count")
+        .eq("owner_id", userId),
+    ]);
+
+    if (followersError) {
+      console.error("getMyFollowCounts followersError", followersError);
+    }
+    if (followingError) {
+      console.error("getMyFollowCounts followingError", followingError);
+    }
+    if (mediaError) {
+      console.error("getMyFollowCounts mediaError", mediaError);
+    }
+
+    const viewsTotal = (mediaRows ?? []).reduce(
+      (sum, row: any) => sum + (row.view_count ?? 0),
+      0
+    );
+
+    return {
+      followers: followersCount ?? 0,
+      following: followingCount ?? 0,
+      views: viewsTotal,
+    };
+  } catch (err) {
+    console.error("getMyFollowCounts thrown error", err);
+    return { followers: 0, following: 0, views: 0 };
+  }
+}

@@ -16,6 +16,7 @@ export type Video = {
 
   likes: number;
   views: number;
+  verified: boolean;
 
   likedByMe?: boolean; // optional hint from backend
 };

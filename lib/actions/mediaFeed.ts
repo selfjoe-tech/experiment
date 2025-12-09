@@ -3,9 +3,48 @@
 
 import { supabase } from "@/lib/supabaseClient";
 import type { Video } from "@/app/components/feed/types";
-import { getUserIdFromCookies } from "./auth";
+import { getUserIdFromCookies, getUserPreferencesFromCookies } from "./auth";
 
 const MEDIA_BUCKET = "media";
+
+const ALLOWED_PREFERENCES = [
+  "straight",
+  "gay",
+  "bisexual",
+  "trans",
+  "lesbian",
+  "animated",
+] as const;
+
+type Preference = (typeof ALLOWED_PREFERENCES)[number];
+
+
+
+export function normalizePreferences(raw: string[] | null | undefined): Preference[] {
+  if (!raw || !raw.length) return [];
+
+  const lower = raw
+    .map((p) => p.toLowerCase().trim())
+    .filter(Boolean);
+
+  const dedup = Array.from(new Set(lower));
+
+  return ALLOWED_PREFERENCES.filter((pref) => dedup.includes(pref));
+}
+
+
+async function getEffectivePreferences(): Promise<Preference[]> {
+  try {
+    const cookiePrefs = await getUserPreferencesFromCookies();
+    const normalized = normalizePreferences(cookiePrefs ?? []);
+    if (normalized.length) return normalized;
+  } catch (err) {
+    console.error("getEffectivePreferences error", err);
+  }
+  return ["straight"];
+}
+
+
 
 function buildPublicUrl(path: string): string {
   const { data } = supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path);
@@ -23,8 +62,8 @@ export async function fetchTrendingVideosBatch(opts: {
 }): Promise<Video[]> {
   const { limit, excludeIds = [] } = opts;
 
-  // We'll over-fetch a bit so we can randomize locally
-  const OVERFETCH_MULTIPLIER = 6; // e.g. ask for 18 when limit is 3
+  const preferences = await getEffectivePreferences();
+  const OVERFETCH_MULTIPLIER = 6;
   const overfetchLimit = Math.max(limit * OVERFETCH_MULTIPLIER, limit);
 
   let query = supabase
@@ -38,20 +77,24 @@ export async function fetchTrendingVideosBatch(opts: {
       like_count,
       view_count,
       created_at,
+      tags,
+      audience,
       owner:profiles!media_owner_id_fkey (
         id,
         username,
-        avatar_url
-      ),
-      media_tags:media_tags (
-        tag:tags (
-          slug,
-          label
-        )
+        avatar_url,
+        verified
       )
     `
     )
     .eq("media_type", "video");
+
+  // apply audience preferences
+  if (preferences.length === 1) {
+    query = query.eq("audience", preferences[0]);
+  } else {
+    query = query.in("audience", preferences);
+  }
 
   // Avoid repeating media we've already shown this session
   if (excludeIds.length > 0) {
@@ -72,22 +115,17 @@ export async function fetchTrendingVideosBatch(opts: {
 
   if (!data || data.length === 0) return [];
 
-  // Fisher–Yates shuffle for a *real* random order client-side
   const pool = [...(data as any[])];
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
 
-  // Take only the first `limit` items from the shuffled pool
   const picked = pool.slice(0, limit);
 
   return picked.map((row) => {
     const publicUrl = buildPublicUrl(row.storage_path);
-
-    const tags: string[] = (row.media_tags ?? [])
-      .map((mt: any) => mt?.tag?.label || mt?.tag?.slug)
-      .filter(Boolean);
+    const tags: string[] = row.tags ?? [];
 
     return {
       id: String(row.id),
@@ -100,10 +138,10 @@ export async function fetchTrendingVideosBatch(opts: {
       likes: row.like_count ?? 0,
       views: row.view_count ?? 0,
       hashtags: tags,
+      verified: row.owner?.verified
     } satisfies Video;
   });
 }
-
 
 
 /**
@@ -112,9 +150,8 @@ export async function fetchTrendingVideosBatch(opts: {
  */
 export async function registerView(mediaId: number): Promise<void> {
   try {
-    
-
-    const viewerId = "2d78c663-73dc-4cc1-88e1-a113cc0fc47d";
+    // You can swap this out for getUserIdFromCookies() if needed
+    const viewerId = await getUserIdFromCookies();
 
     const { error } = await supabase.from("media_views").insert({
       media_id: mediaId,
@@ -137,9 +174,7 @@ export async function registerView(mediaId: number): Promise<void> {
 export async function toggleMediaLike(
   mediaId: number
 ): Promise<{ liked: boolean; likeCount: number | null }> {
-  
-
-  const userId = "2d78c663-73dc-4cc1-88e1-a113cc0fc47d";
+  const userId = await getUserIdFromCookies();
 
   // Does a like already exist?
   const { data: existing, error: existingError } = await supabase
@@ -215,16 +250,12 @@ export async function fetchVideoForEmbed(
       like_count,
       view_count,
       created_at,
+      tags,
       owner:profiles!media_owner_id_fkey (
         id,
         username,
-        avatar_url
-      ),
-      media_tags:media_tags (
-        tag:tags (
-          slug,
-          label
-        )
+        avatar_url,
+        verified
       )
     `
     )
@@ -239,10 +270,7 @@ export async function fetchVideoForEmbed(
   if (!data) return null;
 
   const publicUrl = buildPublicUrl(data.storage_path);
-
-  const tags: string[] = (data.media_tags ?? [])
-    .map((mt: any) => mt?.tag?.label || mt?.tag?.slug)
-    .filter(Boolean);
+  const tags: string[] = data.tags ?? [];
 
   return {
     id: String(data.id),
@@ -255,9 +283,10 @@ export async function fetchVideoForEmbed(
     likes: data.like_count ?? 0,
     views: data.view_count ?? 0,
     hashtags: tags,
+    verified: data.owner?.verified
+
   } satisfies Video;
 }
-
 
 export async function fetchVideoById(mediaId: number): Promise<Video | null> {
   const { data, error } = await supabase
@@ -271,16 +300,12 @@ export async function fetchVideoById(mediaId: number): Promise<Video | null> {
       like_count,
       view_count,
       created_at,
+      tags,
       owner:profiles!media_owner_id_fkey (
         id,
         username,
-        avatar_url
-      ),
-      media_tags:media_tags (
-        tag:tags (
-          slug,
-          label
-        )
+        avatar_url,
+        verified
       )
     `
     )
@@ -295,10 +320,7 @@ export async function fetchVideoById(mediaId: number): Promise<Video | null> {
   if (!data) return null;
 
   const publicUrl = buildPublicUrl(data.storage_path);
-
-  const tags: string[] = (data.media_tags ?? [])
-    .map((mt: any) => mt?.tag?.label || mt?.tag?.slug)
-    .filter(Boolean);
+  const tags: string[] = data.tags ?? [];
 
   return {
     id: String(data.id),
@@ -310,15 +332,10 @@ export async function fetchVideoById(mediaId: number): Promise<Video | null> {
     avatar: data.owner?.avatar_url ?? "/avatar-placeholder.png",
     likes: data.like_count ?? 0,
     views: data.view_count ?? 0,
+    verified: data.owner?.verified,
     hashtags: tags,
   } satisfies Video;
 }
-
-
-
-
-
-
 
 function slugToLabel(slug: string): string {
   const decoded = decodeURIComponent(slug);
@@ -330,7 +347,7 @@ function slugToLabel(slug: string): string {
 }
 
 export async function fetchVideosByTagBatch(opts: {
-  slug: string;        // e.g. "gaming-fever"
+  slug: string; // e.g. "gaming-fever"
   limit: number;
   excludeIds?: number[];
 }): Promise<Video[]> {
@@ -348,16 +365,12 @@ export async function fetchVideosByTagBatch(opts: {
       like_count,
       view_count,
       created_at,
+      tags,
       owner:profiles!media_owner_id_fkey (
         id,
         username,
-        avatar_url
-      ),
-      media_tags:media_tags (
-        tag:tags (
-          slug,
-          label
-        )
+        avatar_url,
+        verified
       )
     `
     )
@@ -386,10 +399,7 @@ export async function fetchVideosByTagBatch(opts: {
 
   return (data as any[]).map((row) => {
     const publicUrl = buildPublicUrl(row.storage_path);
-
-    const tags: string[] = (row.media_tags ?? [])
-      .map((mt: any) => mt?.tag?.label || mt?.tag?.slug)
-      .filter(Boolean);
+    const tags: string[] = row.tags ?? [];
 
     return {
       id: String(row.id),
@@ -402,12 +412,13 @@ export async function fetchVideosByTagBatch(opts: {
       likes: row.like_count ?? 0,
       views: row.view_count ?? 0,
       hashtags: tags,
+      verified: row.owner?.verified,
+
     } satisfies Video;
   });
 }
 
-// lib/actions/mediaFeed.ts
-
+// Images
 
 export type ImageMedia = {
   id: string;
@@ -422,9 +433,12 @@ export type ImageMedia = {
   hashtags: string[];
   ownerId?: string;
   likedByMe?: boolean;
+  verifed?: boolean;
 };
 
-export async function fetchImageById(mediaId: number): Promise<ImageMedia | null> {
+export async function fetchImageById(
+  mediaId: number
+): Promise<ImageMedia | null> {
   if (!mediaId || Number.isNaN(mediaId)) return null;
 
   const { data, error } = await supabase
@@ -438,16 +452,12 @@ export async function fetchImageById(mediaId: number): Promise<ImageMedia | null
       like_count,
       view_count,
       created_at,
+      tags,
       owner:profiles!media_owner_id_fkey (
         id,
         username,
-        avatar_url
-      ),
-      media_tags:media_tags (
-        tag:tags (
-          slug,
-          label
-        )
+        avatar_url,
+        verified
       )
     `
     )
@@ -465,19 +475,17 @@ export async function fetchImageById(mediaId: number): Promise<ImageMedia | null
   const publicUrl = buildPublicUrl(data.storage_path);
   if (!publicUrl) return null;
 
-  const tags: string[] = (data.media_tags ?? [])
-    .map((mt: any) => mt?.tag?.label || mt?.tag?.slug)
-    .filter(Boolean);
+  const tags: string[] = data.tags ?? [];
 
-  const user = "2d78c663-73dc-4cc1-88e1-a113cc0fc47d"
+  const userId = await getUserIdFromCookies();
 
   let likedByMe: boolean | undefined = undefined;
-  if (user) {
+  if (userId) {
     const { data: likeRow, error: likeError } = await supabase
       .from("media_likes")
       .select("id")
       .eq("media_id", mediaId)
-      .eq("profile_id", user.id)
+      .eq("user_id", userId)
       .maybeSingle();
 
     if (!likeError) {
@@ -498,15 +506,15 @@ export async function fetchImageById(mediaId: number): Promise<ImageMedia | null
     hashtags: tags,
     ownerId: data.owner?.id ?? undefined,
     likedByMe,
-  };
+    verified: data.owner?.verified,
 
+  };
 }
 
-
-
+// Helper: map rows (used in For You feed)
 
 function mapRowToVideo(row: any): Video {
-  const src = publicMediaUrl(row.storage_path);
+  const src = row.storage_path ? buildPublicUrl(row.storage_path) : "";
   if (!src) {
     // You can choose to filter these out
     return null as any;
@@ -538,8 +546,9 @@ export async function fetchForYouVideosBatch({
   excludeIds = [],
 }: ForYouParams): Promise<Video[]> {
   const userId = await getUserIdFromCookies();
+  const preferences = await getEffectivePreferences();
 
-  // If not logged in, just behave like trending
+  // If not logged in, just behave like trending (still filtered by preferences)
   if (!userId) {
     return fetchTrendingVideosBatch({ limit, excludeIds });
   }
@@ -558,7 +567,7 @@ export async function fetchForYouVideosBatch({
 
   const recs: string[] = (profile?.recs ?? []).filter(Boolean);
 
-  // If they haven't liked anything yet → pure random/trending
+  // If they haven't liked anything yet → pure trending (still uses preferences)
   if (!recs.length) {
     return fetchTrendingVideosBatch({ limit, excludeIds });
   }
@@ -578,10 +587,11 @@ export async function fetchForYouVideosBatch({
   const excludeSet = new Set(excludeIds || []);
 
   // 3) by tags overlap
-  const { data: tagRows, error: tagError } = await supabase
-    .from("media")
-    .select(
-      `
+  {
+    let tagQuery = supabase
+      .from("media")
+      .select(
+        `
         id,
         owner_id,
         media_type,
@@ -591,28 +601,40 @@ export async function fetchForYouVideosBatch({
         created_at,
         description,
         tags,
+        audience,
         owner:profiles!media_owner_id_fkey(
           id,
           username,
-          avatar_url
+          avatar_url,
+          verified
         )
       `
-    )
-    .eq("media_type", "video")
-    .overlaps("tags", recs)
-    .order("view_count", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(limit * 2); // grab extra, we'll filter + trim
+      )
+      .eq("media_type", "video")
+      .overlaps("tags", recs)
+      .order("view_count", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(limit * 2);
 
-  if (tagError) {
-    console.error("fetchForYouVideosBatch tags media error", tagError);
-  } else if (tagRows) {
-    recommendedRows.push(...tagRows);
+    // apply audience filter
+    if (preferences.length === 1) {
+      tagQuery = tagQuery.eq("audience", preferences[0]);
+    } else {
+      tagQuery = tagQuery.in("audience", preferences);
+    }
+
+    const { data: tagRows, error: tagError } = await tagQuery;
+
+    if (tagError) {
+      console.error("fetchForYouVideosBatch tags media error", tagError);
+    } else if (tagRows) {
+      recommendedRows.push(...tagRows);
+    }
   }
 
   // 4) by followees (creators they follow)
   if (followeeIds.length) {
-    const { data: followMediaRows, error: followMediaError } = await supabase
+    let followMediaQuery = supabase
       .from("media")
       .select(
         `
@@ -625,10 +647,12 @@ export async function fetchForYouVideosBatch({
           created_at,
           description,
           tags,
+          audience,
           owner:profiles!media_owner_id_fkey(
             id,
             username,
-            avatar_url
+            avatar_url,
+            verified
           )
         `
       )
@@ -637,8 +661,20 @@ export async function fetchForYouVideosBatch({
       .order("created_at", { ascending: false })
       .limit(limit * 2);
 
+    // apply audience filter here as well
+    if (preferences.length === 1) {
+      followMediaQuery = followMediaQuery.eq("audience", preferences[0]);
+    } else {
+      followMediaQuery = followMediaQuery.in("audience", preferences);
+    }
+
+    const { data: followMediaRows, error: followMediaError } = await followMediaQuery;
+
     if (followMediaError) {
-      console.error("fetchForYouVideosBatch follow media error", followMediaError);
+      console.error(
+        "fetchForYouVideosBatch follow media error",
+        followMediaError
+      );
     } else if (followMediaRows) {
       recommendedRows.push(...followMediaRows);
     }
@@ -656,7 +692,7 @@ export async function fetchForYouVideosBatch({
   const merged = Array.from(byId.values());
 
   if (!merged.length) {
-    // nothing from tags/follows → fallback to trending
+    // nothing from tags/follows → fallback to trending (still uses preferences)
     return fetchTrendingVideosBatch({ limit, excludeIds });
   }
 

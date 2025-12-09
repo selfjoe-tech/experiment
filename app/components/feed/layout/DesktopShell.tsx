@@ -4,9 +4,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  ArrowUpRightFromSquare,
   BadgeCheck,
+  ChartBarIcon,
+  ChartGantt,
+  ChartLine,
   Compass,
+  Eye,
   Home,
+  Link2,
+  Link2Icon,
+  Link2Off,
+  LucideLink2,
+  MessageCircleWarning,
+  Scale,
   Search,
   Sparkles,
   Upload as UploadIcon,
@@ -17,6 +28,8 @@ import ProfileAside from "@/app/components/profile/ProfileAside";
 import Image from "next/image";
 import { getIsLoggedInFromCookies, getUserProfileFromCookies } from "@/lib/actions/auth";
 import SearchOverlay from "@/app/components/search/SearchOverlay";
+import { LongLogo } from "../../icons/LongLogo";
+import { useRouter } from "next/navigation";
 
 
 type CookieProfile = {
@@ -112,9 +125,7 @@ export default function DesktopShell({ navHidden}: Props) {
 
   return (
     <aside className="hidden lg:flex fixed inset-y-0 left-0 w-64 flex-col bg-black/95 border-r border-white/10 px-5 py-6 z-30">
-      <div className="text-2xl font-bold tracking-wide mb-8">
-        <span className="text-pink-500">Upskirt</span>Candy
-      </div>
+      <LongLogo />
 
       <nav className="space-y-2 text-sm">
         {items.map((item) =>
@@ -166,7 +177,7 @@ function SidebarItem({
     <Link
       href={href}
       className={`w-full rounded-full px-4 py-2 flex items-center gap-3 transition-colors ${
-        active ? "bg-white text-black font-semibold" : "text-white/80 hover:bg-white/10"
+        active ? "bg-white text-pink-500 font-semibold" : "text-white/80 hover:bg-white/10"
       }`}
     >
       <Icon className="h-4 w-4" />
@@ -191,7 +202,7 @@ function DesktopTopNav({ hidden }: { hidden: boolean }) {
           <Search className="mr-2 h-4 w-4 text-white/60" />
           <input
             className="bg-transparent outline-none text-sm flex-1 placeholder:text-white/40"
-            placeholder="Search naughty naughty stuff..."
+            placeholder="Search naughty stuff..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -207,11 +218,11 @@ function DesktopTopNav({ hidden }: { hidden: boolean }) {
       </div>
 
       <Link
-        href="/upload"
+        href="/ads"
         className="ml-4 rounded-full bg-white text-black text-sm font-semibold px-4 py-2 flex items-center gap-2"
       >
-        <UploadIcon className="h-4 w-4" />
-        Upload
+        <ChartLine className="h-4 w-4" />
+        Boost Views
       </Link>
     </header>
   );
@@ -220,32 +231,43 @@ function DesktopTopNav({ hidden }: { hidden: boolean }) {
 function DesktopAdsColumn() {
   return (
     <aside className="hidden lg:flex fixed inset-y-0 right-0 w-80 flex-col bg-black/95 border-l border-white/10 px-4 py-6 z-30 overflow-y-auto">
-      <h2 className="text-sm font-semibold mb-4">Onlyfans creators you might enjoy:</h2>
+      <h2 className="text-sm font-semibold mb-4">Sponsored</h2>
       <div className="space-y-4">
-        <AdCard name="Aylin" />
-        <AdCard name="Lora" />
-        <AdCard name="Maya" />
+        <AdCard name="Advertise Here" />
+        <AdCard name="Advertise Here" />
+        <AdCard name="Advertise Here" />
+        <AdCard name="Advertise Here" />
+        <AdCard name="Advertise Here" />
+
       </div>
     </aside>
   );
 }
 
 function AdCard({ name }: { name: string }) {
+
+  const router = useRouter();
   return (
+    <Link 
+      href={"/ads"}
+      className="flex flex-col gep-2"
+    >
+    
     <div className="rounded-2xl overflow-hidden bg-white/5 border border-white/10">
       <div className="h-40 bg-gradient-to-br from-purple-500 to-pink-500" />
       <div className="p-3 space-y-2">
         <div className="flex items-center justify-between">
           <span className="font-semibold text-sm">{name}</span>
-          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300">
-            <BadgeCheck className="h-3 w-3" />
-            Verified
-          </span>
+          
         </div>
-        <button className="w-full text-sm font-semibold rounded-full bg-white text-black py-1.5">
+        <button 
+        onClick={() => {router.push("/ads")}}
+        className="w-full flex items-center justify-center gap-2 text-sm font-semibold rounded-full bg-white text-black py-1.5">
           Visit Page
+          <ArrowUpRightFromSquare size={20} />
         </button>
       </div>
     </div>
+    </Link>
   );
 }

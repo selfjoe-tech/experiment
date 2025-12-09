@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   Ellipsis,
   User2,
@@ -21,6 +21,12 @@ import { fetchByUserName } from "@/app/components/explore/data";
 import type { Video } from "@/app/components/feed/types";
 import FullscreenVideoOverlay from "@/app/components/feed/FullscreenVideoOverlay";
 import UserGrid from "@/app/components/profile/UserGrid";
+import { VerifiedBadgeIcon } from "@/app/components/icons/VerifiedBadgeIcon";
+import { verify } from "crypto";
+import { getUserProfileFromCookies, getVerified } from "@/lib/actions/auth";
+import { FollowCounts, getMyFollowCounts } from "@/lib/actions/social";
+import { Skeleton } from "@/components/ui/skeleton";
+import Image from "next/image";
 
 type MediaTab = "gifs" | "images";
 const ACCENT = "pink";
@@ -49,6 +55,21 @@ export default function ProfileMediaPage() {
     const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [page, setPage] = useState(1);
+    const [verified, setVerified] = useState(false)
+    const router = useRouter()
+      const [followCounts, setFollowCounts] = useState<FollowCounts | null>(null);
+        const [avatar, setAvatar] = useState("");
+          const [followCountsLoading, setFollowCountsLoading] = useState(true);
+
+
+          function formatCount(n?: number | null): string {
+  const num = n ?? 0;
+  if (num >= 1_000_000) return `${Math.floor(num / 1_000_000)}M`;
+  if (num >= 1_000) return `${Math.floor(num / 1_000)}k`;
+  return num.toString();
+}
+
+    
 
   const handleVideoClick = (
     video: Video,
@@ -59,6 +80,8 @@ export default function ProfileMediaPage() {
     setActiveVideoId(video.id);
     setOverlayOpen(true);
   };
+
+
   
     const fetchMore = async () => {
       if (isLoadingMore) return;
@@ -76,6 +99,33 @@ export default function ProfileMediaPage() {
         setIsLoadingMore(false);
       }
     };
+
+
+  useEffect( () => {
+
+        let cancelled = false;
+
+    (async () => {
+        const verify = await getVerified();
+        if (verify === true) {
+          setVerified(prev => !prev)
+        }
+
+      const [profile, counts] = await Promise.all([
+                getUserProfileFromCookies(),
+                getVerified(),
+                getMyFollowCounts(),
+              ]);
+              setFollowCounts(counts);
+              setAvatar(profile.avatarUrl || "/avatar-placeholder.png");
+        if (!cancelled) setFollowCountsLoading(false);
+
+        return () => {
+      cancelled = true;
+    };
+
+    })()
+  } )
 
   // ===== Fetch media for this username + tab =====
   useEffect(() => {
@@ -133,6 +183,8 @@ export default function ProfileMediaPage() {
     return copy;
   }, [items, sortBy]);
 
+  console.log(avatar, "<========= avatar")
+
   return (
     <div className="px-3 sm:px-4">
       {/* ===== Header ===== */}
@@ -141,63 +193,41 @@ export default function ProfileMediaPage() {
           {/* Left: avatar + name + stats + button */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-4">
-              <div className="h-20 w-20 rounded-full bg-white/10 border border-white/15 grid place-items-center">
-                <User2 className="h-8 w-8 text-white/80" />
-              </div>
+              <Image
+              src={avatar || "/avatar-placeholder.png"}
+              height={20}
+              width={20}
+              alt={username} 
+              
+              />
               <div className="min-w-0">
                 <div className="text-lg sm:text-xl font-semibold truncate">
                   {username}
                 </div>
-                <div className="mt-2 flex items-center gap-6 text-sm">
-                  <Stat label="Posts" value={stats.posts} />
-                  <Stat label="Followers" value={stats.followers} />
-                  <Stat label="Views" value={stats.views} />
-                </div>
+                {followCountsLoading ? (
+            <div className="mt-1 flex gap-2">
+              <Skeleton className="h-3 w-20 bg-white/10" />
+              <Skeleton className="h-3 w-20 bg-white/10" />
+              <Skeleton className="h-3 w-20 bg-white/10" />
+            </div>
+          ) : (
+            <div className="text-xs text-white/60">
+              {formatCount(followCounts?.followers)} Followers ·{" "}
+              {formatCount(followCounts?.following)} Following ·{" "}
+              {formatCount(followCounts?.views)} Views
+            </div>
+          )}
               </div>
             </div>
 
-            <button
-              className="mt-4 inline-flex items-center gap-2 rounded-full px-4 py-2 font-semibold text-black"
-              style={{ backgroundColor: ACCENT }}
-              type="button"
-            >
-              <span className="inline-block h-4 w-4 rounded-full border border-black" />
-              Get Verified
-            </button>
+            
 
             {/* Tag chips row under helper text */}
-            <div className="mt-5">
-              <p className="text-xs text-white/70 mb-2">
-                Filter {username}’s porn gifs/images by tag
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {["Amateur", "Ass", "Big Tits"].map((t) => (
-                  <span
-                    key={t}
-                    className="px-3 py-1 rounded-full text-sm"
-                    style={{
-                      border: `1px solid ${ACCENT}`,
-                      color: "white",
-                      background: "transparent",
-                    }}
-                  >
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </div>
+          
           </div>
 
           {/* Right: actions (opens modal) */}
-          <button
-            type="button"
-            onClick={() => setActionsOpen(true)}
-            className="shrink-0 rounded-full p-2 hover:bg-white/10"
-            aria-label="More"
-            title="More"
-          >
-            <Ellipsis className="h-5 w-5" />
-          </button>
+          
         </div>
       </div>
 
@@ -223,7 +253,7 @@ export default function ProfileMediaPage() {
         )}
 
       {/* ===== Actions Modal ===== */}
-      <ProfileActionsModal
+      {/* <ProfileActionsModal
         open={actionsOpen}
         onClose={() => setActionsOpen(false)}
         onShare={() => {
@@ -233,7 +263,7 @@ export default function ProfileMediaPage() {
             navigator.clipboard.writeText(url).catch(() => {});
           setActionsOpen(false);
         }}
-      />
+      /> */}
 
       <FullscreenVideoOverlay
                 open={overlayOpen}
@@ -291,103 +321,6 @@ function ProfileTabs({
 
 /* --------------------- Modal --------------------- */
 
-function ProfileActionsModal({
-  open,
-  onClose,
-  onShare,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onShare: () => void;
-}) {
-  // Close on ESC
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  // Don’t block clicks when closed
-  return (
-    <div
-      className={`fixed inset-0 z-[100] ${open ? "pointer-events-auto" : "pointer-events-none"}`}
-      aria-hidden={!open}
-    >
-      {/* overlay */}
-      <div
-        className={`absolute inset-0 transition-opacity duration-150 ${
-          open ? "opacity-100" : "opacity-0"
-        }`}
-        onClick={onClose}
-      >
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-        {/* subtle bottom red glow like the screenshot */}
-        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-pink-900/30 to-transparent" />
-      </div>
-
-      {/* dialog */}
-      <div
-        className={`absolute left-1/2 top-1/2 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2
-                    rounded-2xl border border-white/10 bg-black/90 shadow-2xl
-                    transition-all duration-200 ${open ? "opacity-100 scale-100" : "opacity-0 scale-95"}`}
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className="flex items-center justify-end p-3">
-          <button
-            onClick={onClose}
-            className="rounded-full p-2 hover:bg-white/10"
-            aria-label="Close dialog"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="px-5 pb-5 space-y-3">
-          <ActionRow
-            danger
-            icon={<Trash2 className="h-5 w-5" />}
-            label="Delete this account"
-            onClick={() => {
-              // TODO: hook up destructive action confirm
-              onClose();
-            }}
-          />
-          <ActionRow
-            icon={<Pencil className="h-5 w-5" />}
-            label="Edit"
-            onClick={() => {
-              // e.g., route to /settings/profile
-              onClose();
-            }}
-          />
-          <ActionRow
-            icon={<Share2 className="h-5 w-5" />}
-            label="Share this profile"
-            onClick={onShare}
-          />
-          <ActionRow
-            icon={<BarChart2 className="h-5 w-5" />}
-            label="Data Dashboard"
-            onClick={() => {
-              // e.g., route to /dashboard
-              onClose();
-            }}
-          />
-          <ActionRow
-            icon={<Grid3X3 className="h-5 w-5" />}
-            label="Manage Uploads"
-            onClick={() => {
-              // e.g., route to /manage/uploads
-              onClose();
-            }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function ActionRow({
   icon,

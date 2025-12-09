@@ -103,7 +103,7 @@ export default function FullscreenVideoOverlay({
       >
         {videos.map((video, index) => (
           <section
-            key={video.id}
+            key={index}
             data-fullscreen-idx={index}
             className="snap-center snap-always flex items-center justify-center h-[95vh] w-full mb-10"
           >

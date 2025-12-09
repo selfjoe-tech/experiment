@@ -2,6 +2,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabaseClient";
+import { getUserIdFromCookies } from "./auth";
 
 /**
  * Must match your SQL enum:
@@ -44,11 +45,7 @@ type InsertedMediaRow = {
 
 // ----------------- helpers -----------------
 
-async function getCurrentUserId(): Promise<string> {
-  
 
-  return "2d78c663-73dc-4cc1-88e1-a113cc0fc47d";
-}
 
 function makeStoragePath(
   kind: "video" | "image",
@@ -134,7 +131,7 @@ export async function uploadTrimmedVideo(
         "bytes",
         `(${sizeMB.toFixed(2)} MB)`
         );
-  const ownerId = "2d78c663-73dc-4cc1-88e1-a113cc0fc47d"
+  const ownerId = await getUserIdFromCookies()
 
   const storagePath = makeStoragePath("video", ownerId, clip.file);
 
@@ -161,7 +158,7 @@ export async function uploadSingleImage(
   file: File,
   form: ImageUploadFormValues
 ): Promise<InsertedMediaRow> {
-  const ownerId = "2d78c663-73dc-4cc1-88e1-a113cc0fc47d";
+  const ownerId = await getUserIdFromCookies();
   const storagePath = makeStoragePath("image", ownerId, file);
 
   await uploadToStorage(storagePath, file);
@@ -187,7 +184,7 @@ export async function uploadImagesBatch(
   files: File[],
   form: ImageUploadFormValues
 ): Promise<BulkImageUploadResult> {
-  const ownerId = "2d78c663-73dc-4cc1-88e1-a113cc0fc47d";
+  const ownerId = await getUserIdFromCookies();
 
   const results: BulkImageUploadResult = {
     successes: [],

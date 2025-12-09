@@ -54,15 +54,26 @@ export type ExploreItem =
       date?: number;
     };
 
+
+
 type TabKey = "gifs" | "images" | "creators" | "niches";
 
 type Props = {
   tab: TabKey;
   sortBy: SortKey;
-  onVideoClick?: (video: Video, index: string) => void;
+  onVideoClick?: (video: Video, index: string, items: ExploreItem[]) => void;
+
 };
 
-export default function ExploreGrid({ onVideoClick, tab, sortBy }: Props) {
+
+
+export default function ExploreGrid({ 
+  onVideoClick,
+  tab,
+  sortBy,
+  fetcher
+
+}: Props) {
   const [items, setItems] = useState<ExploreItem[]>([]);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -75,7 +86,6 @@ export default function ExploreGrid({ onVideoClick, tab, sortBy }: Props) {
   const { ref: sentinelRef, inView } = useInView<HTMLDivElement>({
     threshold: 0.1,
   });
-    const media: Video[] = [];
 
 
     const imageItems: ImageExploreItem[] = items.filter(
@@ -89,7 +99,8 @@ export default function ExploreGrid({ onVideoClick, tab, sortBy }: Props) {
     setError(null);
 
     try {
-      const batch = await getItemsForTab({ tab, sortBy, limit: 9, page });
+      const loader = fetcher ?? getItemsForTab;
+      const batch = await loader({ tab, sortBy, limit: 9, page });
 
       if (!batch || batch.length === 0) {
         setHasMore(false);
@@ -104,8 +115,9 @@ export default function ExploreGrid({ onVideoClick, tab, sortBy }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [tab, sortBy, page, loading, hasMore]);
+  }, [tab, sortBy, page, loading, hasMore, fetcher]);
 
+  
   useEffect(() => {
     setItems([]);
     setPage(0);

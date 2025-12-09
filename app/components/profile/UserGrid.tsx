@@ -156,7 +156,7 @@ export default function UserGrid({
 
             return (
               <button
-                key={m.id}
+                key={index}
                 type="button"
                 onClick={handleClick}
                 className="w-full aspect-square relative"
@@ -173,7 +173,7 @@ export default function UserGrid({
           if (m.type === "gif" || m.type === "video") {
             return (
               <button
-                key={m.id}
+                key={index}
                 type="button"
                 className="w-full aspect-square"
                 onClick={() => onVideoClick?.(m as any, index, items)}

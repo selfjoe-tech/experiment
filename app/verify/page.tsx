@@ -17,6 +17,7 @@ import {
   getVerificationStateForCurrentUser,
   type VerificationRow,
 } from "@/lib/actions/verify";
+import { VerifiedBadgeIcon } from "../components/icons/VerifiedBadgeIcon";
 
 // import { submitVerificationRequest } from "@/lib/actions/verify"; // when you wire it up
 
@@ -268,7 +269,7 @@ export default function VerifyPage() {
               <h1 className="text-xl sm:text-2xl font-semibold">
                 Content Creator Verification
               </h1>
-              <BadgeCheck className="h-5 w-5 text-yellow-400" />
+              <VerifiedBadgeIcon />
             </div>
             <p className="text-sm text-white/70 max-w-2xl">
               Your verification request is currently being reviewed.
@@ -316,7 +317,7 @@ export default function VerifyPage() {
             <h1 className="text-xl sm:text-2xl font-semibold">
               Content Creator Verification
             </h1>
-            <BadgeCheck className="h-5 w-5 text-yellow-400" />
+            <VerifiedBadgeIcon />
           </div>
           <p className="text-sm text-white/70 max-w-2xl">
             Verification helps your profile stand out and lets you add links to

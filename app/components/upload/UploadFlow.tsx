@@ -40,7 +40,7 @@ export type UploadFlowSubmitPayload = {
 
 type BaseHandlers = {
   onCancel: () => void;
-  onSubmit: (payload: UploadFlowSubmitPayload) => boolean;
+  onSubmit: (payload: UploadFlowSubmitPayload) => Promise<void>;
 };
 
 type Props =
@@ -100,6 +100,10 @@ export default function UploadFlow(props: Props) {
   const [query, setQuery] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+
+
 
   // NEW: suggestions that come from DB (with fallback default)
   const [suggestions, setSuggestions] =
@@ -180,12 +184,13 @@ export default function UploadFlow(props: Props) {
 
   const canNextFromTags = tags.length >= 3 && tags.length <= 10;
 
-  const submit = () => {
-    setLoading((prev) => !prev);
-    let load: boolean | undefined;
+  const submit = async () => {
+  setSubmitError(null);
+  setLoading(true);
 
+  try {
     if (props.variant === "video") {
-      load = props.onSubmit({
+      await props.onSubmit({
         audience,
         tags,
         description,
@@ -193,7 +198,7 @@ export default function UploadFlow(props: Props) {
         clip: props.clip,
       });
     } else {
-      load = props.onSubmit({
+      await props.onSubmit({
         audience,
         tags,
         description,
@@ -201,11 +206,14 @@ export default function UploadFlow(props: Props) {
         images: props.images,
       });
     }
+  } catch (err: any) {
+    console.error("UploadFlow submit error", err);
+    setSubmitError(err?.message ?? "Something went wrong while uploading.");
+  } finally {
+    setLoading(false);
+  }
+};
 
-    if (load === false) {
-      setLoading((prev) => !prev);
-    }
-  };
 
   const titleForStep =
     step === 1
@@ -412,6 +420,10 @@ export default function UploadFlow(props: Props) {
                 placeholder="Write a short description…"
                 className="bg-black/40 border-white/20"
               />
+
+              {submitError && (
+                <p className="text-xs text-red-400">{submitError}</p>
+              )}
 
               <div className="flex justify-between pt-2">
                 <Button

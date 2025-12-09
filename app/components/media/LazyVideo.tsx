@@ -42,7 +42,7 @@ export default function LazyVideo({
         ref.current = n;
         wrapRef.current = n;
       }}
-      className={`relative overflow-hidden rounded-md ${className || ""}`}
+      className={`relative overflow-hidden ${className || ""}`}
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
     >

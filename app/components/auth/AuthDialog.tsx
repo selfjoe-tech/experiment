@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import {BackgroundGradientAnimation} from "@/components/ui/background-gradient-animation";
 import Image from "next/image";
+import { LongLogo } from "../icons/LongLogo";
 
 export default function AuthDialog({
   title,
@@ -39,16 +40,14 @@ export default function AuthDialog({
         {/* Make overlay translucent so gradient is visible */}
 
         <DialogContent
-          className="z-[60] p-0 overflow-hidden border-white/15 bg-black text-white
-                     sm:max-w-[560px] rounded-2xl shadow-2xl overflow-y-auto"
+          className="z-[60] border-white/15 bg-black text-white p-0
+                     sm:max-w-[560px] max-h-[700px] rounded-2xl shadow-2xl overflow-y-auto"
         >
           
 
-          <DialogHeader className="px-8 pt-8">
-            <DialogTitle className="mx-auto text-2xl font-bold tracking-wide">
-            <div className="text-2xl font-bold tracking-wide mb-8">
-              <span className="text-pink-500">Upskirt</span>Candy
-            </div>
+          <DialogHeader className="mt-10">
+            <DialogTitle className="mx-auto">
+            <LongLogo />
             </DialogTitle>
           </DialogHeader>
 

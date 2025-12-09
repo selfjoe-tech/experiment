@@ -8,6 +8,10 @@ import {
   Compass,
   Home,
   LogIn,
+  LucidePlusCircle,
+  Plus,
+  PlusCircle,
+  PlusCircleIcon,
   Search,
   Sparkles,
   Upload as UploadIcon,
@@ -39,6 +43,7 @@ type Props = {
 };
 
 import SearchOverlay from "@/app/components/search/SearchOverlay";
+import { ShortLogo } from "../../icons/ShortLogo";
 
 
 export default function MobileChrome(props: Props) {
@@ -86,7 +91,7 @@ function MobileTopBar({
             </button>
             <div className="flex-1 relative">
               <div className="flex items-center rounded-full bg-white/10 px-3 py-1.5">
-                <Search className="mr-2 h-4 w-4 text-white/70" />
+                <Search className="mr-2 text-white/70" size={20}/>
                 <input
                   className="bg-transparent outline-none text-sm flex-1 placeholder:text-white/50"
                   placeholder="Search naughty naughty stuff..."
@@ -108,9 +113,7 @@ function MobileTopBar({
         </div>
       ) : (
         <div className="px-3 h-14 flex items-center justify-between gap-2">
-          <div className="text-2xl font-bold tracking-wide">
-            <span className="text-pink-500">U</span>C
-          </div>
+          <ShortLogo />
 
           <button
             type="button"
@@ -118,7 +121,7 @@ function MobileTopBar({
             className="rounded-full bg-white/10 h-9 w-9 flex items-center justify-center"
             aria-label="Search"
           >
-            <Search className="h-4 w-4" />
+            <Search className="h-6 w-6 text-pink-500" />
           </button>
         </div>
       )}
@@ -141,7 +144,7 @@ const NavLink = ({
       <Link
         href={href}
         className={`flex flex-col items-center gap-0.5 ${
-          active ? "text-white" : "text-white/60"
+          active ? "text-pink-500" : "text-white/60"
         }`}
       >
         <Icon className="h-5 w-5" />
@@ -151,14 +154,13 @@ const NavLink = ({
   };
 
 function MobileBottomNav({ isAuthed = true }: { isAuthed?: boolean }) {
-  
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-black/95 border-t border-white/10 z-40">
       <div className="flex h-full items-center justify-around text-[11px]">
         <NavLink href="/" label="Home" icon={Home} />
         <NavLink href="/explore/gifs" label="Explore" icon={Compass} />
-        <NavLink href="/upload" label="Upload" icon={UploadIcon} />
+        <NavLink href="/upload" label="Upload" icon={PlusCircleIcon} />
         <NavLink href="/explore/niches" label="Niches" icon={Sparkles} />
 
         {/* Last item: Log in or Profile Drawer */}

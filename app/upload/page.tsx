@@ -22,6 +22,9 @@ import {
   uploadSingleImage,
   uploadImagesBatch,
 } from "@/lib/actions/media";
+import Link from "next/link";
+import { getUserProfileFromCookies } from "@/lib/actions/auth";
+import { watermarkVideoFile } from "@/lib/client/watermarkVideo";
 
 const ACCENT = "pink";
 
@@ -32,16 +35,39 @@ type PostFlow =
 
 
 // Helper: send original clip + range to server, get a *trimmed* File back
-async function trimOnServer(clip: ClipSelection): Promise<File> {
+async function trimOnServer(
+  clip: ClipSelection,
+  onProgress?: (pct: number) => void
+): Promise<File> {
   const fd = new FormData();
   fd.append("file", clip.file);
   fd.append("start", String(clip.start));
   fd.append("end", String(clip.end));
 
-  const res = await fetch("/api/trim-video", {
+  // start at 5%
+  onProgress?.(5);
+
+  const req = fetch("/api/trim-video", {
     method: "POST",
     body: fd,
   });
+
+  // fake incremental progress while trimming
+  let current = 5;
+  let intervalId: number | undefined;
+  if (onProgress) {
+    intervalId = window.setInterval(() => {
+      current = Math.min(30, current + 5);
+      onProgress(current);
+    }, 300);
+  }
+
+  const res = await req;
+
+  if (intervalId !== undefined) {
+    window.clearInterval(intervalId);
+    onProgress?.(30); // done trimming
+  }
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -49,23 +75,39 @@ async function trimOnServer(clip: ClipSelection): Promise<File> {
   }
 
   const blob = await res.blob();
-
-  // name the new file however you like
   const trimmedFileName =
     clip.file.name.replace(/\.[^.]+$/, "") + "-trimmed.mp4";
 
-  const trimmedFile = new File([blob], trimmedFileName, {
+  return new File([blob], trimmedFileName, {
     type: blob.type || "video/mp4",
   });
-
-  return trimmedFile;
 }
+
 
 
 export default function UploadPage() {
   const router = useRouter();
   const sp = useSearchParams();
   const redirect = sp.get("redirect") || "/home";
+
+  const [processing, setProcessing] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [processingError, setProcessingError] = useState<string | null>(null);
+  const [wmUsername, setWmUsername] = useState<string>("");
+
+  useEffect(() => {
+  (async () => {
+    try {
+      const prof = await getUserProfileFromCookies();
+      if (prof.username) setWmUsername(prof.username);
+    } catch (e) {
+      console.error("failed to get username for watermark", e);
+    }
+  })();
+}, []);
+
+
+
 
   const videoInputRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -176,37 +218,85 @@ export default function UploadPage() {
       clip={postFlow.clip}
       onCancel={() => setPostFlow(null)}
       onSubmit={async (formValues) => {
-          try {
-            // 1) get trimmed file from server
-            const trimmedFile = await trimOnServer(postFlow.clip);
+        // this is called by UploadFlow, which will show/hide its spinner
+        setProcessing(true);
+        setProcessingError(null);
+        setProgress(0);
 
-            // 2) build a new ClipSelection that uses the trimmed file
-            const trimmedClip: ClipSelection = {
-              ...postFlow.clip,
+        try {
+          const originalClip = postFlow.clip;
+          const clipDuration = originalClip.end - originalClip.start;
+
+          // ---------- 1) TRIM (if needed) ----------
+          const needsTrim =
+            clipDuration > 60 || originalClip.start > 0; // skip if <60s & start==0
+
+          let workingClip: ClipSelection = originalClip;
+          let workingFile: File = originalClip.file;
+
+          if (needsTrim) {
+            const trimmedFile = await trimOnServer(originalClip, (pct) =>
+              setProgress(pct)
+            );
+            workingFile = trimmedFile;
+            workingClip = {
+              ...originalClip,
               file: trimmedFile,
-              // duration on server stays end - start; but the file itself is trimmed
               start: 0,
-              end: postFlow.clip.end - postFlow.clip.start,
+              end: clipDuration,
             };
-
-            // 3) upload trimmed video to Supabase
-            const row = await uploadTrimmedVideo(trimmedClip, {
-              title: formValues.description?.slice(0, 80) ?? "",
-              description: formValues.description ?? "",
-              audience: formValues.audience,
-            });
-
-            console.log("Inserted media row:", row);
-            setPostFlow(null);
-            setVideoFile(null);
-            if (videoUrl) URL.revokeObjectURL(videoUrl);
-            router.push("/");
-          } catch (err: any) {
-            console.error(err);
-            alert(err?.message ?? "Upload failed, please try again.");
+          } else {
+            // no trim → jump to ~30%
+            setProgress(30);
           }
-        }}
 
+          // ---------- 2) WATERMARK ----------
+          setProcessingError(null); // just in case
+          const wmName = wmUsername || "user";
+
+          const watermarkedFile = await watermarkVideoFile(workingFile, wmName, {
+            position: "bottom-right",
+            logoUrl: "/watermark-1.png",
+            onProgress: (ratio) => {
+              // map 0..1 → 30..90
+              const pct = 30 + Math.round(ratio * 60);
+              setProgress(Math.min(90, pct));
+            },
+          });
+
+          const finalClip: ClipSelection = {
+            ...workingClip,
+            file: watermarkedFile,
+            start: 0,
+            end: workingClip.end - workingClip.start,
+          };
+
+          // ---------- 3) UPLOAD ----------
+          setProgress(92);
+
+          const row = await uploadTrimmedVideo(finalClip, {
+            title: formValues.description?.slice(0, 80) ?? "",
+            description: formValues.description ?? "",
+            audience: formValues.audience,
+          });
+
+          console.log("Inserted media row:", row);
+          setProgress(100);
+
+          setPostFlow(null);
+          setVideoFile(null);
+          if (videoUrl) URL.revokeObjectURL(videoUrl);
+          router.push("/");
+        } catch (err: any) {
+          console.error(err);
+          const msg = err?.message ?? "Upload failed, please try again.";
+          setProcessingError(msg);
+          // Let UploadFlow know there was an error so it can stop the spinner
+          throw new Error(msg);
+        } finally {
+          setProcessing(false);
+        }
+      }}
     />
   );
 }
@@ -279,6 +369,29 @@ export default function UploadPage() {
   // 4) picker UI
   return (
     <div className="relative min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
+      {processing && (
+        <div className="fixed bottom-4 left-1/2 z-40 w-full max-w-md -translate-x-1/2 px-4">
+          <div className="rounded-2xl border border-white/15 bg-black/80 p-4 space-y-2 shadow-xl">
+            <div className="flex justify-between text-xs text-white/80">
+              <span>Processing video…</span>
+              <span>{progress}%</span>
+            </div>
+            <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${progress}%`,
+                  background:
+                    "linear-gradient(90deg, rgb(236,72,153), rgb(251,191,36))",
+                }}
+              />
+            </div>
+            {processingError && (
+              <p className="text-xs text-red-400 mt-1">{processingError}</p>
+            )}
+          </div>
+        </div>
+      )}
       <header className="sticky top-0 z-10 flex items-center justify-center h-14 bg-black/80 backdrop-blur border-b border-white/10">
         <button
           onClick={onClose}
@@ -292,7 +405,7 @@ export default function UploadPage() {
 
       <div className="mx-auto max-w-[680px] px-4 py-6">
         <p className="text-center text-white/90 text-base mb-6">
-          Choose a file or paste a URL below.
+          Choose a file.
         </p>
 
         <Card className="bg-[#101010] border-white/15 rounded-3xl px-4 sm:px-6 py-6 space-y-4">
@@ -301,6 +414,11 @@ export default function UploadPage() {
             icon={<FileVideo className="h-5 w-5" />}
             label="Select a Video"
           />
+
+          <p className="flex text-sm text-red-500 ">
+            We recommend videos lower than 50 MB for faster uploads           
+            
+          </p>
           <input
             ref={videoInputRef}
             type="file"
@@ -318,6 +436,8 @@ export default function UploadPage() {
             icon={<ImagePlus className="h-5 w-5" />}
             label="Select Image"
           />
+
+          
           <input
             ref={imageInputRef}
             type="file"
@@ -326,8 +446,11 @@ export default function UploadPage() {
             onChange={handlePickImages}
           />
 
-          <p className="text-sm text-white/70 mt-2 px-1">
-            Uploading by URL is available to Verified creators only.{" "}
+          <p className="flex gap-2 text-sm text-white/70 mt-2 px-1">
+            Users who are verified get more views and interaction.
+            <Link
+              href={"/verify"}
+            >
             <button
               className="underline underline-offset-4 font-medium"
               style={{ color: ACCENT }}
@@ -335,6 +458,8 @@ export default function UploadPage() {
             >
               Get verified.
             </button>
+            </Link>
+            
           </p>
         </Card>
 

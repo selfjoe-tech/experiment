@@ -30,7 +30,7 @@ export default function SignupPage() {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const sp = useSearchParams();
-  const redirect = sp.get("redirect") || "/";
+  const redirect = sp.get("redirect") || "/preferences";
 
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -42,7 +42,7 @@ export default function SignupPage() {
     startTransition(async () => {
       const result = await signupAction(formData);
       if (result.success) {
-        router.push(redirect);
+        router.push("/preferences");
         router.refresh();
       } else {
         setError(result.message ?? "Unable to sign up.");
