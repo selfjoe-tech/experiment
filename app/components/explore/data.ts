@@ -4,6 +4,7 @@
 import { supabase } from "@/lib/supabaseClient";
 import type { SortKey } from "./SortDropdown";
 import { Video } from "../feed/types";
+import { buildPublicUrl } from "@/lib/actions/mediaFeed";
 
 export type ExploreItem =
   | {
@@ -92,6 +93,7 @@ export async function getItemsForTab({
       throw new Error(error.message || "Failed to load creators");
     }
 
+    
     return (
       data?.map((row) => {
         const avatar =
@@ -145,7 +147,6 @@ export async function getItemsForTab({
       data
         ?.map((row) => {
           const url = publicMediaUrl(row.storage_path);
-          const avatar_url = publicMediaUrl(row.storage_path)
           if (!url) return null;
 
           const base = {

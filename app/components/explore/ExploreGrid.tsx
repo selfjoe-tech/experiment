@@ -11,6 +11,7 @@ import { LoaderIcon } from "lucide-react";
 import Link from "next/link";
 import { FullscreenImageOverlay, ImageExploreItem } from "../feed/FullscreenImageOverlay";
 import type { Video } from "@/app/components/feed/types";
+import { ExploreGridSkeleton } from "../skeletons/ExploreGridSkeleton";
 
 
 
@@ -61,7 +62,7 @@ type TabKey = "gifs" | "images" | "creators" | "niches";
 type Props = {
   tab: TabKey;
   sortBy: SortKey;
-  onVideoClick?: (video: Video, index: string, items: ExploreItem[]) => void;
+  onVideoClick: (video: Video, index: number, items: ExploreItem[]) => void;
 
 };
 
@@ -86,6 +87,7 @@ export default function ExploreGrid({
   const { ref: sentinelRef, inView } = useInView<HTMLDivElement>({
     threshold: 0.1,
   });
+
 
 
     const imageItems: ImageExploreItem[] = items.filter(
@@ -117,7 +119,7 @@ export default function ExploreGrid({
     }
   }, [tab, sortBy, page, loading, hasMore, fetcher]);
 
-  
+
   useEffect(() => {
     setItems([]);
     setPage(0);
@@ -150,14 +152,20 @@ export default function ExploreGrid({
 
   // --- creators tab stays same ---
   if (tab === "creators") {
+
+
     return (
       <>
         <div className={gridCls}>
-          {items.map((c) => {
+          {items.map((c, index) => {
             if (c.type !== "creator") return null;
             return (
+              <Link
+                href={`/${encodeURIComponent(c.name)}`}
+                key={index}
+              >
               <div
-                key={c.id}
+                key={index}
                 className="relative overflow-hidden border-white/10 bg-white/5"
               >
                 <LazyImage
@@ -173,7 +181,10 @@ export default function ExploreGrid({
                     </div>
                   ) : null}
                 </div>
-              </div>
+              </div>              
+              
+              </Link>
+
             );
           })}
         </div>
@@ -259,7 +270,7 @@ export default function ExploreGrid({
               key={index}
               type="button"
               className="w-full aspect-square"
-              onClick={() => onVideoClick?.(m, index, items)}
+              onClick={() => onVideoClick(m, index, items)}
             >
               <LazyVideo
                 src={m.src}
@@ -299,7 +310,7 @@ const BottomSentinel = forwardRef<HTMLDivElement, BottomSentinelProps>(
   function BottomSentinelInner({ loading, hasMore }, ref) {
     return (
       <div ref={ref} className="flex flex-col items-center py-4">
-        {loading && <LoaderIcon />}
+        {loading && <ExploreGridSkeleton  />}
         {!loading && !hasMore && (
           <div className="text-[15px] text-white/40">
             The End! Contribute to the community by{" "}

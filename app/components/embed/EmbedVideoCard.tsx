@@ -125,6 +125,10 @@ export default function EmbedVideoCard({
   const showSkeleton = !metadataLoaded;
 
   return (
+    <Link
+    href={`/watch/${encodeURIComponent(mediaIdNum)}`}
+    
+    >
     <div
       className="
         relative lg:h-[100vh]
@@ -133,7 +137,7 @@ export default function EmbedVideoCard({
         bg-neutral-900 shadow-5xl overflow-hidden
       "
     >
-      <div className="relative h-full flex items-center justify-center">
+      <div className="relative h-full flex items-center justify-center text-white">
         {showSkeleton && (
           <div className="absolute inset-0 bg-neutral-800 animate-pulse" />
         )}
@@ -173,7 +177,7 @@ export default function EmbedVideoCard({
       </button>
 
       {/* right-side actions: views, ellipsis, mute (NO fullscreen, NO likes) */}
-      <div className="absolute right-3 bottom-24 z-30 flex flex-col items-center gap-4">
+      <div className="absolute text-white right-3 bottom-24 z-30 flex flex-col items-center gap-4">
         <StatBubble label={video.views.toLocaleString()}>
           <Eye className="h-7 w-7" />
         </StatBubble>
@@ -197,8 +201,8 @@ export default function EmbedVideoCard({
       {/* bottom info + scrubber */}
       <div className="absolute inset-x-3 bottom-3 z-30 space-y-2">
         {/* creator row */}
-        <div className="flex items-center gap-3">
-          <Link href={`/profile/${video.username}`}>
+        <div className="flex items-center gap-3 text-white">
+          <Link href={`/${video.username}`}>
             <div className="h-10 w-10 rounded-full bg-white/60 overflow-hidden">
               <Image
                 src={video.avatar}
@@ -211,7 +215,7 @@ export default function EmbedVideoCard({
             </div>
           </Link>
 
-          <Link href={`/profile/${video.username}`}>
+          <Link href={`/${video.username}`}>
             <div className="min-w-0">
               <div className="text-sm font-semibold truncate">
                 {video.username}
@@ -229,7 +233,7 @@ export default function EmbedVideoCard({
           >
             {video.description}{" "}
             {video.hashtags.map((tag) => (
-              <span key={tag} className="text-white/70">
+              <span key={tag} className="text-pink-500">
                 #{tag}{" "}
               </span>
             ))}
@@ -260,7 +264,7 @@ export default function EmbedVideoCard({
               accent-pink-500
             "
           />
-          <span className="text-[11px] tabular-nums min-w-[70px] text-right">
+          <span className="text-[11px] text-white tabular-nums min-w-[70px] text-right">
             {formatTime(currentTime)} / {formatTime(duration || 0)}
           </span>
         </div>
@@ -276,7 +280,10 @@ export default function EmbedVideoCard({
         onClose={() => setOptionsOpen(false)}
         mediaId={mediaIdNum || video.id}
       />
-    </div>
+    </div>    
+
+    </Link>
+
   );
 }
 

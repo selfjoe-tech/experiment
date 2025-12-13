@@ -216,22 +216,30 @@ const [debouncedSearch, setDebouncedSearch] = useState("");
       </header>
 
       {/* Tabs */}
-      <div className="flex items-center gap-6 border-b border-white/10 mb-4">
-        {(["all", "gifs", "images"] as TabKey[]).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            className={`pb-2 text-sm capitalize ${
-              activeTab === tab
-                ? "font-semibold text-white border-b-2 border-white"
-                : "text-white/70 hover:text-white"
-            }`}
-          >
-            {tab === "all" ? "All" : tab === "gifs" ? "GIFs" : "Images"}
-          </button>
-        ))}
-      </div>
+      
+<div className="flex items-center gap-6 border-b border-white/10 mb-4">
+  {(["all", "gifs", "images", "ads"] as TabKey[]).map((tab) => (
+    <button
+      key={tab}
+      type="button"
+      onClick={() => setActiveTab(tab)}
+      className={`pb-2 text-sm capitalize ${
+        activeTab === tab
+          ? "font-semibold text-white border-b-2 border-white"
+          : "text-white/70 hover:text-white"
+      }`}
+    >
+      {tab === "all"
+        ? "All"
+        : tab === "gifs"
+        ? "GIFs"
+        : tab === "images"
+        ? "Images"
+        : "Ads"}
+    </button>
+  ))}
+</div>
+
 
       {/* Search bar with magnifying glass */}
       <div className="mb-4">
@@ -337,6 +345,7 @@ function EditMediaModal({
 }) {
   const [description, setDescription] = useState(media.description ?? "");
   const [tagsInput, setTagsInput] = useState(media.tags.join(", "));
+  const [landingUrl, setLandingUrl] = useState(media.landingUrl ?? ""); // NEW
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -355,6 +364,8 @@ function EditMediaModal({
         id: media.id,
         description: description || null,
         tags,
+        isAd: media.isAd,
+        landingUrl: media.isAd ? landingUrl || null : undefined,
       });
 
       if (!updated) {
@@ -369,16 +380,18 @@ function EditMediaModal({
   };
 
   const handleDelete = async () => {
-    if (!confirm("Delete this media and all related info?")) return;
+    if (!confirm("Delete this item and all related info?")) return;
     setDeleting(true);
     setError(null);
+
     const res = await deleteManagedMedia({
       id: media.id,
       storagePath: media.storagePath,
+      isAd: media.isAd,
     });
 
     if (!res.ok) {
-      setError(res.error ?? "Failed to delete media");
+      setError(res.error ?? "Failed to delete");
       setDeleting(false);
       return;
     }
@@ -395,7 +408,9 @@ function EditMediaModal({
 
       <div className="relative z-[130] w-[92vw] max-w-md rounded-2xl border border-white/15 bg-black/95 p-5 shadow-2xl">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold">Edit media</h2>
+          <h2 className="text-sm font-semibold">
+            {media.isAd ? "Edit ad" : "Edit media"}
+          </h2>
           <button
             type="button"
             onClick={onClose}
@@ -434,6 +449,21 @@ function EditMediaModal({
               placeholder="Amateur, Ass, Big Tits"
             />
           </div>
+
+          {media.isAd && (
+            <div>
+              <label className="block text-xs text-white/70 mb-1">
+                Landing URL
+              </label>
+              <input
+                type="text"
+                value={landingUrl}
+                onChange={(e) => setLandingUrl(e.target.value)}
+                className="w-full rounded-xl border border-white/15 bg-black/60 px-3 py-2 text-sm outline-none focus:border-white/40"
+                placeholder="https://example.com"
+              />
+            </div>
+          )}
         </div>
 
         {error && (
@@ -474,6 +504,9 @@ function EditMediaModal({
   );
 }
 
+
+
+
 function ManageMediaCard({
   item,
   onOpenModal,
@@ -484,7 +517,9 @@ function ManageMediaCard({
   onOpenPlayer: () => void | null;
 }) {
   const tags = item.tags ?? [];
-  const isImage = item.mediaType === "image";
+  const isImage =
+    item.mediaType === "image" || item.mediaType === "banner"; // banner treated as image
+  const isAd = item.isAd;
 
   return (
     <section className="rounded-3xl border border-white/10 bg-black/70 p-3 flex gap-3">
@@ -524,6 +559,16 @@ function ManageMediaCard({
                 {item.viewCount.toLocaleString()}
               </span>
             </div>
+
+            {isAd && (
+              <div className="text-white flex gap-2">
+                <span>Clicks</span>
+                <span className="font-semibold">
+                  {(item.clickCount ?? 0).toLocaleString()}
+                </span>
+              </div>
+            )}
+
             <div className="text-white flex gap-2">
               <span>Date</span>
               <span className="font-semibold">
@@ -557,6 +602,7 @@ function ManageMediaCard({
     </section>
   );
 }
+
 
 /* ==================== Video overlay ==================== */
 

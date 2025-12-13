@@ -24,7 +24,7 @@ import UserGrid from "@/app/components/profile/UserGrid";
 import { VerifiedBadgeIcon } from "@/app/components/icons/VerifiedBadgeIcon";
 import { verify } from "crypto";
 import { getUserProfileFromCookies, getVerified } from "@/lib/actions/auth";
-import { FollowCounts, getMyFollowCounts } from "@/lib/actions/social";
+import { FollowCounts, getFollowCountsByUsername, getMyFollowCounts, getUserProfileByUsername } from "@/lib/actions/social";
 import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
 
@@ -35,7 +35,7 @@ export default function ProfileMediaPage() {
   const params = useParams<{ username: string }>();
   const search = useSearchParams();
 
-  const username = (params?.username || "darknoir").toString();
+  const username = (params?.username).toString();
   const tagParam = (search?.get("tag") || "gif").toLowerCase();
   const tab: MediaTab = tagParam === "image" ? "images" : "gifs";
 
@@ -60,6 +60,9 @@ export default function ProfileMediaPage() {
       const [followCounts, setFollowCounts] = useState<FollowCounts | null>(null);
         const [avatar, setAvatar] = useState("");
           const [followCountsLoading, setFollowCountsLoading] = useState(true);
+
+    const [isMuted, setIsMuted] = useState(true)
+    const toggleMute = () => setIsMuted((prev) => !prev);
 
 
           function formatCount(n?: number | null): string {
@@ -101,31 +104,35 @@ export default function ProfileMediaPage() {
     };
 
 
-  useEffect( () => {
+ useEffect(() => {
+  let cancelled = false;
 
-        let cancelled = false;
+  (async () => {
+    try {
+      const [isVerified, profile, counts] = await Promise.all([
+        getVerified(username),
+        getUserProfileByUsername(username),
+        getFollowCountsByUsername(username),
+      ]);
 
-    (async () => {
-        const verify = await getVerified();
-        if (verify === true) {
-          setVerified(prev => !prev)
-        }
+      if (cancelled) return;
 
-      const [profile, counts] = await Promise.all([
-                getUserProfileFromCookies(),
-                getVerified(),
-                getMyFollowCounts(),
-              ]);
-              setFollowCounts(counts);
-              setAvatar(profile.avatarUrl || "/avatar-placeholder.png");
-        if (!cancelled) setFollowCountsLoading(false);
+      setVerified(isVerified); // 👈 no toggle, just set it
+      setFollowCounts(counts);
+      setAvatar(profile.avatarUrl || "/avatar-placeholder.png");
+      setFollowCountsLoading(false);
+    } catch (err) {
+      console.error("Profile header load error", err);
+      if (!cancelled) {
+        setFollowCountsLoading(false);
+      }
+    }
+  })();
 
-        return () => {
-      cancelled = true;
-    };
-
-    })()
-  } )
+  return () => {
+    cancelled = true;
+  };
+}, [username]);
 
   // ===== Fetch media for this username + tab =====
   useEffect(() => {
@@ -183,7 +190,6 @@ export default function ProfileMediaPage() {
     return copy;
   }, [items, sortBy]);
 
-  console.log(avatar, "<========= avatar")
 
   return (
     <div className="px-3 sm:px-4">
@@ -193,30 +199,38 @@ export default function ProfileMediaPage() {
           {/* Left: avatar + name + stats + button */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-4">
-              <Image
-              src={avatar || "/avatar-placeholder.png"}
-              height={20}
-              width={20}
-              alt={username} 
-              
-              />
+              <div className="h-15 w-15 rounded-full bg-white/60 overflow-hidden">
+
+                  <Image
+                  src={avatar || "/avatar-placeholder.png"}
+                  height={20}
+                  width={20}
+                  alt={username} 
+                  className="h-full w-full object-cover"
+                  loading="lazy"              
+                  />
+              </div>
               <div className="min-w-0">
-                <div className="text-lg sm:text-xl font-semibold truncate">
+                <div className="flex items-center gap-2">
+                  <div className="text-lg sm:text-xl font-semibold truncate">
                   {username}
                 </div>
+                {verified && <VerifiedBadgeIcon />}
+                </div>
+                
                 {followCountsLoading ? (
-            <div className="mt-1 flex gap-2">
-              <Skeleton className="h-3 w-20 bg-white/10" />
-              <Skeleton className="h-3 w-20 bg-white/10" />
-              <Skeleton className="h-3 w-20 bg-white/10" />
-            </div>
-          ) : (
-            <div className="text-xs text-white/60">
-              {formatCount(followCounts?.followers)} Followers ·{" "}
-              {formatCount(followCounts?.following)} Following ·{" "}
-              {formatCount(followCounts?.views)} Views
-            </div>
-          )}
+                <div className="mt-1 flex gap-2">
+                  <Skeleton className="h-3 w-20 bg-white/10" />
+                  <Skeleton className="h-3 w-20 bg-white/10" />
+                  <Skeleton className="h-3 w-20 bg-white/10" />
+                </div>
+              ) : (
+                <div className="text-xs text-white/60">
+                  {formatCount(followCounts?.followers)} Followers ·{" "}
+                  {formatCount(followCounts?.following)} Following ·{" "}
+                  {formatCount(followCounts?.views)} Views
+                </div>
+              )}
               </div>
             </div>
 
@@ -233,7 +247,9 @@ export default function ProfileMediaPage() {
 
       {/* ===== Tabs + Sort (Explore style) ===== */}
       <div className="flex items-center justify-between gap-3 mb-4">
-        <ProfileTabs active={tab} username={username} />
+        <div className="flex w-full justify-center">
+          <ProfileTabs active={tab} username={username} />
+        </div>
         <SortDropdown value={sortBy} onChange={setSortBy} />
       </div>
 
@@ -253,17 +269,7 @@ export default function ProfileMediaPage() {
         )}
 
       {/* ===== Actions Modal ===== */}
-      {/* <ProfileActionsModal
-        open={actionsOpen}
-        onClose={() => setActionsOpen(false)}
-        onShare={() => {
-          const url =
-            typeof window !== "undefined" ? window.location.href : "";
-          if (url)
-            navigator.clipboard.writeText(url).catch(() => {});
-          setActionsOpen(false);
-        }}
-      /> */}
+      
 
       <FullscreenVideoOverlay
                 open={overlayOpen}
@@ -272,6 +278,9 @@ export default function ProfileMediaPage() {
                 initialVideoId={activeVideoId}
                 onEndReached={fetchMore}
                 isLoadingMore={isLoadingMore}
+                isMuted={isMuted}
+                toggleMute={toggleMute}
+                
               />
     </div>
   );
@@ -297,8 +306,8 @@ function ProfileTabs({
   username: string;
 }) {
   const tabs = [
-    { key: "gifs" as const, label: "GIFs", href: `/profile/${username}?tag=gif` },
-    { key: "images" as const, label: "Images", href: `/profile/${username}?tag=image` },
+    { key: "gifs" as const, label: "GIFs", href: `/${username}?tag=gif` },
+    { key: "images" as const, label: "Images", href: `/${username}?tag=image` },
   ];
   return (
     <div className="flex items-center gap-6">

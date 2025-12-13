@@ -495,10 +495,22 @@ export async function getUserIdFromCookies(): Promise<string | null> {
   return userId || null;
 }
 
-export async function getVerified(): Promise<string | null> {
-  const store = await cookies();
-  const verify = store.get("verified")?.value;
-  return verify || null;
+export async function getVerified(username: string): Promise<boolean> {
+  // Get the current user id from cookies
+  // Look up the "verified" flag on the profiles table
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("verified")
+    .eq("username", username)
+    .maybeSingle()          // or .eq("user_id", userId) if that's your schema
+    
+
+  if (error || !data) {
+    console.error("getVerified: failed to load profile", error);
+    return false;
+  }
+
+  return Boolean(data.verified);
 }
 
 
@@ -525,6 +537,23 @@ export async function logoutAction(): Promise<SimpleResult> {
   return { success: true };
 }
 
+export async function getIdWUsername(username:string) {
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("username", username)          // or .eq("user_id", userId) if that's your schema
+    .single();
+
+  if (error || !data) {
+    console.error("getVerified: failed to load profile", error);
+    return false;
+  }
+
+  return data.id;
+  
+}
+
 
 export async function getUserProfileFromCookies(): Promise<{
   username: string | null;
@@ -549,6 +578,27 @@ export async function getUserProfileFromCookies(): Promise<{
 
   return { username, avatarUrl, isLoggedIn };
 }
+
+export async function getUserProfile(): Promise<{
+  username: string | null;
+  avatarUrl: string | null;
+  isLoggedIn: string | null;
+}> {
+  
+
+  let avatarUrl: string | null = null;
+
+  if (avatarPath) {
+    const { data } = supabase.storage
+      .from("media")
+      .getPublicUrl(avatarPath);
+    avatarUrl = data.publicUrl || null;
+  }
+
+  return { username, avatarUrl, isLoggedIn };
+}
+
+
 
 const smtpTransporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -620,4 +670,21 @@ export async function getUserPreferencesFromCookies(): Promise<Preference[] | nu
   }
 
   return null;
+}
+
+export async function getUserIdByUsername(
+  username: string
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("username", username)
+    .single();
+
+  if (error || !data) {
+    console.error("getUserIdByUsername error", error);
+    return null;
+  }
+
+  return data.id as string;
 }

@@ -1,6 +1,6 @@
 // lib/actions/social.ts
 import { supabase } from "@/lib/supabaseClient";
-import { getUserIdFromCookies } from "./auth";
+import { getUserIdByUsername, getUserIdFromCookies } from "./auth";
 
 
 
@@ -156,31 +156,7 @@ export async function toggleFollowUser(targetUserId: string): Promise<{
  * media_likes table: media_id (bigint), user_id (uuid)
  */
 
-export async function checkHasLikedMedia(mediaId: number): Promise<boolean> {
-  if (!mediaId) return false;
 
-  try {
-    const userId = await getUserIdFromCookies();
-
-    const { data, error } = await supabase
-      .from("media_likes")
-      .select("media_id")
-      .eq("media_id", mediaId)
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (error) {
-      console.error("checkHasLikedMedia error", error);
-      throw error;
-    }
-
-    return !!data;
-  } catch (err) {
-    // Not logged in or any error → treat as not liked
-    console.warn("checkHasLikedMedia fallback (not liked)", err);
-    return false;
-  }
-}
 
 /**
  * Toggle like/unlike on a media row.
@@ -340,11 +316,7 @@ export async function toggleMediaLike(mediaId: number): Promise<{
 }
 
 
-export type FollowCounts = {
-  followers: number;
-  following: number;
-  views: number;
-};
+
 
 export async function getMyFollowCounts(): Promise<FollowCounts> {
   const userId = await getUserIdFromCookies();
@@ -394,6 +366,217 @@ export async function getMyFollowCounts(): Promise<FollowCounts> {
     };
   } catch (err) {
     console.error("getMyFollowCounts thrown error", err);
+    return { followers: 0, following: 0, views: 0 };
+  }
+}
+
+
+export async function checkHasLikedMedia(mediaId: number): Promise<boolean> {
+  if (!mediaId) return false;
+
+  try {
+    const userId = await getUserIdFromCookies();
+
+    const { data, error } = await supabase
+      .from("media_likes")
+      .select("media_id")
+      .eq("media_id", mediaId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("checkHasLikedMedia error", error);
+      throw error;
+    }
+
+    return !!data;
+  } catch (err) {
+    // Not logged in or any error → treat as not liked
+    console.warn("checkHasLikedMedia fallback (not liked)", err);
+    return false;
+  }
+}
+
+// lib/actions/social.ts
+export async function toggleAdLike(
+  adId: number
+): Promise<{ liked: boolean; likeCount: number | null }> {
+  const userId = await getUserIdFromCookies();
+
+  // Does a like already exist?
+  const { data: existing, error: existingError } = await supabase
+    .from("ad_likes")
+    .select("ad_id")
+    .eq("ad_id", adId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (existingError && existingError.code !== "PGRST116") {
+    console.error("toggleAdLike existingError", existingError);
+    throw new Error(existingError.message);
+  }
+
+  let liked: boolean;
+
+  if (existing) {
+    // Unlike
+    const { error: delError } = await supabase
+      .from("ad_likes")
+      .delete()
+      .eq("ad_id", adId)
+      .eq("user_id", userId);
+
+    if (delError) {
+      console.error("toggleAdLike delete error", delError);
+      throw new Error(delError.message);
+    }
+    liked = false;
+  } else {
+    // Like
+    const { error: insError } = await supabase
+      .from("ad_likes")
+      .insert({ ad_id: adId, user_id: userId });
+
+    if (insError) {
+      console.error("toggleAdLike insert error", insError);
+      throw new Error(insError.message);
+    }
+    liked = true;
+  }
+
+  // Fetch the updated like_count from ads table
+  const { data: adRow, error: adError } = await supabase
+    .from("ads")
+    .select("like_count")
+    .eq("id", adId)
+    .single();
+
+  if (adError) {
+    console.error("toggleAdLike ads like_count error", adError);
+    return { liked, likeCount: null };
+  }
+
+  return {
+    liked,
+    likeCount: adRow.like_count as number,
+  };
+}
+
+
+
+
+// lib/actions/social.ts
+export async function checkHasLikedAd(adId: number): Promise<boolean> {
+  if (!adId) return false;
+
+  try {
+    const userId = await getUserIdFromCookies();
+
+    const { data, error } = await supabase
+      .from("ad_likes")
+      .select("ad_id")
+      .eq("ad_id", adId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("checkHasLikedAd error", error);
+      throw error;
+    }
+
+    return !!data;
+  } catch (err) {
+    // Not logged in or any error → treat as not liked
+    console.warn("checkHasLikedAd fallback (not liked)", err);
+    return false;
+  }
+}
+
+// lib/actions/auth.ts (or wherever the old function lived)
+
+
+export async function getUserProfileByUsername(username: string): Promise<{
+  id: string | null;
+  username: string | null;
+  avatarUrl: string | null;
+}> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, username, avatar_url")
+    .eq("username", username)
+    .single();
+
+  if (error || !data) {
+    console.error("getUserProfileByUsername error", error);
+    return { id: null, username: null, avatarUrl: null };
+  }
+  
+  return {
+    id: data.id as string,
+    username: data.username as string,
+    avatarUrl: data.avatar_url,
+  };
+}
+
+// lib/actions/social.ts (where FollowCounts + getMyFollowCounts used to be)
+
+
+export type FollowCounts = {
+  followers: number;
+  following: number;
+  views: number;
+};
+
+export async function getFollowCountsByUsername(
+  username: string
+): Promise<FollowCounts> {
+  const userId = await getUserIdByUsername(username);
+  if (!userId) {
+    return { followers: 0, following: 0, views: 0 };
+  }
+
+  try {
+    const [
+      { count: followersCount, error: followersError },
+      { count: followingCount, error: followingError },
+      { data: mediaRows, error: mediaError },
+    ] = await Promise.all([
+      supabase
+        .from("follows")
+        .select("*", { count: "exact", head: true })
+        .eq("followee_id", userId),
+      supabase
+        .from("follows")
+        .select("*", { count: "exact", head: true })
+        .eq("follower_id", userId),
+      supabase
+        .from("media")
+        .select("view_count")
+        .eq("owner_id", userId),
+    ]);
+
+    if (followersError) {
+      console.error("getFollowCountsByUsername followersError", followersError);
+    }
+    if (followingError) {
+      console.error("getFollowCountsByUsername followingError", followingError);
+    }
+    if (mediaError) {
+      console.error("getFollowCountsByUsername mediaError", mediaError);
+    }
+
+    const viewsTotal = (mediaRows ?? []).reduce(
+      (sum, row: any) => sum + (row.view_count ?? 0),
+      0
+    );
+
+    return {
+      followers: followersCount ?? 0,
+      following: followingCount ?? 0,
+      views: viewsTotal,
+    };
+  } catch (err) {
+    console.error("getFollowCountsByUsername thrown error", err);
     return { followers: 0, following: 0, views: 0 };
   }
 }

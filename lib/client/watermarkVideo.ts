@@ -182,7 +182,7 @@ export async function watermarkVideoFile(
     "-preset",
     "ultrafast",
     "-crf",
-    "28",
+    "32",
     "-c:a",
     "copy",
     "output.mp4"

@@ -118,7 +118,7 @@ function ForYouLoginGate() {
         <div className="flex flex-col items-center justify-center relative max-w-sm w-full h-full bg-black/80 border border-white/15 shadow-2xl overflow-hidden"
           style={{
     // 👈 change this path to match your file in /public
-          backgroundImage: "url('/images/for-you-locked-bg.jpg')",
+          backgroundImage: "url('/images/unlock-2.png')",
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",

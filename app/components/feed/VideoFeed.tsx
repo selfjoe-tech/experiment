@@ -9,17 +9,19 @@ import React, {
   useRef,
   useState,
 } from "react";
-import VideoCard from "./VideoCard";
+import VideoCard,  { SponsoredVideoCard } from "./VideoCard";
 import type { FeedTab, Video } from "./types";
 import FullscreenVideoOverlay from "./FullscreenVideoOverlay";
 import { useInView } from "@/app/components/media/useInView";
-
 
 import {
   fetchTrendingVideosBatch,
   registerView,
   fetchForYouVideosBatch,
+  fetchRandomAdForFeed,
+  registerAdView,
 } from "@/lib/actions/mediaFeed";
+import { VideoCardSkeleton } from "../skeletons/VideoCardSkeleton ";
 
 type Props = {
   activeTab: FeedTab;
@@ -47,6 +49,8 @@ export default function VideoFeed({
   // IDs we’ve already shown this session (media.id)
   const seenIdsRef = useRef<Set<number>>(new Set());
   const loadingRef = useRef(false);
+  const seenAdIdsRef = useRef<Set<number>>(new Set());
+
 
   // fullscreen overlay state
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
@@ -139,19 +143,18 @@ export default function VideoFeed({
       const excludeIds = Array.from(seenIdsRef.current);
       let batch: Video[] = [];
 
+      // 1) pick the base batch (For You vs Trending)
       if (activeTab === "forYou") {
-        // Every 4th batch is random → approximates:
-        // "1 random video after being shown 3 interest-based ones"
         const count = forYouBatchCountRef.current;
 
         if (count > 0 && count % 4 === 0) {
-          // this batch: random/trending only
+          // every 4th batch: fallback to pure trending
           batch = await fetchTrendingVideosBatch({
             limit: 3,
             excludeIds,
           });
         } else {
-          // this batch: personalized
+          // main case: personalised
           batch = await fetchForYouVideosBatch({
             limit: 3,
             excludeIds,
@@ -160,7 +163,7 @@ export default function VideoFeed({
 
         forYouBatchCountRef.current = count + 1;
       } else {
-        // TRENDING tab: existing behavior
+        // Trending tab
         batch = await fetchTrendingVideosBatch({
           limit: 3,
           excludeIds,
@@ -172,27 +175,63 @@ export default function VideoFeed({
         return;
       }
 
-      // Optimistically bump view count
-      const bumpedBatch = batch.map((v) => ({
+      // 2) try to fetch ONE random ad and splice it into the batch
+      let combined: Video[] = batch;
+
+      const ad = await fetchRandomAdForFeed();
+      if (ad && (ad as any)._isAd) {
+        const adAny = ad as any;
+        const adId: number | undefined = adAny._adId;
+
+        const alreadyShown =
+          typeof adId === "number" && seenAdIdsRef.current.has(adId);
+
+        if (!alreadyShown) {
+          if (typeof adId === "number") {
+            seenAdIdsRef.current.add(adId);
+          }
+
+          // insert ad at a random position in [0, batch.length]
+          const insertAt = Math.floor(Math.random() * (batch.length + 1));
+          combined = [
+            ...batch.slice(0, insertAt),
+            ad,
+            ...batch.slice(insertAt),
+          ];
+        }
+      }
+
+      // 3) Optimistically bump view counts for *non-ad* videos
+      const bumped = combined.map((v) => ({
         ...v,
         views: v.views + 1,
       }));
 
-      setVideos((prev) => [...prev, ...bumpedBatch]);
+      setVideos((prev) => [...prev, ...bumped]);
 
-      // remember these IDs so we don't re-pick them
-      bumpedBatch.forEach((v) => {
-        if (typeof v.mediaId === "number") {
-          seenIdsRef.current.add(v.mediaId);
-        }
-      });
+      // 4) Register views only for real media (not ads)
+      bumped.forEach((v) => {
+  const anyV = v as any;
 
-      // Fire-and-forget: record actual views
-      bumpedBatch.forEach((v) => {
-        if (typeof v.mediaId === "number") {
-          registerView(v.mediaId);
-        }
-      });
+  if (anyV._isAd) {
+    const adId: string | undefined = anyV._adId;
+    if (typeof adId === "string") {
+      registerAdView(adId);
+      console.log(adId, "adview triggere")
+    }
+    return;
+  }
+
+  if (typeof v.mediaId === "number") {
+    seenIdsRef.current.add(v.mediaId);
+    registerView(v.mediaId);
+  }
+});
+
+
+
+
+
     } catch (err: any) {
       console.error("loadMore feed error", err);
       setFeedError(err?.message ?? "Failed to load videos.");
@@ -203,8 +242,8 @@ export default function VideoFeed({
     }
   },
   [hasMore, activeTab]
-  
 );
+
 
   const isWatchMode = !!initialVideo;
 
@@ -251,11 +290,14 @@ export default function VideoFeed({
   // ===== Infinite scroll (same for home + watch) ===========================
 
   useEffect(() => {
-    if (!initialLoaded) return;
-    if (!sentinelInView) return;
-    if (!hasMore) return;
-    loadMore();
-  }, [sentinelInView, initialLoaded, hasMore, loadMore]);
+  if (!initialLoaded) return;
+  if (!sentinelInView) return;
+  if (!hasMore) return;
+  if (fullscreenOpen) return;      // 👈 don’t double-load behind the overlay
+  loadMore();
+}, [sentinelInView, initialLoaded, hasMore, loadMore, fullscreenOpen]);
+
+  
 
   const noVideos = !loading && initialLoaded && videos.length === 0;
 
@@ -280,34 +322,77 @@ export default function VideoFeed({
         )}
 
         {loading && (
-          <div className="flex h-full items-center justify-center text-white/70">
-            {"Loading..."}
-          </div>
-        )}
+  <section
+    className="
+      snap-center snap-always
+      flex items-center justify-center
+      h-[calc(100dvh-7.5rem)]
+      h-screen
+      lg:h-[100dvh]
+      w-full
+    "
+  >
+    <VideoCardSkeleton />
+  </section>
+)}
 
-        {videos.map((video) => (
-          <section
-            key={video.id}
-            className="
-              snap-center snap-always
-              flex items-center justify-center
-              h-[calc(100dvh-7.5rem)]
-              h-screen
-              lg:h-[100dvh]
-              w-full
-            "
-          >
-            <VideoCard
-              video={video}
-              onRequestFullscreen={() => {
-                setFullscreenStartId(video.id);
-                setFullscreenOpen(true);
-              }}
-              toggleMute={toggleMute}
-              isMuted={isMuted}
-            />
-          </section>
-        ))}
+       {videos.map((video, index) => {
+  const anyVideo = video as any;
+  const isAd = !!anyVideo._isAd;
+  const visitUrl: string | undefined = anyVideo._adLandingUrl ?? undefined;
+  const key = isAd ? `ad-${video.id}` : `media-${video.id}`;
+
+  if (isAd) {
+    // Sponsored ad card: no fullscreen button, has "Visit page"
+    return (
+      <section
+        key={index}
+        className="
+          snap-center snap-always
+          flex items-center justify-center
+          h-[calc(100dvh-7.5rem)]
+          h-screen
+          lg:h-[100dvh]
+          w-full
+        "
+      >
+        <SponsoredVideoCard
+          video={video}
+          isMuted={isMuted}
+          toggleMute={toggleMute}
+          visitUrl={visitUrl || "#"}
+          // no onRequestFullscreen → fullscreen button already hidden
+        />
+      </section>
+    );
+  }
+
+  // Regular content
+  return (
+    <section
+      key={index}
+      className="
+        snap-center snap-always
+        flex items-center justify-center
+        h-[calc(100dvh-7.5rem)]
+        h-screen
+        lg:h-[100dvh]
+        w-full
+      "
+    >
+      <VideoCard
+        video={video}
+        onRequestFullscreen={() => {
+          setFullscreenStartId(video.id);
+          setFullscreenOpen(true);
+        }}
+        toggleMute={toggleMute}
+        isMuted={isMuted}
+      />
+    </section>
+  );
+})}
+
 
         {/* Sentinel at the bottom */}
         <div ref={sentinelRef} className="h-[1px]" />
@@ -319,6 +404,10 @@ export default function VideoFeed({
         onClose={() => setFullscreenOpen(false)}
         videos={videos}
         initialVideoId={fullscreenStartId}
+        toggleMute={toggleMute}
+        isMuted={isMuted}
+        onEndReached={loadMore}          // 👈 reuse same loader as main feed
+        isLoadingMore={loading}          // 👈 so overlay doesn’t spam
       />
     </>
   );

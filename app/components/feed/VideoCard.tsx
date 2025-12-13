@@ -15,6 +15,11 @@ import {
   MessageCircle,
   Send,
   SendHorizonal,
+  ArrowUpRight,
+  ArrowUpRightFromSquare,
+  X,
+  MoveLeft,
+  ChevronLeftIcon,
 } from "lucide-react";
 import type { Video } from "./types";
 import {
@@ -22,6 +27,8 @@ import {
   toggleFollowUser,
   checkHasLikedMedia,
   toggleMediaLike,
+  checkHasLikedAd,      // 👈 add
+  toggleAdLike,
 } from "@/lib/actions/social";
 import VideoOptionsModal from "@/app/components/feed/VideoOptionsModal";
 import { getUserIdFromCookies } from "@/lib/actions/auth";
@@ -48,6 +55,7 @@ import {
   type CommentNode,
 } from "@/lib/actions/comments";
 import { VerifiedBadgeIcon } from "../icons/VerifiedBadgeIcon";
+import { CommentListSkeleton } from "../skeletons/CommentListSkeleton";
 
 type Props = {
   video: Video;
@@ -56,6 +64,13 @@ type Props = {
   showFullscreenButton?: boolean;
   isMuted?: boolean;
   toggleMute?: () => void;
+
+  // NEW:
+  variant?: "default" | "sponsored";
+  visitUrl?: string; // for "Visit page" button
+  onClose?: () => void;
+  open?: boolean;
+
 };
 
 export default function VideoCard({
@@ -64,7 +79,26 @@ export default function VideoCard({
   showFullscreenButton = true,
   isMuted,
   toggleMute,
+  variant = "default",
+  visitUrl,
+  open,
+  onClose,
+
 }: Props) {
+  const isSponsored = variant === "sponsored";
+
+  const anyVideo = video as any;
+const adIdNum =
+  isSponsored && typeof anyVideo._adId === "number"
+    ? anyVideo._adId
+    : null;
+
+// Only use mediaId for non-ads
+const mediaIdNum = !isSponsored
+  ? Number(video.mediaId ?? video.id)
+  : NaN;
+
+
   const cardRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hasRequestedSourceRef = useRef(false);
@@ -95,7 +129,6 @@ export default function VideoCard({
   const likeBurstTimeoutRef = useRef<number | null>(null);
   const [isVertical, setIsVertical] = useState<boolean | null>(null);
 
-  const mediaIdNum = Number(video.mediaId ?? video.id);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [currentId, setCurrentId] = useState("");
 
@@ -107,6 +140,9 @@ export default function VideoCard({
   const [newComment, setNewComment] = useState("");
   const [replyTo, setReplyTo] = useState<{ id: string; username: string } | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [showLikeAuthTooltip, setShowLikeAuthTooltip] = useState(false);
+  const isLoggedIn = !!currentId;
+
 
 
   const formatTime = (seconds: number) => {
@@ -234,28 +270,49 @@ export default function VideoCard({
   // ===== LIKE: initial state (if backend didn't supply likedByMe) =====
 
   useEffect(() => {
-    let cancelled = false;
+  let cancelled = false;
 
-    if (video.likedByMe !== undefined) {
-      setLiked(!!video.likedByMe);
-      return;
-    }
+  // If server already told us, trust it
+  if (video.likedByMe !== undefined) {
+    setLiked(!!video.likedByMe);
+    return;
+  }
 
-    if (!mediaIdNum || Number.isNaN(mediaIdNum)) return;
+  // Ads: use adId
+  if (isSponsored) {
+    if (!adIdNum) return;
 
     (async () => {
       try {
-        const hasLiked = await checkHasLikedMedia(mediaIdNum);
+        const hasLiked = await checkHasLikedAd(adIdNum);
         if (!cancelled) setLiked(hasLiked);
       } catch (err) {
-        console.error("checkHasLikedMedia error", err);
+        console.error("checkHasLikedAd error", err);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [mediaIdNum, video.likedByMe]);
+  }
+
+  // Normal media
+  if (!mediaIdNum || Number.isNaN(mediaIdNum)) return;
+
+  (async () => {
+    try {
+      const hasLiked = await checkHasLikedMedia(mediaIdNum);
+      if (!cancelled) setLiked(hasLiked);
+    } catch (err) {
+      console.error("checkHasLikedMedia error", err);
+    }
+  })();
+
+  return () => {
+    cancelled = true;
+  };
+}, [mediaIdNum, adIdNum, isSponsored, video.likedByMe]);
+
 
   // ===== VIDEO EVENTS =====
 
@@ -311,10 +368,15 @@ export default function VideoCard({
   // ===== LIKE TOGGLE (with backend) =====
 
   const handleToggleLike = async () => {
-    if (!mediaIdNum || Number.isNaN(mediaIdNum)) {
-      setLiked((prev) => !prev);
-      return;
-    }
+  // 🔐 gate likes if not logged in
+  if (!isLoggedIn) {
+    setShowLikeAuthTooltip(true);
+    return;
+  }
+
+  // ADS
+  if (isSponsored) {
+    if (!adIdNum) return;
 
     const nextLiked = !liked;
     setLikeLoading(true);
@@ -325,15 +387,18 @@ export default function VideoCard({
     if (nextLiked) triggerLikeBurst();
 
     try {
-      const result = await toggleMediaLike(mediaIdNum);
+      const result = await toggleAdLike(adIdNum);
+
+      // If backend disagrees, reconcile
       if (result.liked !== nextLiked) {
         setLiked(result.liked);
-        setLikes((prevLikes) =>
-          result.liked ? prevLikes + 1 : Math.max(0, prevLikes - 1)
-        );
+      }
+      if (result.likeCount != null) {
+        setLikes(result.likeCount);
       }
     } catch (err) {
-      console.error("toggleMediaLike error", err);
+      console.error("toggleAdLike error", err);
+      // roll back optimistic UI
       setLiked(!nextLiked);
       setLikes((prevLikes) =>
         !nextLiked ? prevLikes + 1 : Math.max(0, prevLikes - 1)
@@ -341,7 +406,43 @@ export default function VideoCard({
     } finally {
       setLikeLoading(false);
     }
-  };
+
+    return;
+  }
+
+  // NORMAL MEDIA (your existing logic)
+  if (!mediaIdNum || Number.isNaN(mediaIdNum)) {
+    setLiked((prev) => !prev);
+    return;
+  }
+
+  const nextLiked = !liked;
+  setLikeLoading(true);
+  setLiked(nextLiked);
+  setLikes((prevLikes) =>
+    nextLiked ? prevLikes + 1 : Math.max(0, prevLikes - 1)
+  );
+  if (nextLiked) triggerLikeBurst();
+
+  try {
+    const result = await toggleMediaLike(mediaIdNum);
+    if (result.liked !== nextLiked) {
+      setLiked(result.liked);
+      setLikes((prevLikes) =>
+        result.liked ? prevLikes + 1 : Math.max(0, prevLikes - 1)
+      );
+    }
+  } catch (err) {
+    console.error("toggleMediaLike error", err);
+    setLiked(!nextLiked);
+    setLikes((prevLikes) =>
+      !nextLiked ? prevLikes + 1 : Math.max(0, prevLikes - 1)
+    );
+  } finally {
+    setLikeLoading(false);
+  }
+};
+
 
   const handleDoubleLike = () => {
     handleToggleLike();
@@ -431,17 +532,37 @@ export default function VideoCard({
 
   const showSkeleton = shouldLoad && !metadataLoaded;
 
-  console.log(video, "<============ likes")
+
+  function labelToSlug (label: string): string {
+    const decoded = decodeURIComponent(label).trim();
+    return decoded
+      .split(" ")
+      .filter(Boolean)
+      .map((word) => word.charAt(0).toLowerCase() + word.slice(1).toLowerCase())
+      .join("-");
+
+  
+}
+
+  useEffect(() => {
+  if (!showLikeAuthTooltip) return;
+
+  const t = window.setTimeout(() => {
+    setShowLikeAuthTooltip(false);
+  }, 2000); // 2s, tweak if you like
+
+  return () => window.clearTimeout(t);
+}, [showLikeAuthTooltip]);
 
   return (
     <div
       ref={cardRef}
-      className="
+      className={`
         relative lg:h-[100vh]
-        h-[80vh]
+        ${open ? "h-[100vh]" : "h-[80vh]"}
         flex items-center justify-center
         bg-neutral-900 shadow-5xl overflow-hidden
-      "
+      `}
     >
       <div className="relative h-full flex items-center">
         {/* Skeleton layer */}
@@ -490,6 +611,20 @@ export default function VideoCard({
         )}
       </button>
 
+      <div className="absolute flex left-3 top-12 z-30 flex-col items-center">
+        {open && 
+          <button
+            onClick={() => {
+              onClose();
+              
+            }}
+          >
+            <ChevronLeftIcon size={30}/>
+          </button>
+        }
+        
+      </div>
+
       {/* right-side actions */}
       <div className="absolute right-3 bottom-24 z-30 flex flex-col items-center gap-4">
         <StatBubble label={video.views.toLocaleString()}>
@@ -524,24 +659,52 @@ export default function VideoCard({
         </IconCircleButton>
 
         {/* LIKE BUTTON */}
-        <div className="flex flex-col items-center gap-1">
-          <IconCircleButton
-            onClick={handleToggleLike}
-            label="Like"
-            disabled={likeLoading}
-          >
-            <Heart
-              className={`h-7 w-7 ${
-                liked ? "fill-red-500 text-red-500" : ""
-              }`}
-            />
-          </IconCircleButton>
-          <span className="text-[11px]">
-            {video.likes?.toLocaleString() || 0}
-          </span>
-        </div>
+        {!isSponsored && (
+          <div className="flex flex-col items-center gap-1 relative">
+            <IconCircleButton
+              onClick={handleToggleLike}
+              label="Like"
+              disabled={likeLoading}
+            >
+              <Heart
+                className={`h-7 w-7 ${
+                  liked ? "fill-red-500 text-red-500" : ""
+                }`}
+              />
+            </IconCircleButton>
+
+            <span className="text-[11px]">
+              {likes?.toLocaleString() || 0}
+            </span>
+
+
+            {showLikeAuthTooltip && (
+              <div
+                className="
+                  absolute -top-8
+                  max-w-[160px]
+                  rounded-full
+                  bg-black/90
+                  px-3 py-1
+                  text-[10px]
+                  text-center
+                  text-white
+                  border border-white/20
+                  shadow-lg
+                "
+              >
+                Log in to like videos
+              </div>
+            )}
+    </div>
+        )
+        
+        }
+        
 
         {/* COMMENTS BUTTON */}
+
+         {!isSponsored && (
         <div className="flex flex-col items-center gap-1">
           <IconCircleButton
             onClick={() => setCommentsOpen(true)}
@@ -553,25 +716,28 @@ export default function VideoCard({
             {totalComments.toLocaleString()}
           </span>
         </div>
+      )}
 
         {/* MORE OPTIONS */}
-        <IconCircleButton
-          onClick={() => setOptionsOpen(true)}
-          label="More options"
-        >
-          <EllipsisIcon className="h-7 w-7" />
-        </IconCircleButton>
+        {!isSponsored && (
+          <IconCircleButton
+            onClick={() => setOptionsOpen(true)}
+            label="More options"
+          >
+            <EllipsisIcon className="h-7 w-7" />
+          </IconCircleButton>
+        )}
       </div>
 
       {/* bottom info + scrubber */}
       <div className="absolute inset-x-3 bottom-3 z-30 space-y-2">
         {/* creator row */}
         <div className="flex items-center gap-3">
-          <Link href={`/profile/${video.username}`}>
+          <Link href={`/${video.username}`}>
             <div className="h-10 w-10 rounded-full bg-white/60 overflow-hidden">
               <Image
                 src={video.avatar ?? "/avatar-placeholder.png"}
-                alt={video.username}
+                alt={video.username || `Upskirt Candy Image by ${video.username}`}
                 width={40}
                 height={40}
                 className="h-full w-full object-cover"
@@ -580,11 +746,14 @@ export default function VideoCard({
             </div>
           </Link>
 
-          <Link href={`/profile/${video.username}`}>
+           
+
+          <Link href={`/${video.username}`}>
             <div className="flex gap-2 min-w-0">
-              <div className="text-sm font-semibold truncate">
+              <div className="text-sm font-semibold truncate text-white">
                 {video.username}
               </div>
+              {isSponsored && <VerifiedBadgeIcon />}
               {video.verified && <VerifiedBadgeIcon />}
             </div>
           </Link>
@@ -610,7 +779,11 @@ export default function VideoCard({
             </button>
           )}
         </div>
-
+{isSponsored && (
+              <span className="inline-flex items-center rounded-full border border-yellow-400/60 bg-yellow-400/10 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-yellow-300">
+                Sponsored
+              </span>
+            )}
         {/* description */}
         <div className="text-xs text-white/85">
           <p
@@ -619,10 +792,16 @@ export default function VideoCard({
             }`}
           >
             {video.description}{" "}
-            {video.hashtags?.map((tag) => (
-              <span key={tag} className="text-white/70">
-                #{tag}{" "}
-              </span>
+            {video.hashtags?.map((tag, index) => (
+              <Link
+                href={`/explore/niches/${labelToSlug(tag)}`}
+                key={index}
+              >
+                <span key={tag} className="text-pink-500 underline">
+                  #{tag}{" "}
+                </span>
+              </Link>
+              
             ))}
           </p>
           <button
@@ -632,7 +811,19 @@ export default function VideoCard({
           >
             Show {expandedDesc ? "less" : "more"}
           </button>
+
+          
         </div>
+        {isSponsored && visitUrl && (
+            <button
+              type="button"
+              onClick={() => window.open(visitUrl, "_blank")}
+              className="gap-2 items-center mt-3 inline-flex bg-pink-500 w-full h-10 items-center justify-center rounded-full text-white px-4 py-1.5 text-[20px] font-semibold hover:bg-white/90 hover:text-black"
+            >
+              Visit Page
+          <ArrowUpRightFromSquare size={20} />
+            </button>
+          )}
 
         {/* scrubber */}
         <div className="flex items-center gap-2">
@@ -661,11 +852,13 @@ export default function VideoCard({
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black via-pink/50 to-transparent" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-pink/60 to-transparent" />
 
-      <VideoOptionsModal
-        open={optionsOpen}
-        onClose={() => setOptionsOpen(false)}
-        mediaId={mediaIdNum || video.id}
-      />
+      {!isSponsored && (
+        <VideoOptionsModal
+          open={optionsOpen}
+          onClose={() => setOptionsOpen(false)}
+          mediaId={mediaIdNum || video.id}
+        />
+      )}
 
       {/* COMMENTS OVERLAY: drawer on mobile, dialog on desktop */}
       <CommentsOverlay
@@ -782,7 +975,7 @@ function CommentsOverlay({
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
         {loading && (
-          <p className="text-xs text-white/60">Loading comments...</p>
+          <CommentListSkeleton />
         )}
         {!loading && comments.length === 0 && (
           <p className="text-xs text-white/60">No comments yet.</p>
@@ -839,8 +1032,8 @@ function CommentsOverlay({
 
   if (isDesktop) {
     return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md w-full bg-black text-white border-white/10">
+      <Dialog open={open} onOpenChange={onOpenChange} >
+        <DialogContent className="max-w-md w-full bg-black text-white border-white/10 z-[100]">
           <DialogHeader>
             <DialogTitle className="text-sm font-semibold">
               Comments
@@ -855,7 +1048,7 @@ function CommentsOverlay({
   // mobile drawer
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="bg-black text-white border-t border-white/10">
+      <DrawerContent className="bg-black text-white border-t border-white/10 z-[100]">
         <DrawerHeader>
           <DrawerTitle className="text-sm font-semibold">
             Comments
@@ -886,7 +1079,7 @@ function CommentList({
         <div key={c.id} className="flex gap-2 text-xs">
           <div className="mt-1 h-7 w-7 rounded-full bg-white/10 overflow-hidden shrink-0">
             {c.avatar_path ? (
-            <Link href={`/profile/${c.username}`}>
+            <Link href={`/${c.username}`}>
               <Image
                 src={c.avatar_path}
                 alt={c.username}
@@ -898,7 +1091,7 @@ function CommentList({
             ) : null}
           </div>
           <div className="flex-1">
-            <Link href={`/profile/${c.username}`}>
+            <Link href={`/${c.username}`}>
               <div className="flex items-center gap-2">
                 <span className="font-semibold">{c.username}</span>
               </div>
@@ -941,6 +1134,19 @@ function CommentList({
         </div>
       ))}
     </div>
+  );
+}
+
+export function SponsoredVideoCard(
+  props: Omit<Props, "variant" | "showFullscreenButton"> & { visitUrl: string }
+) {
+  return (
+    <VideoCard
+      {...props}
+      variant="sponsored"
+      showFullscreenButton={false}
+      visitUrl={props.visitUrl}
+    />
   );
 }
 

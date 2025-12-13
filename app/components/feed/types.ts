@@ -3,21 +3,22 @@
 export type FeedTab = "trending" | "following" | "new" | "forYou";
 
 export type Video = {
-  id: string;          // stringified media.id
-  mediaId: number;     // numeric media.id (for likes/views)
+  id: string;
+  mediaId: number;
   src: string;
-
+  title: string;
+  description: string;
   username: string;
   avatar: string;
-  ownerId: string;     // profiles.id (uuid) for follow
-
-  description: string;
-  hashtags: string[];
-
   likes: number;
   views: number;
-  verified: boolean;
+  hashtags: string[];
+  ownerId?: string;
+  likedByMe?: boolean;
+  verified?: boolean;
 
-  likedByMe?: boolean; // optional hint from backend
+  // NEW: used only for ads
+  _isAd?: boolean;
+  _adLandingUrl?: string | null;
+  _adId?: number;
 };
-

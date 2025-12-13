@@ -255,7 +255,7 @@ export default function UploadPage() {
           const wmName = wmUsername || "user";
 
           const watermarkedFile = await watermarkVideoFile(workingFile, wmName, {
-            position: "bottom-right",
+            position: "top-left",
             logoUrl: "/watermark-1.png",
             onProgress: (ratio) => {
               // map 0..1 → 30..90
@@ -370,7 +370,7 @@ export default function UploadPage() {
   return (
     <div className="relative min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
       {processing && (
-        <div className="fixed bottom-4 left-1/2 z-40 w-full max-w-md -translate-x-1/2 px-4">
+        <div className="fixed bottom-4 left-1/2 z-70 w-full max-w-md -translate-x-1/2 px-4">
           <div className="rounded-2xl border border-white/15 bg-black/80 p-4 space-y-2 shadow-xl">
             <div className="flex justify-between text-xs text-white/80">
               <span>Processing video…</span>

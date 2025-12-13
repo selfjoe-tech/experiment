@@ -97,10 +97,10 @@ export function ProfilePanel({
   }, []);
 
   const rows: Row[] = [
-    { label: "My Profile", icon: User2, link: `/profile/${username}` },
-    { label: "Manage", icon: FolderCog, link: `/profile/manage/${id}` },
-    { label: "Saved", icon: Bookmark, link: `/profile/saved/${id}` },
-    { label: "Settings", icon: Settings, link: `/settings/` },
+    { label: "My Profile", icon: User2, link: `/${username}` },
+    { label: "Manage", icon: FolderCog, link: `/${username}/manage` },
+    { label: "Saved", icon: Bookmark, link: `/saved` },
+    { label: "Settings", icon: Settings, link: `/settings` },
   ];
 
   const logOut = { label: "Log out", icon: LogOut };

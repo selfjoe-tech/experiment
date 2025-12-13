@@ -26,10 +26,10 @@ export default function SortDropdown({
   return (
     <DropdownMenu>
   <DropdownMenuTrigger
-    className="text-sm rounded-full px-3 py-1.5 border border-white/10 hover:bg-white/10 inline-flex items-center gap-1"
+    className="text-sm rounded-full px-3 py-1.5 border border-white/10 hover:bg-white/10 flex items-center gap-1"
     aria-label={`Sort by ${LABELS[value]}`}  // accessible, but not visible
   >
-    Sort by <ChevronDown className="h-4 w-4" />
+    <span>Sort</span> <span>by</span> <ChevronDown className="h-4 w-4" />
   </DropdownMenuTrigger>
 
   <DropdownMenuContent align="end" className="min-w-44 bg-black text-white">

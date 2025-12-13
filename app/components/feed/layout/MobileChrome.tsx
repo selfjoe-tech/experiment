@@ -44,6 +44,7 @@ type Props = {
 
 import SearchOverlay from "@/app/components/search/SearchOverlay";
 import { ShortLogo } from "../../icons/ShortLogo";
+import { MobileAd } from "../../ads/AdCard";
 
 
 export default function MobileChrome(props: Props) {
@@ -113,7 +114,13 @@ function MobileTopBar({
         </div>
       ) : (
         <div className="px-3 h-14 flex items-center justify-between gap-2">
-          <ShortLogo />
+          <Link
+            href={"/"}
+          
+          >
+            <ShortLogo />
+          </Link>
+          <MobileAd name="Advertise here" />
 
           <button
             type="button"
@@ -154,14 +161,28 @@ const NavLink = ({
   };
 
 function MobileBottomNav({ isAuthed = true }: { isAuthed?: boolean }) {
+  const [showUploadAuthModal, setShowUploadAuthModal] = useState(false);
+
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-black/95 border-t border-white/10 z-40">
       <div className="flex h-full items-center justify-around text-[11px]">
         <NavLink href="/" label="Home" icon={Home} />
         <NavLink href="/explore/gifs" label="Explore" icon={Compass} />
-        <NavLink href="/upload" label="Upload" icon={PlusCircleIcon} />
-        <NavLink href="/explore/niches" label="Niches" icon={Sparkles} />
+        {isAuthed ? (
+          <NavLink href="/upload" label="Upload" icon={PlusCircleIcon} />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowUploadAuthModal(true)}
+            className="flex flex-col items-center gap-0.5 text-white/60"
+          >
+            <PlusCircleIcon className="h-5 w-5" />
+            <span>Upload</span>
+          </button>
+        )}        
+
+      <NavLink href="/explore/niches" label="Niches" icon={Sparkles} />
 
         {/* Last item: Log in or Profile Drawer */}
         {isAuthed ? (
@@ -190,6 +211,72 @@ function MobileBottomNav({ isAuthed = true }: { isAuthed?: boolean }) {
           <NavLink href="/auth/login" label="Log in" icon={LogIn} />
         )}
       </div>
+
+
+      
+      {showUploadAuthModal && (
+  <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 backdrop-blur-sm lg:hidden">
+    {/* backdrop click closes modal */}
+    <button
+      type="button"
+      className="absolute inset-0 w-full h-full"
+      onClick={() => setShowUploadAuthModal(false)}
+    />
+
+    <div
+      className="
+        relative w-full max-w-sm mx-6 rounded-3xl overflow-hidden
+        border border-white/20 shadow-2xl
+      "
+    >
+      {/* Background image */}
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{
+          backgroundImage: "url('/images/mobile-upload-gate.jpg')", // 👈 change path
+        }}
+      />
+
+      {/* Dark overlay for readability */}
+      <div className="absolute inset-0 bg-black/65" />
+
+      {/* Content */}
+      <div className="relative px-5 py-6 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold">Sign in to upload</h2>
+            <p className="mt-1 text-[11px] text-white/70">
+              You need an account to upload content. Log in or sign up to start
+              posting on UpskirtCandy.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowUploadAuthModal(false)}
+            className="text-white/70 hover:text-white text-xs"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-2 pt-1">
+          <Link
+            href="/auth/login"
+            className="w-full text-center rounded-full bg-white text-black text-xs font-semibold py-2.5 hover:bg-pink-500 hover:text-white"
+          >
+            Log in
+          </Link>
+          <Link
+            href="/auth/signup"
+            className="w-full text-center rounded-full border border-white/40 text-xs font-semibold py-2.5 hover:bg-white hover:text-black"
+          >
+            Sign up
+          </Link>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
     </nav>
   );
 }

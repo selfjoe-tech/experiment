@@ -371,7 +371,7 @@ function CreatorRow({
 
   return (
     <Link
-      href={`/profile/${user.username}`}
+      href={`/${user.username}`}
       onClick={onSelected}
       className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-white/5 transition-colors"
     >
