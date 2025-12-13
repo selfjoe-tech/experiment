@@ -6,8 +6,8 @@ import AuthDialog from "./AuthDialog";
 import { Eye, EyeOff } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { loginAction } from "@/lib/actions/auth";
-import { useState, useTransition } from "react";
+import { AuthFieldErrors, loginAction } from "@/lib/actions/auth";
+import { FormEvent, Suspense, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 
@@ -45,6 +45,8 @@ export function LoginForm({ onShowForgot }: { onShowForgot: () => void }) {
   };
 
   return (
+        <Suspense>
+
     <AuthDialog title="Log In">
       <h2 className="text-xl font-semibold mb-6">Log In</h2>
 
@@ -133,6 +135,8 @@ export function LoginForm({ onShowForgot }: { onShowForgot: () => void }) {
         </p>
       </form>
     </AuthDialog>
+            </Suspense>
+
   );
 }
 

@@ -4,7 +4,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ForgotPasswordFieldErrors, requestPasswordResetAction, resetPasswordWithOtpAction } from "@/lib/actions/auth";
-import { FormEvent, useState, useTransition } from "react";
+import { FormEvent, Suspense, useState, useTransition } from "react";
 
 export function ForgotPasswordForm({ onBackToLogin }: { onBackToLogin: () => void }) {
   const [step, setStep] = useState<"request" | "reset">("request");
@@ -69,6 +69,8 @@ export function ForgotPasswordForm({ onBackToLogin }: { onBackToLogin: () => voi
   const title = step === "request" ? "Forgot Password" : "Reset Password";
 
   return (
+    <Suspense>
+
     <AuthDialog title={title}>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold">{title}</h2>
@@ -224,5 +226,7 @@ export function ForgotPasswordForm({ onBackToLogin }: { onBackToLogin: () => voi
         </form>
       )}
     </AuthDialog>
+  </Suspense>
+
   );
 }
