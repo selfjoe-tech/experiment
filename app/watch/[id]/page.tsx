@@ -10,6 +10,7 @@ import type { FeedTab, Video } from "@/app/components/feed/types";
 import { fetchVideoById, registerView } from "@/lib/actions/mediaFeed";
 import Link from "next/link";
 import { getIsLoggedInFromCookies } from "@/lib/actions/auth";
+import { VideoCardSkeleton } from "@/app/components/skeletons/VideoCardSkeleton ";
 
 export default function WatchPage() {
   const params = useParams<{ id: string }>();
@@ -35,7 +36,7 @@ export default function WatchPage() {
       })();
   
       
-    }, [isLoggedIn]);
+    }, []);
 
 
       const showForYouGate =
@@ -91,9 +92,7 @@ export default function WatchPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        Loading…
-      </div>
+      <VideoCardSkeleton />
     );
   }
 
@@ -268,6 +267,7 @@ export default function WatchPage() {
                         onScrollDirectionChange={(direction) =>
                           setDesktopNavHidden(direction === "down")
                         }
+                        initialVideo={initialVideo} // ✅ THIS is the missing piece
                       />
                     ) : (
                       // tiny fallback while auth status loads

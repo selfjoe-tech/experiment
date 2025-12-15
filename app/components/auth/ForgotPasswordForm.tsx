@@ -69,7 +69,6 @@ export function ForgotPasswordForm({ onBackToLogin }: { onBackToLogin: () => voi
   const title = step === "request" ? "Forgot Password" : "Reset Password";
 
   return (
-    <Suspense>
 
     <AuthDialog title={title}>
       <div className="flex items-center justify-between mb-6">
@@ -226,7 +225,6 @@ export function ForgotPasswordForm({ onBackToLogin }: { onBackToLogin: () => voi
         </form>
       )}
     </AuthDialog>
-  </Suspense>
 
   );
 }

@@ -5,48 +5,12 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
 
-  // ✅ Ignore TypeScript errors during `next build`
   typescript: {
     ignoreBuildErrors: true,
   },
 
-  async headers() {
-    return [
-      // Apply COOP/COEP to the watermark page
-      {
-        source: "/upload",
-        headers: [
-          {
-            key: "Cross-Origin-Opener-Policy",
-            value: "same-origin",
-          },
-          {
-            key: "Cross-Origin-Embedder-Policy",
-            value: "require-corp",
-          },
-        ],
-      },
-      // And to Next static files (wasm / js chunks)
-      {
-        source: "/_next/static/:path*",
-        headers: [
-          {
-            key: "Cross-Origin-Opener-Policy",
-            value: "same-origin",
-          },
-          {
-            key: "Cross-Origin-Embedder-Policy",
-            value: "require-corp",
-          },
-        ],
-      },
-    ];
-  },
-  /* config options here */
-
   experimental: {
     serverActions: {
-      // pick what you’re comfortable with
       bodySizeLimit: "200mb",
     },
   },
@@ -54,7 +18,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "dzgpkywovaezlaabuxhl.supabase.co", // e.g. dsfwhplhdvharctcnvcz.supabase.co
+        hostname: "dzgpkywovaezlaabuxhl.supabase.co", 
         pathname: "/storage/v1/object/public/**",
       },
       {

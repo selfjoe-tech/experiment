@@ -1,7 +1,13 @@
 "use client";
 
-import React, { UIEvent, useEffect, useRef, useState } from "react";
-import { X, ChevronUp, ChevronDown, MoveLeft } from "lucide-react";
+import React, {
+  UIEvent,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { ChevronUp, ChevronDown } from "lucide-react";
 import VideoCard, { SponsoredVideoCard } from "./VideoCard";
 import type { Video } from "./types";
 import { registerView, registerAdView } from "@/lib/actions/mediaFeed";
@@ -17,7 +23,8 @@ type Props = {
   isMuted: boolean;
 };
 
-const SCROLL_END_THRESHOLD = 400;
+// fetch when user reaches: second-to-last item
+const PREFETCH_OFFSET_FROM_END = 1;
 
 export default function FullscreenVideoOverlay({
   open,
@@ -30,12 +37,18 @@ export default function FullscreenVideoOverlay({
   isMuted,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const lastScrollTop = useRef(0);
 
-  // 🔹 NEW: track which index is currently in view
   const [activeIndex, setActiveIndex] = useState(0);
-  // 🔹 NEW: remember which items we’ve already registered a view for
   const viewedKeysRef = useRef<Set<string>>(new Set());
+
+  // ✅ prevents re-scrolling when videos append
+  const didInitialScrollRef = useRef(false);
+
+  // ✅ keeps current scrollTop stable across appends
+  const scrollTopRef = useRef(0);
+
+  // ✅ prevents spamming onEndReached for the same list length
+  const requestedAtLengthRef = useRef<number>(0);
 
   // Lock body scroll while overlay is open
   useEffect(() => {
@@ -47,21 +60,71 @@ export default function FullscreenVideoOverlay({
     };
   }, [open]);
 
+  // Reset per open/close
   useEffect(() => {
-    if (!videos || videos.length === 0) return;
+    if (open) return;
+    didInitialScrollRef.current = false;
+    requestedAtLengthRef.current = 0;
+    viewedKeysRef.current.clear();
+    setActiveIndex(0);
+    scrollTopRef.current = 0;
+  }, [open]);
+
+  // ✅ Scroll to the clicked video ONLY ONCE (when overlay opens + videos available)
+  useEffect(() => {
+    if (!open) return;
+    if (!scrollRef.current) return;
+    if (videos.length === 0) return;
+    if (didInitialScrollRef.current) return;
+
+    const container = scrollRef.current;
+
+    const idx = initialVideoId
+      ? videos.findIndex((v) => v.id === initialVideoId)
+      : 0;
+
+    const targetIdx = idx >= 0 ? idx : 0;
+
+    // wait a tick so sections exist
+    requestAnimationFrame(() => {
+      const section = container.querySelector<HTMLElement>(
+        `[data-fullscreen-idx="${targetIdx}"]`
+      );
+
+      if (section) {
+        section.scrollIntoView({ block: "center" });
+      } else {
+        container.scrollTop = 0;
+      }
+
+      // record current scrollTop so appends don't yank it
+      scrollTopRef.current = container.scrollTop;
+      setActiveIndex(targetIdx);
+
+      didInitialScrollRef.current = true;
+    });
+  }, [open, initialVideoId, videos.length]); // 👈 IMPORTANT: depend on videos.length, not videos
+
+  // ✅ Keep scroll position when new videos append
+  useLayoutEffect(() => {
+    if (!open) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = scrollTopRef.current;
+  }, [open, videos.length]);
+
+  // Register views when activeIndex changes
+  useEffect(() => {
+    if (!open) return;
     const currentVideo = videos[activeIndex];
     if (!currentVideo) return;
 
     const anyVideo = currentVideo as any;
     const isAd = !!anyVideo._isAd;
-    const adId: number | undefined = anyVideo._adId;
+    const adId: string | undefined = anyVideo._adId; // align with your other code
     const mediaIdNum = Number(currentVideo.id);
 
-    // unique key so we don't double-count
-    const key = isAd
-      ? `ad-${adId ?? currentVideo.id}`
-      : `media-${currentVideo.id}`;
-
+    const key = isAd ? `ad-${adId ?? currentVideo.id}` : `media-${currentVideo.id}`;
     if (viewedKeysRef.current.has(key)) return;
     viewedKeysRef.current.add(key);
 
@@ -78,67 +141,39 @@ export default function FullscreenVideoOverlay({
         );
       }
     }
-  }, [activeIndex, videos]);
+  }, [open, activeIndex, videos]);
 
-  // When opened, scroll to the clicked video
-  useEffect(() => {(async () => {
-if (!open || !scrollRef.current || videos.length === 0) return;
+  // ✅ Prefetch earlier: when user reaches 1 video before the end
+  useEffect(() => {
+    if (!open) return;
+    if (!onEndReached) return;
+    if (isLoadingMore) return;
+    if (videos.length === 0) return;
 
-    const container = scrollRef.current;
-    const idx = initialVideoId
-      ? videos.findIndex((v) => v.id === initialVideoId)
-      : 0;
+    const triggerIndex = Math.max(0, videos.length - 1 - PREFETCH_OFFSET_FROM_END);
+    if (activeIndex < triggerIndex) return;
 
-    const targetIdx = idx >= 0 ? idx : 0;
-    const section = container.querySelector<HTMLElement>(
-      `[data-fullscreen-idx="${targetIdx}"]`
-    );
+    // only request once per current length
+    if (requestedAtLengthRef.current === videos.length) return;
+    requestedAtLengthRef.current = videos.length;
 
-    if (section) {
-      section.scrollIntoView({ block: "center" });
-      setActiveIndex(targetIdx); // 🔹 ensure we track the first one
-    } else {
-      container.scrollTop = 0;
-      setActiveIndex(0);
-    }
-
-  })()
-    
-  }, [open, initialVideoId, videos]);
+    onEndReached();
+  }, [open, activeIndex, videos.length, onEndReached, isLoadingMore]);
 
   if (!open) return null;
 
   const handleScroll = (e: UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
     const current = target.scrollTop;
-    lastScrollTop.current = current;
 
-    // 🔹 detect which "page" (index) is active
-    const approxIndex = Math.round(
-      current / (target.clientHeight || window.innerHeight || 1)
-    );
-    if (
-      approxIndex >= 0 &&
-      approxIndex < videos.length &&
-      approxIndex !== activeIndex
-    ) {
+    scrollTopRef.current = current;
+
+    // detect which "page" is active
+    const pageHeight = target.clientHeight || window.innerHeight || 1;
+    const approxIndex = Math.round(current / pageHeight);
+
+    if (approxIndex >= 0 && approxIndex < videos.length && approxIndex !== activeIndex) {
       setActiveIndex(approxIndex);
-
-
-
-    }
-
-
-
-
-    // Infinite scroll hook
-    if (!onEndReached || isLoadingMore) return;
-
-    const distanceFromBottom =
-      target.scrollHeight - (target.scrollTop + target.clientHeight);
-
-    if (distanceFromBottom < SCROLL_END_THRESHOLD) {
-      onEndReached();
     }
   };
 
@@ -152,12 +187,8 @@ if (!open || !scrollRef.current || videos.length === 0) return;
     });
   };
 
-  // 🔹 NEW: register a view whenever activeIndex changes
-  
-
   return (
-    <div className="fixed inset-0 z-[90] bg-black/70 backdrop-blur-xl  h-full flex flex-col">
-      {/* Scrollable vertical feed */}
+    <div className="fixed inset-0 z-[90] bg-black/70 backdrop-blur-xl h-full flex flex-col">
       <div
         ref={scrollRef}
         onScroll={handleScroll}
@@ -166,22 +197,14 @@ if (!open || !scrollRef.current || videos.length === 0) return;
         {videos.map((video, index) => {
           const anyVideo = video as any;
           const isAd = !!anyVideo._isAd;
-          const visitUrl: string | undefined =
-            anyVideo._adLandingUrl ?? undefined;
-          const key = isAd ? `ad-${video.id}` : `media-${video.id}`;
+          const visitUrl: string | undefined = anyVideo._adLandingUrl ?? undefined;
 
           if (isAd) {
             return (
               <section
                 data-fullscreen-idx={index}
-                key={key}
-                className="
-                  snap-center snap-always
-                  flex items-center justify-center
-                  h-screen
-                  lg:h-[100dvh]
-                  w-full
-                "
+                key={index} // ✅ as requested
+                className="snap-center snap-always flex items-center justify-center h-screen lg:h-[100dvh] w-full"
               >
                 <SponsoredVideoCard
                   video={video}
@@ -195,15 +218,9 @@ if (!open || !scrollRef.current || videos.length === 0) return;
 
           return (
             <section
-              key={key}
               data-fullscreen-idx={index}
-              className="
-                snap-center snap-always
-                flex items-center justify-center
-                h-screen
-                lg:h-[100dvh]
-                w-full
-              "
+              key={index} // ✅ as requested
+              className="snap-center snap-always flex items-center justify-center h-screen lg:h-[100dvh] w-full"
             >
               <VideoCard
                 video={video}
@@ -218,26 +235,17 @@ if (!open || !scrollRef.current || videos.length === 0) return;
         })}
 
         {isLoadingMore && (
-          <div className="py-6 text-center text-sm text-neutral-400">
-            Loading more…
-          </div>
+          <div className="py-6 text-center text-sm text-neutral-400">Loading more…</div>
         )}
       </div>
 
-      {/* Up/down controls on the right (desktop only) */}
       <div className="hidden lg:flex fixed right-6 top-1/2 -translate-y-1/2 z-[95] flex-col gap-3">
-        <NavCircleButton
-          onClick={() => scrollOneStep("up")}
-          ariaLabel="Previous video"
-        >
+        <button onClick={() => scrollOneStep("up")} aria-label="Previous video">
           <ChevronUp className="h-6 w-6" />
-        </NavCircleButton>
-        <NavCircleButton
-          onClick={() => scrollOneStep("down")}
-          ariaLabel="Next video"
-        >
+        </button>
+        <button onClick={() => scrollOneStep("down")} aria-label="Next video">
           <ChevronDown className="h-6 w-6" />
-        </NavCircleButton>
+        </button>
       </div>
     </div>
   );

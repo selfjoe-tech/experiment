@@ -45,7 +45,6 @@ export function LoginForm({ onShowForgot }: { onShowForgot: () => void }) {
   };
 
   return (
-        <Suspense>
 
     <AuthDialog title="Log In">
       <h2 className="text-xl font-semibold mb-6">Log In</h2>
@@ -135,7 +134,6 @@ export function LoginForm({ onShowForgot }: { onShowForgot: () => void }) {
         </p>
       </form>
     </AuthDialog>
-            </Suspense>
 
   );
 }

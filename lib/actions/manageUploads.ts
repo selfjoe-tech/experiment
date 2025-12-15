@@ -52,6 +52,7 @@ function mapMediaRowToManaged(row: any): ManagedMedia | null {
   };
 }
 
+
 /** Map a row from the `ads` table */
 function mapAdRowToManaged(row: any): ManagedMedia | null {
   // If you store ad files in the same "media" bucket, change "ads" -> "media" here

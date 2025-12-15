@@ -9,9 +9,9 @@ export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "forgot">("login");
 
   return mode === "login" ? (
-    <Suspense>
-          <LoginForm onShowForgot={() => setMode("forgot")} />
-    </Suspense>
+    <Suspense fallback={<div className="text-white/70 p-6">Loading…</div>}>
+  <LoginForm onShowForgot={() => setMode("forgot")} />
+</Suspense>
   ) : (
     <ForgotPasswordForm onBackToLogin={() => setMode("login")} />
   );

@@ -252,25 +252,19 @@ export default function UploadPage() {
 
           // ---------- 2) WATERMARK ----------
           setProcessingError(null); // just in case
-          const wmName = wmUsername || "user";
+          
 
-          const watermarkedFile = await watermarkVideoFile(workingFile, wmName, {
-            position: "top-left",
-            logoUrl: "/watermark-1.png",
-            onProgress: (ratio) => {
-              // map 0..1 → 30..90
-              const pct = 30 + Math.round(ratio * 60);
-              setProgress(Math.min(90, pct));
-            },
-          });
+          
 
           const finalClip: ClipSelection = {
             ...workingClip,
-            file: watermarkedFile,
+            file: workingFile,
             start: 0,
             end: workingClip.end - workingClip.start,
           };
 
+
+          
           // ---------- 3) UPLOAD ----------
           setProgress(92);
 

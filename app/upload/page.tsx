@@ -3,9 +3,13 @@ import UploadPage from "./UploadPage";
 
 
 export default function PageUpload() {
+  return (
 
-    <Suspense>
+        <Suspense>
       <UploadPage />
     </Suspense>
+  )
+
+
 
 }

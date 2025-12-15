@@ -9,11 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ChevronLeft, X as XIcon, Search, Loader } from "lucide-react";
 import type { AudienceType } from "@/lib/actions/media";
-import { useState } from "react";
+import { startTransition, useState } from "react";
 import {
+  ensureTagAction,
   fetchInitialTagSuggestions,
   searchTagSuggestions,
 } from "@/lib/actions/tags";
+import { slugify } from "@/lib/utils/text";
 
 export type ClipSelection = {
   start: number;
@@ -169,15 +171,24 @@ export default function UploadFlow(props: Props) {
   }, [query, suggestions]);
 
   const addTag = (t: string) => {
-    const v = t.trim();
-    if (!v) return;
+  const v = t.trim();
+  if (!v) return;
 
-    const cap = toTitleCase(v);
-    if (tags.includes(cap) || tags.length >= 10) return;
+  const label = toTitleCase(v);
+  if (tags.includes(label) || tags.length >= 10) return;
 
-    setTags((p) => [...p, cap]);
-    setQuery("");
-  };
+  // optimistic UI
+  setTags((p) => [...p, label]);
+  setQuery("");
+
+  startTransition(async () => {
+    const res = await ensureTagAction({ label, slug: slugify(label) });
+    if (!res.success) {
+      console.error("ensureTagAction failed:", res.message);
+      
+    }
+  });
+};
 
   const removeTag = (t: string) =>
     setTags((p) => p.filter((x) => x !== t));

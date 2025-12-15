@@ -43,7 +43,13 @@ export const metadata: Metadata = {
     "onlyfans",
     "fansly",
     "loyalfans",
-    "privacy.com"
+    "privacy.com",
+    "full video",
+    "full video download",
+    "twerking",
+    "tits",
+    "big tits",
+    "creampie"
   ],
   openGraph: {
     type: "website",
@@ -54,7 +60,7 @@ export const metadata: Metadata = {
       "Scroll through endless Porn GIFs, videos and images from verified creators.",
     images: [
       {
-        url: "/icons/logo7.png", // create a nice branded 1200x630 image
+        url: "/icons/logo7.png",
         width: 1200,
         height: 630,
         alt: "Upskirt Candy – Porn Adult GIF & video platform",
@@ -97,11 +103,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <meta name="juicyads-site-verification" content="50181bcfdf34b852dbb8a24813c6930a"></meta>
+          </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
       </body>
+    
     </html>
   );
 }

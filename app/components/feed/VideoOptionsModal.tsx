@@ -237,7 +237,7 @@ export default function VideoOptionsModal({ open, onClose, mediaId }: Props) {
                 type="button"
                 disabled={!selectedReason}
                 onClick={() => selectedReason && setMode("report-step2")}
-                className="flex-1 h-10 rounded-full bg-[#F7FF3C] text-black text-xs font-semibold hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                className="flex-1 h-10 rounded-full bg-pink-500 text-black text-xs font-semibold hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed transition"
               >
                 Next
               </button>
@@ -275,7 +275,7 @@ export default function VideoOptionsModal({ open, onClose, mediaId }: Props) {
                 type="button"
                 onClick={handleSubmitReport}
                 disabled={submitting || !selectedReason}
-                className="flex-1 h-10 rounded-full bg-[#F7FF3C] text-black text-xs font-semibold hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                className="flex-1 h-10 rounded-full bg-pink-500 text-black text-xs font-semibold hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed transition"
               >
                 {submitting ? "Submitting..." : "Submit"}
               </button>
@@ -292,7 +292,7 @@ export default function VideoOptionsModal({ open, onClose, mediaId }: Props) {
             <button
               type="button"
               onClick={onClose}
-              className="w-full h-10 rounded-full bg-[#F7FF3C] text-black text-xs font-semibold hover:brightness-95 transition"
+              className="w-full h-10 rounded-full bg-pink-500 text-black text-xs font-semibold hover:brightness-95 transition"
             >
               Close
             </button>

@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { signupAction, AuthFieldErrors, checkUsernameAvailability  } from "@/lib/actions/auth";
 
-export default function SignupPage() {
+export function SignupForm() {
   const [username, setUsername] = useState("");
   const [usernameStatus, setUsernameStatus] = useState<
   "idle" | "checking" | "available" | "taken"
@@ -29,8 +29,9 @@ export default function SignupPage() {
 
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
-  const sp = useSearchParams();
-  const redirect = sp.get("redirect") || "/preferences";
+    const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect") ?? "/";
+ 
 
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -97,7 +98,6 @@ if (!username) {
 }, [username]);
 
   return (
-    <Suspense>
     <AuthDialog title="Sign Up">
       <h2 className="text-xl font-semibold mb-6">Sign Up</h2>
 
@@ -254,6 +254,5 @@ if (!username) {
         </p>
       </form>
     </AuthDialog>
-    </Suspense>
   );
 }

@@ -7,6 +7,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Eye, Play, Volume2, VolumeX, EllipsisIcon } from "lucide-react";
 import type { Video } from "@/app/components/feed/types";
 import VideoOptionsModal from "@/app/components/feed/VideoOptionsModal";
+import { LongLogo } from "../icons/LongLogo";
 
 type Props = {
   video: Video;
@@ -161,6 +162,12 @@ export default function EmbedVideoCard({
           loop
           playsInline
         />
+      </div>
+
+      <div className="absolute flex left-3 top-12 z-30 flex-col items-center">
+        <Link href={"/"}>
+           <LongLogo />
+        </Link>
       </div>
 
       {/* click overlay: play/pause only */}

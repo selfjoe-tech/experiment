@@ -8,7 +8,12 @@ type PageProps = {
 
 export default function UploadAdsPage( {params}: PageProps ) {
 
-    <Suspense>
+  return (
+ <Suspense>
         <AdsUploadPage params={params} />
     </Suspense>
+
+  )
+
+   
 }
