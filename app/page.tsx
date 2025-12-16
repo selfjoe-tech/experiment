@@ -110,15 +110,15 @@ export default function HomePage() {
 
 function ForYouLoginGate() {
   return (
-    <main className="relative h-screen lg:pl-[17rem] lg:pr-[21rem] lg:pt-16">
-      <div className="relative h-full flex items-center justify-center px-3 sm:px-4">
+    <main className="relative w-full h-screen lg:pl-[17rem] lg:pr-[21rem]">
+      <div className="relative h-full flex items-center justify-center">
         {/* Background image behind the card */}
 
         {/* Card */}
         <div className="flex flex-col items-center justify-center relative max-w-sm w-full h-full bg-black/80 border border-white/15 shadow-2xl overflow-hidden"
           style={{
     // 👈 change this path to match your file in /public
-          backgroundImage: "url('/images/unlock-2.png')",
+          backgroundImage: "url('/images/unlock.png')",
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",

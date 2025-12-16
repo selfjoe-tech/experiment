@@ -139,7 +139,7 @@ export default function ProfileMenuContent() {
             style={{ backgroundColor: ACCENT }}
           >
             <VerifiedBadgeIcon />
-            Get Verified
+            <span>Get</span> <span>Verified</span>
           </button>
         )}
       </div>

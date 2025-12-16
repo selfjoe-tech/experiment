@@ -50,6 +50,7 @@ type Props = {
 import SearchOverlay from "@/app/components/search/SearchOverlay";
 import { ShortLogo } from "../../icons/ShortLogo";
 import { MobileAd } from "../../ads/AdCard";
+import { ContactUs } from "../../ui/ContactUs";
 
 
 export default function MobileChrome(props: Props) {
@@ -163,56 +164,9 @@ function MobileTopBar({
             </button>
           </div>
 
-          <div className="p-4 space-y-4">
-            {/* Contact us container */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <div className="text-sm font-semibold text-white mb-2">Contact us</div>
+          <ContactUs />
 
-              <a
-                href="mailto:sales@upskirtcandy.com"
-                className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white/90 hover:bg-white/10 transition"
-              >
-                <Mail className="h-4 w-4 text-pink-500" />
-                <span className="truncate">sales@upskirtcandy.com</span>
-              </a>
 
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                <a
-                  href="https://reddit.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white/90 hover:bg-white/10 transition"
-                  aria-label="Reddit"
-                >
-                  <RedditIcon className="h-4 w-4 text-white/90" />
-                </a>
-
-                <a
-                  href="https://x.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white/90 hover:bg-white/10 transition"
-                  aria-label="X"
-                >
-                  <XIcon className="h-4 w-4 text-white/90" />
-                </a>
-
-                <a
-                  href="https://discord.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white/90 hover:bg-white/10 transition"
-                  aria-label="Discord"
-                >
-                  <DiscordIcon className="h-4 w-4 text-white/90" />
-                </a>
-              </div>
-
-              <p className="mt-3 text-xs text-white/55">
-                Replace the links above with your real profile/community URLs.
-              </p>
-            </div>
-          </div>
         </aside>
       </div>
 
@@ -252,7 +206,6 @@ function MobileTopBar({
             <ShortLogo />
           </Link>
 
-          <MobileAd name="Advertise here" />
 
           <div className="flex items-center gap-2">
             <button
@@ -368,7 +321,7 @@ function MobileBottomNav({ isAuthed = true }: { isAuthed?: boolean }) {
 
     <div
       className="
-        relative w-full max-w-sm mx-6 rounded-3xl overflow-hidden
+        relative w-full h-100 max-w-sm mx-6 rounded-3xl overflow-hidden
         border border-white/20 shadow-2xl
       "
     >
@@ -376,7 +329,7 @@ function MobileBottomNav({ isAuthed = true }: { isAuthed?: boolean }) {
       <div
         className="absolute inset-0 bg-cover bg-center"
         style={{
-          backgroundImage: "url('/images/mobile-upload-gate.jpg')", // 👈 change path
+          backgroundImage: "url('/images/unlock-1.png')", // 👈 change path
         }}
       />
 

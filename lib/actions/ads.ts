@@ -238,3 +238,17 @@ export async function fetchDesktopSidebarAds(): Promise<SidebarAd[]> {
   // return up to 5 random ads
   return mapped.slice(0, 5);
 }
+
+
+export async function incrementAdClicks(adId: string) {
+  const id = adId;
+  if (!id) {
+    throw new Error("Invalid ad id");
+  }
+
+  const { error } = await supabase.rpc("increment_ad_clicks", { ad_id: id });
+
+  if (error) throw new Error(error.message);
+
+  return { ok: true };
+}

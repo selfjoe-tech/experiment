@@ -384,7 +384,7 @@ export default function UploadPage() {
           />
 
           <p className="flex text-sm text-red-500 ">
-            We recommend videos lower than 50 MB for faster uploads           
+            We recommend videos lower than 50 MB and less than 1 minute for faster uploads           
             
           </p>
           <input

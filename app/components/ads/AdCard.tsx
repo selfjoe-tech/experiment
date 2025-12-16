@@ -118,7 +118,7 @@ export function MobileAd({ name }: { name: string }) {
   // If loading OR no valid ad/image → default pill
   if (loading || !ad || !mediaUrl) {
     return (
-      <Link href="/ads" className="flex flex-col gap-2">
+      <Link href="/ads" className="flex gap-2">
         <div
           className="text-nowrap h-10 px-5 gap-2 w-full flex rounded-[50px] items-center justify-center text-sm font-semibold text-white"
           style={{
@@ -140,7 +140,7 @@ export function MobileAd({ name }: { name: string }) {
       rel={isExternal ? "noopener noreferrer" : undefined}
       className="flex flex-col gap-2"
     >
-      <div className="w-70 rounded-2xl overflow-hidden border border-white/10 bg-black/80">
+      <div className=" rounded-2xl overflow-hidden border border-white/10 bg-black/80">
         {/* Banner image */}
         <div className="relative w-full h-10 bg-black">
           <Image

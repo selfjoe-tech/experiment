@@ -87,7 +87,7 @@ export async function fetchRandomAdForFeed(): Promise<Video | null> {
   if (!src) return null;
 
   const adVideo: Video = {
-    id: `ad-${picked.id}`,
+    id: picked.id,
     mediaId: picked.id, // this is ads.id, not media.id
     src,
     title: "",

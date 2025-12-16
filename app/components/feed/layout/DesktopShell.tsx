@@ -33,6 +33,7 @@ import { useRouter } from "next/navigation";
 import { buildPublicUrl } from "@/lib/actions/mediaFeed";
 import { supabase } from "@/lib/supabaseClient";
 import { fetchDesktopSidebarAds } from "@/lib/actions/ads";
+import { ContactUs } from "../../ui/ContactUs";
 
 
 type SidebarAd = {
@@ -176,11 +177,10 @@ const items: {
           )
         )}
       </nav>
-
-      <div className="mt-auto space-y-1 text-[11px] text-white/60">
-        <button className="block text-left hover:text-white">For business contact sales@upskirtcandy.com</button>
-        
-      </div>
+              <div className="mt-20">
+                <ContactUs />
+              </div>
+      
       {showUploadAuthModal && (
   <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 backdrop-blur-sm">
     {/* Click outside to close */}
@@ -191,7 +191,7 @@ const items: {
 
     <div
       className="
-        relative w-full max-w-sm mx-4 rounded-3xl overflow-hidden
+        relative w-full h-100 max-w-sm mx-4 rounded-3xl overflow-hidden
         border border-white/15 shadow-2xl
       "
     >
@@ -199,7 +199,7 @@ const items: {
       <div
         className="absolute inset-0 bg-cover bg-center"
         style={{
-          backgroundImage: "url('/images/upload-gate-bg.jpg')", // 👈 change path
+          backgroundImage: "url('/images/unlock-1.png')", // 👈 change path
         }}
       />
 
@@ -210,10 +210,10 @@ const items: {
       <div className="relative p-6 space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold">Sign in to upload</h2>
+            <h2 className="text-sm font-semibold">Sign/Login in to upload</h2>
             <p className="mt-1 text-xs text-white/70">
               You need an UpskirtCandy account to upload content.
-              Log in or create a free account to start posting.
+              Log in to start posting.
             </p>
           </div>
           <button

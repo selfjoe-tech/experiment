@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import React, { useEffect, useRef, useState } from "react";
+import React, { startTransition, useEffect, useRef, useState } from "react";
 import {
   Eye,
   Heart,
@@ -56,6 +56,7 @@ import {
 } from "@/lib/actions/comments";
 import { VerifiedBadgeIcon } from "../icons/VerifiedBadgeIcon";
 import { CommentListSkeleton } from "../skeletons/CommentListSkeleton";
+import { incrementAdClicks } from "@/lib/actions/ads";
 
 type Props = {
   video: Video;
@@ -816,13 +817,21 @@ const mediaIdNum = !isSponsored
         </div>
         {isSponsored && visitUrl && (
             <button
-              type="button"
-              onClick={() => window.open(visitUrl, "_blank")}
-              className="gap-2 items-center mt-3 inline-flex bg-pink-500 w-full h-10 items-center justify-center rounded-full text-white px-4 py-1.5 text-[20px] font-semibold hover:bg-white/90 hover:text-black"
-            >
-              Visit Page
-          <ArrowUpRightFromSquare size={20} />
-            </button>
+  type="button"
+  onClick={() => {
+    // open first (keeps browser popup blockers happy)
+    window.open(visitUrl, "_blank", "noopener,noreferrer");
+
+    // fire-and-forget click tracking
+    startTransition(() => {
+      void incrementAdClicks(video.id);
+    });
+  }}
+  className="gap-2 items-center mt-3 inline-flex bg-pink-500 w-full h-10 items-center justify-center rounded-full text-white px-4 py-1.5 text-[20px] font-semibold hover:bg-white/90 hover:text-black"
+>
+  Visit Page
+  <ArrowUpRightFromSquare size={20} />
+</button>
           )}
 
         {/* scrubber */}

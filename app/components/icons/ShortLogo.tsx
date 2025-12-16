@@ -5,7 +5,7 @@ import Image from "next/image";
 export function ShortLogo(
   ) {
   return (
-    <div className="flex mt-10 gap-1 items-center justify-center text-2xl font-bold tracking-wide">
+    <div className="flex gap-1 items-center justify-center text-2xl font-bold tracking-wide">
         
           <Image
             src={"/icons/logo7.png"}
