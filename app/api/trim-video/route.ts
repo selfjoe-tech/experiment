@@ -4,82 +4,134 @@ import { spawn } from "child_process";
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
+import crypto from "crypto";
 import { getFfmpegPath } from "@/lib/ffmpegServer";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+export const runtime = "nodejs";
 
-export const runtime = "nodejs"; // IMPORTANT: Node, not Edge
+// (Optional) helps on some platforms; ignore if you don't need it.
+// export const maxDuration = 60;
+
+type TrimReq = {
+  inBucket: string;
+  inPath: string;
+  startSec: number;
+  endSec: number;
+  outBucket?: string;
+  cleanupInput?: boolean;
+};
 
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData();
-    const file = formData.get("file") as File | null;
-    const startSec = Number(formData.get("start"));
-    const endSec = Number(formData.get("end"));
+let body: any;
+try {
+  body = await req.json();
+} catch {
+  return NextResponse.json(
+    {
+      error:
+        "Expected JSON body. Your client is sending multipart/form-data. Update trimOnServer() to send JSON (storage path + times), not the raw file.",
+    },
+    { status: 415 }
+  );
+}
+    const supabase = getSupabaseAdmin();
+    const inBucket = body.inBucket;
+    const inPath = body.inPath;
+    const startSec = Number(body.startSec);
+    const endSec = Number(body.endSec);
+    const outBucket = body.outBucket || inBucket;
+    const cleanupInput = !!body.cleanupInput;
 
-    if (!file) {
-      return NextResponse.json({ error: "Missing file" }, { status: 400 });
+    if (!inBucket || !inPath) {
+      return NextResponse.json({ error: "Missing inBucket/inPath" }, { status: 400 });
     }
 
     if (!Number.isFinite(startSec) || !Number.isFinite(endSec) || endSec <= startSec) {
-      return NextResponse.json(
-        { error: "Invalid start/end times" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid start/end times" }, { status: 400 });
     }
 
-    const ffmpegBin = getFfmpegPath();
-    console.log("Using ffmpeg binary:", ffmpegBin);
 
-    // ===== 1) write uploaded File to a temp path =====
+    // 1) Download input from Storage
+    const dl = await supabase.storage.from(inBucket).download(inPath);
+    console.log(dl, "<<<<<<<<<<<<<< dl")
+    if (dl.error || !dl.data) {
+      throw new Error(`Failed to download input: ${dl.error?.message || "no data"}`);
+    }
+
+    const inputBuf = Buffer.from(await dl.data.arrayBuffer());
+
+    // 2) Write to /tmp
     const tmpDir = os.tmpdir();
-    const inputPath = path.join(tmpDir, `trim-input-${Date.now()}.mp4`);
-    const outputPath = path.join(tmpDir, `trim-output-${Date.now()}.mp4`);
+    const id = crypto.randomUUID();
+    const inputPath = path.join(tmpDir, `trim-in-${id}.mp4`);
+    const outputPath = path.join(tmpDir, `trim-out-${id}.mp4`);
+    await fs.writeFile(inputPath, inputBuf);
 
-    const fileArrayBuffer = await file.arrayBuffer();
-    const fileBuffer = Buffer.from(fileArrayBuffer);
-    await fs.writeFile(inputPath, fileBuffer);
+    // 3) Run ffmpeg trim
+    const ffmpegBin = getFfmpegPath();
+    console.log(ffmpegBin, "<<<<<<<<<<<<, ffmpegbin")
 
-    // ===== 2) run ffmpeg to trim =====
+    // Use -t (duration) instead of -to to avoid "full video" edge cases
+    const duration = Math.max(0.001, endSec - startSec);
+
     const args = [
       "-hide_banner",
-      "-y",                          // overwrite output if exists
-      "-ss", startSec.toString(),    // start time
-      "-to", endSec.toString(),      // end time
-      "-i", inputPath,
-      "-c", "copy",                  // stream copy (no re-encode, fast & small)
-      "-movflags", "faststart",
+      "-y",
+      "-ss",
+      String(startSec),
+      "-i",
+      inputPath,
+      "-t",
+      String(duration),
+      "-c",
+      "copy",
+      "-movflags",
+      "faststart",
       outputPath,
     ];
 
-    console.log("Running ffmpeg with args:", args.join(" "));
-
     await runFfmpeg(ffmpegBin, args);
 
-    // ===== 3) read trimmed file =====
+    // 4) Read output
     const trimmedBuffer = await fs.readFile(outputPath);
-    const sizeMb = trimmedBuffer.length / (1024 * 1024);
-    console.log(`Trimmed video size: ${sizeMb.toFixed(2)} MB`);
+    if (!trimmedBuffer.length) throw new Error("ffmpeg produced empty output");
 
-    // optional: sanity check
-    if (trimmedBuffer.length === 0) {
-      throw new Error("ffmpeg produced an empty output file");
+    // 5) Upload output to Storage
+    const outPath = `trim/out/${Date.now()}-${id}.mp4`;
+
+    const up = await supabase.storage.from(outBucket).upload(outPath, trimmedBuffer, {
+      contentType: "video/mp4",
+      upsert: true,
+    });
+
+    if (up.error) throw new Error(`Failed to upload output: ${up.error.message}`);
+
+    // 6) Signed URL for client to download (so client can return a File)
+    const signed = await supabase.storage.from(outBucket).createSignedUrl(outPath, 60 * 15);
+    if (signed.error || !signed.data?.signedUrl) {
+      throw new Error(`Failed to create signed url: ${signed.error?.message || "no url"}`);
     }
 
-    // ===== 4) cleanup temp files (best-effort) =====
+    // 7) Cleanup temp files
     safeUnlink(inputPath);
     safeUnlink(outputPath);
 
-    // ===== 5) return binary video response =====
-    // Client can call res.blob() and wrap into a File.
-    return new NextResponse(trimmedBuffer, {
-      status: 200,
-      headers: {
-        "Content-Type": file.type || "video/mp4",
-        "Content-Length": String(trimmedBuffer.length),
-        // you can also return a hint of trimmed duration via header if you want
-        "X-Trim-Start": String(startSec),
-        "X-Trim-End": String(endSec),
+    // Optional: remove input object
+    if (cleanupInput) {
+      supabase.storage.from(inBucket).remove([inPath]).catch(() => {});
+    }
+
+    return NextResponse.json(
+      {
+        outBucket,
+        outPath,
+        downloadUrl: signed.data.signedUrl,
+        startSec,
+        endSec,
       },
-    });
+      { status: 200 }
+    );
   } catch (err: any) {
     console.error("trim-video error", err);
     return NextResponse.json(
@@ -89,37 +141,19 @@ export async function POST(req: NextRequest) {
   }
 }
 
-/**
- * Spawn ffmpeg and wait until it finishes.
- */
 function runFfmpeg(bin: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(bin, args);
 
-    child.stdout.on("data", (data) => {
-      console.log("[ffmpeg stdout]", data.toString());
-    });
-
-    child.stderr.on("data", (data) => {
-      console.log("[ffmpeg stderr]", data.toString());
-    });
-
-    child.on("error", (err) => {
-      reject(err);
-    });
-
+    child.stderr.on("data", (data) => console.log("[ffmpeg]", data.toString()));
+    child.on("error", reject);
     child.on("close", (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`ffmpeg exited with code ${code}`));
-      }
+      if (code === 0) resolve();
+      else reject(new Error(`ffmpeg exited with code ${code}`));
     });
   });
 }
 
 function safeUnlink(p: string) {
-  fs.unlink(p).catch(() => {
-    // ignore cleanup errors
-  });
+  fs.unlink(p).catch(() => {});
 }

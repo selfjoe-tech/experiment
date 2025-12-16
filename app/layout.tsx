@@ -104,8 +104,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <link rel="icon" type="image/png" href="/icons/logo7.png"/>
         <meta name="juicyads-site-verification" content="50181bcfdf34b852dbb8a24813c6930a"></meta>
-          </head>
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

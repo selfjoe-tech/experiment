@@ -24,7 +24,9 @@ import {
 } from "@/lib/actions/media";
 import Link from "next/link";
 import { getUserProfileFromCookies } from "@/lib/actions/auth";
-import { watermarkVideoFile } from "@/lib/client/watermarkVideo";
+import { trimOnServer } from "@/lib/actions/videoEditor";
+import OverlayPortal from "@/app/components/ui/OverlayPortal";
+
 
 const ACCENT = "pink";
 
@@ -35,53 +37,7 @@ type PostFlow =
 
 
 // Helper: send original clip + range to server, get a *trimmed* File back
-async function trimOnServer(
-  clip: ClipSelection,
-  onProgress?: (pct: number) => void
-): Promise<File> {
-  const fd = new FormData();
-  fd.append("file", clip.file);
-  fd.append("start", String(clip.start));
-  fd.append("end", String(clip.end));
 
-  // start at 5%
-  onProgress?.(5);
-
-  const req = fetch("/api/trim-video", {
-    method: "POST",
-    body: fd,
-  });
-
-  // fake incremental progress while trimming
-  let current = 5;
-  let intervalId: number | undefined;
-  if (onProgress) {
-    intervalId = window.setInterval(() => {
-      current = Math.min(30, current + 5);
-      onProgress(current);
-    }, 300);
-  }
-
-  const res = await req;
-
-  if (intervalId !== undefined) {
-    window.clearInterval(intervalId);
-    onProgress?.(30); // done trimming
-  }
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Trim failed (${res.status}). ${text || ""}`);
-  }
-
-  const blob = await res.blob();
-  const trimmedFileName =
-    clip.file.name.replace(/\.[^.]+$/, "") + "-trimmed.mp4";
-
-  return new File([blob], trimmedFileName, {
-    type: blob.type || "video/mp4",
-  });
-}
 
 
 
@@ -94,6 +50,8 @@ export default function UploadPage() {
   const [progress, setProgress] = useState(0);
   const [processingError, setProcessingError] = useState<string | null>(null);
   const [wmUsername, setWmUsername] = useState<string>("");
+  const [videoDurationSec, setVideoDurationSec] = useState<number | null>(null);
+
 
   useEffect(() => {
   (async () => {
@@ -152,9 +110,11 @@ export default function UploadPage() {
 
     try {
       const url = URL.createObjectURL(f);
-      await ensureVideoUsable(url, { timeoutMs: 10000 });
+      const durationSec = await ensureVideoUsable(url, { timeoutMs: 10000 });
+
       setVideoFile(f);
       setVideoUrl(url);
+      setVideoDurationSec(durationSec);
     } catch (err) {
       console.error(err);
       setPrepError(
@@ -186,6 +146,7 @@ export default function UploadPage() {
           if (videoUrl) URL.revokeObjectURL(videoUrl);
           setVideoUrl(null);
           setVideoFile(null);
+          setVideoDurationSec(null);
         }}
         onNext={(clip) => setPostFlow({ kind: "video", clip })}
       />
@@ -218,41 +179,48 @@ export default function UploadPage() {
       clip={postFlow.clip}
       onCancel={() => setPostFlow(null)}
       onSubmit={async (formValues) => {
-        // this is called by UploadFlow, which will show/hide its spinner
         setProcessing(true);
         setProcessingError(null);
         setProgress(0);
 
         try {
           const originalClip = postFlow.clip;
-          const clipDuration = originalClip.end - originalClip.start;
 
-          // ---------- 1) TRIM (if needed) ----------
+          // selection duration (seconds)
+          const selectionDuration = Math.max(0, originalClip.end - originalClip.start);
+
+          // original picked file duration (seconds) from ensureVideoUsable()
+          const originalDuration = videoDurationSec ?? 0;
+
+          const EPS = 0.30;
+
           const needsTrim =
-            clipDuration > 60 || originalClip.start > 0; // skip if <60s & start==0
+            originalDuration > 60 + EPS
 
-          let workingClip: ClipSelection = originalClip;
           let workingFile: File = originalClip.file;
+          let workingClip: ClipSelection = originalClip;
 
+          console.log(originalDuration, "original duration")
+
+          console.log(selectionDuration, "<<<<<<<<<<<, selection duration")
+
+          console.log(needsTrim, "<<<< needs trim")
+
+          // ---------- 1) TRIM (server) ----------
           if (needsTrim) {
-            const trimmedFile = await trimOnServer(originalClip, (pct) =>
-              setProgress(pct)
-            );
+            const trimmedFile = await trimOnServer(originalClip, (pct) => setProgress(pct));
             workingFile = trimmedFile;
+
+            // after trimming, the file is already the selection
             workingClip = {
               ...originalClip,
               file: trimmedFile,
               start: 0,
-              end: clipDuration,
+              end: selectionDuration,
             };
           } else {
-            // no trim → jump to ~30%
             setProgress(30);
           }
-
-          // ---------- 2) WATERMARK ----------
-          setProcessingError(null); // just in case
-          
 
           
 
@@ -263,8 +231,8 @@ export default function UploadPage() {
             end: workingClip.end - workingClip.start,
           };
 
+          console.log(finalClip, "<<<<<<<< finalclip")
 
-          
           // ---------- 3) UPLOAD ----------
           setProgress(92);
 
@@ -285,7 +253,6 @@ export default function UploadPage() {
           console.error(err);
           const msg = err?.message ?? "Upload failed, please try again.";
           setProcessingError(msg);
-          // Let UploadFlow know there was an error so it can stop the spinner
           throw new Error(msg);
         } finally {
           setProcessing(false);
@@ -362,30 +329,37 @@ export default function UploadPage() {
 
   // 4) picker UI
   return (
-    <div className="relative min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
+<div className="relative isolate min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
       {processing && (
-        <div className="fixed bottom-4 left-1/2 z-70 w-full max-w-md -translate-x-1/2 px-4">
-          <div className="rounded-2xl border border-white/15 bg-black/80 p-4 space-y-2 shadow-xl">
-            <div className="flex justify-between text-xs text-white/80">
-              <span>Processing video…</span>
-              <span>{progress}%</span>
-            </div>
-            <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
-              <div
-                className="h-full rounded-full"
-                style={{
-                  width: `${progress}%`,
-                  background:
-                    "linear-gradient(90deg, rgb(236,72,153), rgb(251,191,36))",
-                }}
-              />
-            </div>
-            {processingError && (
-              <p className="text-xs text-red-400 mt-1">{processingError}</p>
-            )}
+  <OverlayPortal>
+    <div className="fixed inset-0 z-[9999] pointer-events-none">
+      <div className="absolute bottom-4 left-1/2 w-full max-w-md -translate-x-1/2 px-4 pointer-events-auto">
+        <div className="rounded-2xl border border-white/15 bg-black/80 p-4 space-y-2 shadow-xl backdrop-blur">
+          <div className="flex justify-between text-xs text-white/80">
+            <span>Processing video…</span>
+            <span>{progress}%</span>
           </div>
+
+          <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${progress}%`,
+                background:
+                  "linear-gradient(90deg, rgb(236,72,153), rgb(251,191,36))",
+              }}
+            />
+          </div>
+
+          {processingError && (
+            <p className="text-xs text-red-400 mt-1">{processingError}</p>
+          )}
         </div>
-      )}
+      </div>
+    </div>
+  </OverlayPortal>
+)}
+
       <header className="sticky top-0 z-10 flex items-center justify-center h-14 bg-black/80 backdrop-blur border-b border-white/10">
         <button
           onClick={onClose}
@@ -535,26 +509,30 @@ function BigOutlineButton({
 }
 
 /** Preflight: ensure the blob VIDEO URL is usable */
+/** Preflight: ensure the blob VIDEO URL is usable + return duration (seconds) */
 async function ensureVideoUsable(
   url: string,
   { timeoutMs = 10000 }: { timeoutMs?: number } = {}
-) {
+): Promise<number> {
   const v = document.createElement("video");
   v.preload = "metadata";
   (v as any).muted = true;
   (v as any).playsInline = true;
   v.src = url;
 
-  await new Promise<void>((resolve, reject) => {
+  const duration = await new Promise<number>((resolve, reject) => {
     const t = setTimeout(() => reject(new Error("metadata-timeout")), timeoutMs);
+
     v.addEventListener(
       "loadedmetadata",
       () => {
         clearTimeout(t);
-        resolve();
+        const d = Number.isFinite(v.duration) ? v.duration : 0;
+        resolve(d);
       },
       { once: true }
     );
+
     v.addEventListener(
       "error",
       () => {
@@ -570,4 +548,6 @@ async function ensureVideoUsable(
     v.addEventListener("canplay", done, { once: true });
     setTimeout(done, 150);
   });
+
+  return duration;
 }
