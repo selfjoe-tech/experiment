@@ -42,6 +42,7 @@ type PostFlow =
 
 
 export default function UploadPage() {
+  const MAX_VIDEO_SECONDS = 65;
   const router = useRouter();
   const sp = useSearchParams();
   const redirect = sp.get("redirect") || "/home";
@@ -100,31 +101,55 @@ export default function UploadPage() {
   };
 
   async function handlePickVideo(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0] ?? null;
-    e.currentTarget.value = "";
-    if (!f) return;
+  const f = e.target.files?.[0] ?? null;
+  e.currentTarget.value = "";
+  if (!f) return;
 
-    setPrepError(null);
-    setIsPreparing(true);
-    setPrepTarget("video");
+  setPrepError(null);
+  setIsPreparing(true);
+  setPrepTarget("video");
 
-    try {
-      const url = URL.createObjectURL(f);
-      const durationSec = await ensureVideoUsable(url, { timeoutMs: 10000 });
+  let url: string | null = null;
 
-      setVideoFile(f);
-      setVideoUrl(url);
-      setVideoDurationSec(durationSec);
-    } catch (err) {
-      console.error(err);
+  try {
+    url = URL.createObjectURL(f);
+    const durationSec = await ensureVideoUsable(url, { timeoutMs: 10000 });
+
+    // Hard block: > 60s not allowed (no trimming)
+    if (durationSec > MAX_VIDEO_SECONDS + 0.05) {
+      URL.revokeObjectURL(url);
+      url = null;
+
+      setVideoFile(null);
+      setVideoUrl(null);
+      setVideoDurationSec(null);
+
       setPrepError(
-        "We couldn't load this video. Try another file (H.264/AAC MP4 is safest)."
+        "Videos longer than 1 minute aren’t allowed right now. Please upload a 60s (or shorter) clip."
       );
-    } finally {
-      setIsPreparing(false);
-      setPrepTarget(null);
+      return;
     }
+
+    setVideoFile(f);
+    setVideoUrl(url);
+    setVideoDurationSec(durationSec);
+  } catch (err) {
+    console.error(err);
+    if (url) URL.revokeObjectURL(url);
+
+    setVideoFile(null);
+    setVideoUrl(null);
+    setVideoDurationSec(null);
+
+    setPrepError(
+      "We couldn't load this video. Try another file (H.264/AAC MP4 is safest)."
+    );
+  } finally {
+    setIsPreparing(false);
+    setPrepTarget(null);
   }
+}
+
 
   function handlePickImages(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(e.target.files ?? []);
@@ -384,9 +409,15 @@ export default function UploadPage() {
           />
 
           <p className="flex text-sm text-red-500 ">
-            We recommend videos lower than 50 MB and less than 1 minute for faster uploads           
-            
+            Videos longer than 1 minute are not allowed. 
+
           </p>
+
+      <p className="flex text-sm text-red-500 gap-2">
+        We recommended using <span className="text-pink-500 underline"><a href={"https://online-video-cutter.com/"}>123apps.com</a></span> for clipping videos,{" it's"} fast and free           
+
+      </p>
+
           <input
             ref={videoInputRef}
             type="file"
