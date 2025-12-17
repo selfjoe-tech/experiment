@@ -1,22 +1,22 @@
 // lib/server/watchOgMeta.ts
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY!;
-
-const MEDIA_BUCKET = "media"
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const MEDIA_BUCKET = "media";
 
 
-export function buildPublicUrl(path: string): string {
-  const { data } = supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path);
+const FALLBACK_THUMBNAIL =
+  "https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png";
+
+
+function buildPublicUrl(bucket: string, objectPath: string): string {
+  const supabase = getSupabaseAdmin();
+  const { data } = supabase.storage.from(bucket).getPublicUrl(objectPath);
   return data.publicUrl;
 }
 
-export async function getWatchOgMeta(mediaId: number): Promise<{
+export async function getWatchOgMeta(
+  mediaId: number
+): Promise<{
   title: string | null;
   description: string | null;
   contentUrl: string | null;
@@ -33,14 +33,17 @@ export async function getWatchOgMeta(mediaId: number): Promise<{
 
   if (error || !data) return null;
 
-  const contentUrl = data.storage_path ? buildPublicUrl(data.storage_path) : null;
+  const contentUrl = data.storage_path
+    ? buildPublicUrl(MEDIA_BUCKET, data.storage_path)
+    : null;
 
-  // If you don't have thumbnails yet, this will be null and the page will use /og-default.jpg
+  // Always return ABSOLUTE thumbnail (scrapers hate relative)
+  const thumbnailUrl = FALLBACK_THUMBNAIL;
 
   return {
-    title: (data.title ?? null) as string | null,
-    description: (data.description ?? null) as string | null,
+    title: data.title ?? null,
+    description: data.description ?? null,
     contentUrl,
-    thumbnailUrl: "/icons/logo7.png",
+    thumbnailUrl,
   };
 }

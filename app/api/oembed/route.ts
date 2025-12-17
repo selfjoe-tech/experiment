@@ -13,7 +13,6 @@ export async function GET(req: NextRequest) {
     const parsed = new URL(url);
     const parts = parsed.pathname.split("/").filter(Boolean);
     id = Number(parts[parts.length - 1]);
-    if (!Number.isFinite(id)) id = null;
   } catch {
     id = null;
   }
@@ -29,15 +28,18 @@ export async function GET(req: NextRequest) {
   const width = 720;
   const height = 1280;
 
-  return NextResponse.json({
-    version: "1.0",
-    type: "video",
-    provider_name: "UpskirtCandy",
-    provider_url: "https://upskirtcandy.com",
-    title: v.title ?? "Video",
-    thumbnail_url: (v as any).poster ?? (v as any).thumbnailUrl ?? undefined,
-    width,
-    height,
-    html: `<iframe src="${embedUrl}" width="${width}" height="${height}" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>`,
-  });
+  const fallbackThumb =
+  "https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png";
+
+return NextResponse.json({
+  version: "1.0",
+  type: "video",
+  provider_name: "UpskirtCandy",
+  provider_url: "https://upskirtcandy.com",
+  title: v.title ?? "Video",
+  thumbnail_url: (v as any).poster ?? (v as any).thumbnailUrl ?? fallbackThumb,
+  width,
+  height,
+  html: `<iframe src="${embedUrl}" width="${width}" height="${height}" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>`,
+});
 }

@@ -3,65 +3,109 @@ import type { Metadata } from "next";
 import WatchClient from "./watch-client";
 import { getWatchOgMeta } from "@/lib/server/watchOgMeta";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://dzgpkywovaezlaabuxhl.supabase.co";
+const SITE_URL =
+  (process.env.NEXT_PUBLIC_SITE_URL || "https://upskirtcandy.com").replace(/\/$/, "");
+
+const FALLBACK_OG_IMAGE =
+  "https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png";
 
 export async function generateMetadata(
   { params }: { params: Promise<{ id: number }> }
 ): Promise<Metadata> {
+
   const { id } = await params
-  const mediaId = id;
-  const canonical = `${SITE_URL}/watch/${encodeURIComponent(mediaId)}`;
+  const mediaId = Number(id);
 
-  
+  // Always return something valid even for bad IDs (prevents scraper weirdness)
+  if (!Number.isFinite(mediaId)) {
+    const canonical = `${SITE_URL}/watch/${encodeURIComponent(id)}`;
+    return {
+      title: "Watch video | UpskirtCandy",
+      description: "Watch videos on UpskirtCandy.",
+      alternates: { canonical },
+      openGraph: {
+        type: "website",
+        url: canonical,
+        title: "Watch video | UpskirtCandy",
+        description: "Watch videos on UpskirtCandy.",
+        siteName: "UpskirtCandy",
+        images: [{ url: FALLBACK_OG_IMAGE, width: 1200, height: 630 }],
+      },
+      twitter: {
+        card: "summary_large_image",
+        images: [FALLBACK_OG_IMAGE],
+      },
+    };
+  }
 
-  const meta = await getWatchOgMeta(mediaId);
+  const canonical = `${SITE_URL}/watch/${mediaId}`;
+  const embedUrl = `${SITE_URL}/embed/${mediaId}`;
 
-  // Always provide an image so Reddit doesn't fall back to favicon
-  const ogImage = "https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png"
-;
+  let meta: any = null;
+  try {
+    meta = await getWatchOgMeta(mediaId);
+  } catch (e) {
+    meta = null;
+  }
+
+  const ogImage = meta?.thumbnailUrl || meta?.poster || FALLBACK_OG_IMAGE;
 
   const baseTitle =
     meta?.title?.trim() ||
     meta?.description?.slice(0, 80) ||
-    "Watch Porn video on UpskirtCandy";
+    "Watch video on UpskirtCandy";
 
-  const title = `${baseTitle} | Watch Porn Videos on Upskirt Candy`;
-  const description =
-    meta?.description?.trim() || "Watch videos on UpskirtCandy.";
+  const title = `${baseTitle} | UpskirtCandy`;
+  const description = meta?.description?.trim() || "Watch videos on UpskirtCandy.";
 
   return {
     title,
     description,
     alternates: { canonical },
+
     openGraph: {
       type: "video.other",
       url: canonical,
       title,
       description,
-      siteName: "Upskirt Candy",
-      images: [{ url: ogImage }],
-      // Reddit may ignore player video, but this helps some platforms.
+      siteName: "UpskirtCandy",
+      images: [{ url: ogImage, width: 1200, height: 630 }],
       videos: meta?.contentUrl
-        ? [{ url: meta.contentUrl, type: "video/mp4", width: 720, height: 1280 }]
+        ? [
+            {
+              url: meta.contentUrl,
+              type: "video/mp4",
+              width: 720,
+              height: 1280,
+            },
+          ]
         : undefined,
     },
+
     twitter: {
       card: "summary_large_image",
       title,
       description,
       images: [ogImage],
     },
+
+    other: {
+      "og:video:url": meta?.contentUrl || "",
+      "og:video:secure_url": meta?.contentUrl || "",
+      "og:video:type": meta?.contentUrl ? "video/mp4" : "",
+      "og:video:width": meta?.contentUrl ? "720" : "",
+      "og:video:height": meta?.contentUrl ? "1280" : "",
+      "og:video:tag": "", 
+      "og:video:embed_url": embedUrl, 
+    },
   };
 }
 
-export default async function WatchPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function WatchPage({ params }: { params: Promise<{ id: number }> }) {
 
-  const { id } = await params
-
+  const {id} = await params
   return <WatchClient mediaId={Number(id)} />;
 }
-
-
 
 
 
