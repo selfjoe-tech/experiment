@@ -60,7 +60,7 @@ export const metadata: Metadata = {
       "Scroll through endless Porn GIFs, videos and images from verified creators.",
     images: [
       {
-        url: "/icons/logo7.png",
+        url: "https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png",
         width: 1200,
         height: 630,
         alt: "Upskirt Candy – Porn Adult GIF & video platform",
@@ -72,7 +72,7 @@ export const metadata: Metadata = {
     title: "Upskirt Candy – Porn GIFs & Videos & Images - Upskirt - Upskirt Creampie",
     description:
       "Adult short-form GIFs, videos and images from verified creators.",
-    images: ["/icons/logo7.png"],
+    images: ["https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png"],
   },
   robots: {
     index: true,
@@ -104,7 +104,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="icon" type="image/png" href="/icons/logo7.png"/>
+        <link rel="icon" type="image/png" href="https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png"/>
         <meta name="juicyads-site-verification" content="50181bcfdf34b852dbb8a24813c6930a"></meta>
       </head>
       <body

@@ -420,7 +420,7 @@ export default function UploadFlow(props: Props) {
             <div className="space-y-5">
               <p className="text-sm text-white/80">
                 <span className="font-semibold">
-                  Posts with clear descriptions tend to perform better.
+                  Posts with clear descriptions with your username included tend to perform better.
                 </span>
               </p>
 
