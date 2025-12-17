@@ -70,16 +70,20 @@ export function ProfilePanel({
 
     (async () => {
       try {
-        const [profile, verifiedFlag, counts] = await Promise.all([
+        const [profile,  counts] = await Promise.all([
           getUserProfileFromCookies(),
-          getVerified(),
           getMyFollowCounts(),
         ]);
 
         if (cancelled) return;
 
         setUsername(profile.username ?? "");
+
+        const verifiedFlag = await getVerified(profile.username);
+
+
         setAvatar(profile.avatarUrl ?? "");
+
         if (verifiedFlag === true) {
           setVerified(true);
         }
@@ -112,7 +116,7 @@ export function ProfilePanel({
         <div className="relative h-10 w-10 rounded-full bg-white/10 overflow-hidden">
           <Image
             src={avatar || "/avatar-placeholder.png"}
-            alt="avatar"
+            alt= {`${username}'s avatar on Upskirt Candy`}
             fill
             sizes="40px"
             className="object-cover"

@@ -13,6 +13,8 @@ import { getIsLoggedInFromCookies } from "@/lib/actions/auth";
 import { VideoCardSkeleton } from "@/app/components/skeletons/VideoCardSkeleton ";
 
 export default function WatchPage() {
+
+  
   const params = useParams<{ id: string }>();
   const idParam = params?.id;
   const mediaId = Number(idParam);
@@ -180,7 +182,22 @@ export default function WatchPage() {
 
   return (
     <>
+
+    
       <Head>
+          <link
+            rel="alternate"
+            type="application/json+oembed"
+            href={`https://upskirtcandy.com/oembed?format=json&url=${encodeURIComponent(canonical)}`}
+          />
+
+          <meta property="og:type" content="video.other" />
+          <meta property="og:url" content={canonical} />
+          <meta property="og:video" content={contentUrl} />
+          <meta property="og:video:type" content="video/mp4" />
+          <meta property="og:video:width" content="720" />
+          <meta property="og:video:height" content="1280" />
+
         <title>{pageTitle}</title>
         <meta name="description" content={description} />
         <link rel="canonical" href={canonical} />

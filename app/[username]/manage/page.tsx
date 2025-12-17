@@ -533,7 +533,7 @@ function ManageMediaCard({
         {isImage ? (
           <Image
             src={item.url}
-            alt="upload thumbnail"
+            alt="upload thumbnail on Upskirt Candy - Porn videos"
             fill
             className="object-cover"
             sizes="128px"

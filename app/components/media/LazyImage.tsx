@@ -36,7 +36,7 @@ export default function LazyImage({
       ) : (
         <Image
           src={src}
-          alt={alt || ""}
+          alt={alt || "Upskirt Candy Image"}
           sizes={sizes}
           {...(fill ? { fill: true } : { width: width || 400, height: height || 400 })}
           priority={priority}

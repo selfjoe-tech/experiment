@@ -74,7 +74,7 @@ export function MobileAdCard({ name }: { name: string }) {
 
 
 
-export function MobileAd({ name }: { name: string }) {
+export function MobileAd() {
   const [ad, setAd] = useState<SidebarAd | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -110,7 +110,7 @@ export function MobileAd({ name }: { name: string }) {
 
   const labelText = ad
     ? `Visit ${ad.owner_username || "this sponsor"}`
-    : "Your Ad on mobile will look like this";
+    : "Buy Ad Space";
 
   const mediaUrl =
     ad?.storage_path != null ? buildPublicUrl(ad.storage_path) : null;
@@ -145,7 +145,7 @@ export function MobileAd({ name }: { name: string }) {
         <div className="relative w-full h-10 bg-black">
           <Image
             src={mediaUrl}
-            alt={ad.owner_username ?? "Sponsored ad"}
+            alt={`${ad.owner_username}'s mobile ad on Upskirt Candy - Porn videos` || "Sponsored ad"}
             fill
             sizes="100vw"
             className="object-cover"

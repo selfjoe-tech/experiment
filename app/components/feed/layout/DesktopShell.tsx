@@ -34,6 +34,14 @@ import { buildPublicUrl } from "@/lib/actions/mediaFeed";
 import { supabase } from "@/lib/supabaseClient";
 import { fetchDesktopSidebarAds } from "@/lib/actions/ads";
 import { ContactUs } from "../../ui/ContactUs";
+import Script from "next/script";
+
+declare global {
+  interface Window {
+    adsbyjuicy?: any[];
+  }
+}
+
 
 
 type SidebarAd = {
@@ -177,7 +185,7 @@ const items: {
           )
         )}
       </nav>
-              <div className="mt-20">
+              <div className="mt-10">
                 <ContactUs />
               </div>
       
@@ -307,14 +315,32 @@ function DesktopTopNav({ hidden }: { hidden: boolean }) {
         )}
       </div>
 
-      <Link
-        href="/ads"
-        className="ml-4 rounded-full bg-white text-black text-sm font-semibold px-4 py-2 flex items-center gap-2"
-      >
-        <ChartLine className="h-4 w-4" />
-        Boost Views
-      </Link>
+      
     </header>
+  );
+}
+
+export function JuicyAd() {
+  const didInit = useRef(false);
+
+  useEffect(() => {
+    if (didInit.current) return;
+    didInit.current = true;
+
+    window.adsbyjuicy = window.adsbyjuicy || [];
+    window.adsbyjuicy.push({ adzone: 1107435 });
+  }, []);
+
+  return (
+    <>
+      <Script
+        src="https://poweredby.jads.co/js/jads.js"
+        strategy="afterInteractive"
+        data-cfasync="false"
+      />
+
+    <ins id="1107435" data-width="308" data-height="786"></ins>
+    </>
   );
 }
 
@@ -351,6 +377,8 @@ export function DesktopAdsColumn() {
         {ads.map((ad) => (
           <AdCard key={ad.id} ad={ad} />
         ))}
+                
+
 
         {/* Fallback placeholders if no ads available */}
         {!loading && ads.length === 0 && (

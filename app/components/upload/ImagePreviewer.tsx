@@ -73,7 +73,7 @@ export default function ImagePreviewer({ files, onBack, onNext }: Props) {
                 <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-black">
                   <Image
                     src={u}
-                    alt="cover"
+                    alt="Upskirt Candy Cover"
                     fill
                     unoptimized
                     sizes="100vw"
@@ -99,7 +99,7 @@ export default function ImagePreviewer({ files, onBack, onNext }: Props) {
                     {u ? (
                       <Image
                         src={u}
-                        alt={`image-${pos}`}
+                        alt={`image-${pos} on Upskirt Candy`}
                         fill
                         unoptimized
                         sizes="(max-width:768px) 33vw, (max-width:1280px) 25vw, 16vw"

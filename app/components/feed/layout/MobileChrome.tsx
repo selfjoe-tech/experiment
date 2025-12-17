@@ -206,6 +206,8 @@ function MobileTopBar({
             <ShortLogo />
           </Link>
 
+          <MobileAd />
+
 
           <div className="flex items-center gap-2">
             <button

@@ -1,4 +1,5 @@
-import { Mail } from "lucide-react";
+import { ChartLine, Mail } from "lucide-react";
+import Link from "next/link";
 
 function RedditIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -24,6 +25,13 @@ export const ContactUs = () => {
         <div className="p-4 space-y-4">
             {/* Contact us container */}
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <Link
+              href="/ads" 
+              className="rounded-full mb-5 bg-white text-black text-sm font-semibold px-4 py-2 flex items-center gap-2"
+            >
+              <ChartLine className="h-4 w-4" />
+              Boost Views
+            </Link>
               <div className="text-sm font-semibold text-white mb-2">For business</div>
 
               <a
@@ -39,7 +47,7 @@ export const ContactUs = () => {
 
               <div className="mt-3 grid grid-cols-3 gap-2">
                 <a
-                  href="https://reddit.com"
+                  href="https://www.reddit.com/r/UpskirtCandy/"
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white/90 hover:bg-white/10 transition"
@@ -49,7 +57,7 @@ export const ContactUs = () => {
                 </a>
 
                 <a
-                  href="https://x.com"
+                  href="https://x.com/upskirtcandy"
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white/90 hover:bg-white/10 transition"
@@ -59,7 +67,7 @@ export const ContactUs = () => {
                 </a>
 
                 <a
-                  href="https://discord.com"
+                  href="https://discord.gg/MfS4rqQU"
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white/90 hover:bg-white/10 transition"

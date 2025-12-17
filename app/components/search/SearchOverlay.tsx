@@ -379,7 +379,7 @@ function CreatorRow({
         {user.avatarUrl ? (
           <Image
             src={user.avatarUrl}
-            alt={user.username}
+            alt={`${user.username}'s avatar on Upskirt Candy`}
             width={36}
             height={36}
             className="h-full w-full object-cover"

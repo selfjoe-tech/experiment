@@ -205,7 +205,7 @@ export default function ProfileMediaPage() {
                   src={avatar || "/avatar-placeholder.png"}
                   height={20}
                   width={20}
-                  alt={username} 
+                  alt={`${username}' avatar on Upskirt Candy - Porn videos`} 
                   className="h-full w-full object-cover"
                   loading="lazy"              
                   />

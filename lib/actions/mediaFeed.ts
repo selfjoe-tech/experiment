@@ -225,7 +225,9 @@ export async function fetchTrendingVideosBatch(opts: {
       likes: row.like_count ?? 0,
       views: row.view_count ?? 0,
       hashtags: tags,
-      verified: row.owner?.verified
+      verified: row.owner?.verified,
+      ownerId: row.owner.id,
+
     } satisfies Video;
   });
 }
@@ -615,6 +617,7 @@ function mapRowToVideo(row: any): Video {
     username: row.owner?.username ?? "unknown",
     avatar: row.owner?.avatar_url ?? "/avatar-placeholder.png",
     likedByMe: row.likedByMe ?? false,
+    verified: row.owner?.verified ?? false
   };
 }
 

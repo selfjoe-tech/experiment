@@ -625,7 +625,7 @@ function SideColumnPreview({ imageUrl }: { imageUrl: string | null }) {
           {imageUrl && (
             <Image
               src={imageUrl}
-              alt="Side-column ad preview"
+              alt="Side-column ad preview on Upskirt Candy - Porn videos"
               fill
               className="object-cover"
               sizes="320px"

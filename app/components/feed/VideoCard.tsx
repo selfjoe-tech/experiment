@@ -737,8 +737,8 @@ const mediaIdNum = !isSponsored
           <Link href={`/${video.username}`}>
             <div className="h-10 w-10 rounded-full bg-white/60 overflow-hidden">
               <Image
-                src={video.avatar ?? "/avatar-placeholder.png"}
-                alt={video.username || `Upskirt Candy Image by ${video.username}`}
+                src={video.avatar || "/avatar-placeholder.png"}
+                alt={`Upskirt Candy avatar by ${video.username}`}
                 width={40}
                 height={40}
                 className="h-full w-full object-cover"
@@ -1091,7 +1091,7 @@ function CommentList({
             <Link href={`/${c.username}`}>
               <Image
                 src={c.avatar_path}
-                alt={c.username}
+                alt={`Upskirt Candy Image by ${c.username}`}
                 width={28}
                 height={28}
                 className="h-full w-full object-cover"
