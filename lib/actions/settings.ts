@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { supabase } from "@/lib/supabaseClient";
-import { getUserIdFromCookies, getUserProfileFromCookies, setAuthCookies } from "./auth";
+import { getUserIdFromCookies, getUserProfileFromCookies, getVerified, setAuthCookies } from "./auth";
 // make sure setAuthCookies & getUserIdFromCookies & getUserProfileFromCookies are already here
 
 
@@ -21,6 +21,7 @@ export type SettingsFieldErrors = {
   oldPassword?: string;
   newPassword?: string;
   confirmPassword?: string;
+  verified: boolean;
 };
 
 // Get data for /settings page
@@ -31,6 +32,7 @@ export async function getSettingsProfile(): Promise<SettingsProfile | null> {
   if (!userId) return null;
 
   const { username, avatarUrl } = await getUserProfileFromCookies();
+  const verified = getVerified(username);
 
   const { data, error } = await supabase
     .from("profiles")
@@ -46,6 +48,7 @@ export async function getSettingsProfile(): Promise<SettingsProfile | null> {
     username,
     avatarUrl,
     bio: data?.bio ?? null,
+    verified
   };
 }
 

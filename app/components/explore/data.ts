@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import type { SortKey } from "./SortDropdown";
 import { Video } from "../feed/types";
 import { buildPublicUrl } from "@/lib/actions/mediaFeed";
+import { Description } from "@radix-ui/react-dialog";
 
 export type ExploreItem =
   | {
@@ -67,7 +68,7 @@ function publicMediaUrl(path: string | null): string | null {
 export async function getItemsForTab({
   tab,
   sortBy = "trending",
-  limit = 9,
+  limit = 6,
   page = 0,
 }: GetItemsForTabArgs): Promise<ExploreItem[]> {
   // translate page → offset
@@ -77,7 +78,7 @@ export async function getItemsForTab({
   if (tab === "creators") {
     let query = supabase
       .from("profiles")
-      .select("id, username, avatar_url, follower_count, created_at");
+      .select("id, username, avatar_url, follower_count, created_at, verified");
 
     if (sortBy === "newest") {
       query = query.order("created_at", { ascending: false });
@@ -111,6 +112,7 @@ export async function getItemsForTab({
           date: row.created_at
             ? new Date(row.created_at as string).getTime()
             : undefined,
+          verified: row.verified
         } satisfies ExploreItem;
       }) ?? []
     );
@@ -122,7 +124,7 @@ export async function getItemsForTab({
 
     let query = supabase
       .from("media")
-      .select("id, media_type, storage_path, view_count, tags, like_count, created_at, owner:profiles!media_owner_id_fkey (id,username,avatar_url)")
+      .select("id, media_type, storage_path, view_count, tags, like_count, created_at, owner:profiles!media_owner_id_fkey (id,username,avatar_url,verified)")
       .eq("media_type", targetMediaType);
 
     if (sortBy === "newest") {
@@ -162,6 +164,7 @@ export async function getItemsForTab({
             date: row.created_at
               ? new Date(row.created_at as string).getTime()
               : undefined,
+            verified: row.owner.verified
           };
 
           if (tab === "gifs") {
@@ -184,68 +187,45 @@ export async function getItemsForTab({
   // 1) Fetch tag rows from `tags` (paged)
   // 2) For each tag.slug, find top-viewed *video* in `media` where media.tags @> [slug]
   // 3) Build a niche card with label + cover from that video's storage_path + count of posts
+// ========= NICHES (tags) =========
 if (tab === "niches") {
-    const { data: tagRows, error: tagError } = await supabase
-      .from("tags")
-      .select("id, slug, label, created_at")
-      .order("created_at", { ascending: false })
-      .range(offset, offset + limit - 1);
+  const { data, error } = await supabase.rpc("get_niche_cards_page", {
+    p_limit: limit,             // ✅ pass 6 from client
+    p_offset: offset,           // page * limit
+    p_sort: sortBy ?? "newest", // "trending" or "newest"
+  });
 
-    if (tagError) {
-      console.error("getItemsForTab(niches) tags error", tagError);
-      throw new Error(tagError.message || "Failed to load niches");
-    }
-
-    if (!tagRows || tagRows.length === 0) return [];
-
-    const nichePromises: Promise<ExploreItem | null>[] = tagRows.map(
-      async (t) => {
-        const label = t.label as string;
-        const slug = t.slug as string;
-
-        const { data: mediaRows, error: mediaError } = await supabase
-          .from("media")
-          .select("id, storage_path, view_count, created_at")
-          .eq("media_type", "video")
-          // media.tags is text[] with Title Case labels
-          .contains("tags", [label])
-          .order("view_count", { ascending: false })
-          .limit(1);
-
-        if (mediaError) {
-          console.error(`top media for tag ${label} error`, mediaError);
-          return null;
-        }
-
-        if (!mediaRows || mediaRows.length === 0) return null;
-
-        const row = mediaRows[0];
-        const url = publicMediaUrl(row.storage_path);
-        if (!url) return null;
-
-        const item: ExploreItem = {
-          id: String(row.id),
-          type: "niche",
-          slug,           
-          name: label,    
-          src: url,       
-          score: row.view_count ?? 0,
-          date: row.created_at
-            ? new Date(row.created_at as string).getTime()
-            : undefined,
-        };
-
-        return item;
-      }
-    );
-
-    const nicheItemsAll = await Promise.all(nichePromises);
-    const nicheItems = nicheItemsAll.filter(
-      (x): x is ExploreItem => x !== null
-    );
-
-    return nicheItems;
+  if (error) {
+    console.error("getItemsForTab(niches) rpc error", error);
+    throw new Error(error.message || "Failed to load niches");
   }
+
+  if (!data || data.length === 0) return [];
+
+  return data
+    .map((row: any) => {
+      // If you only want niches with a cover video:
+      if (!row.storage_path) return null;
+
+      const url = publicMediaUrl(row.storage_path);
+      if (!url) return null;
+
+      return {
+        id: String(row.media_id ?? row.tag_id),
+        type: "niche" as const,
+        slug: row.slug,
+        name: row.label,
+        src: url,
+        count: row.post_count ?? 0,
+        score: row.top_views ?? 0,
+        date: row.media_created_at
+          ? new Date(row.media_created_at as string).getTime()
+          : undefined,
+      };
+    })
+    .filter(Boolean);
+}
+
 
 
 
@@ -347,6 +327,8 @@ function mapMediaRowToVideo(row: any): Video {
     username: row.profiles?.username ?? row.username ?? "unknown",
     avatar: row.profiles?.avatar ?? row.avatar ?? "/default-avatar.png",
     likedByMe: row.likedByMe ?? false,
+    verified: row.owner.verifed
+
     // add any other fields your `Video` type expects
   };
 }
@@ -359,7 +341,7 @@ export async function fetchByUserName(
   // 1) Get profile by username
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, username, avatar_url")
+    .select("id")
     .eq("username", username)
     .single();
 
@@ -387,7 +369,8 @@ export async function fetchByUserName(
       owner:profiles!media_owner_id_fkey(
         id,
         username,
-        avatar_url
+        avatar_url,
+        verified
       )
     `)
     .eq("owner_id", profile.id)
@@ -429,7 +412,7 @@ export async function getUserMedia({
   // 1) Look up the profile to get owner_id
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id")
+    .select("id, verified")
     .eq("username", normalizedUsername)
     .maybeSingle();
 
@@ -454,7 +437,14 @@ export async function getUserMedia({
         view_count,
         tags,
         like_count,
-        created_at
+        created_at,
+        description,
+        owner:profiles!media_owner_id_fkey(
+          id,
+          username,
+          avatar_url,
+          verified
+      )
       `
     )
     .eq("owner_id", ownerId)
@@ -496,6 +486,11 @@ export async function getUserMedia({
             ? new Date(row.created_at as string).getTime()
             : undefined,
           likes: row.like_count,
+          verified: profile.verified,
+          username: row.owner.username,
+          avatar: row.owner.avatar_url,
+          description: row.description,
+          hashtags: row.tags
         };
 
         if (tab === "gifs") {

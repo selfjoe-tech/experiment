@@ -71,8 +71,13 @@ type Props = {
   visitUrl?: string; // for "Visit page" button
   onClose?: () => void;
   open?: boolean;
+  loadLevel?: LoadLevel;
+
 
 };
+
+type LoadLevel = "active" | "near" | "off";
+
 
 export default function VideoCard({
   video,
@@ -84,6 +89,8 @@ export default function VideoCard({
   visitUrl,
   open,
   onClose,
+  loadLevel = "active",
+
 
 }: Props) {
   const isSponsored = variant === "sponsored";
@@ -102,7 +109,6 @@ const mediaIdNum = !isSponsored
 
   const cardRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const hasRequestedSourceRef = useRef(false);
   const clickTimeoutRef = useRef<number | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -123,9 +129,10 @@ const mediaIdNum = !isSponsored
 
   // OTHER UI
   const [expandedDesc, setExpandedDesc] = useState(false);
-  const [isInViewport, setIsInViewport] = useState(false);
-  const [shouldLoad, setShouldLoad] = useState(false);
-  const [metadataLoaded, setMetadataLoaded] = useState(false);
+    const [shouldLoad, setShouldLoad] = useState(loadLevel !== "off");     // keep this name so your file stays sane
+
+const allowSrc = loadLevel !== "off";           // only current + neighbor get a src
+const shouldAutoPlay = loadLevel === "active";  const [metadataLoaded, setMetadataLoaded] = useState(false);
   const [likeBurstVisible, setLikeBurstVisible] = useState(false);
   const likeBurstTimeoutRef = useRef<number | null>(null);
   const [isVertical, setIsVertical] = useState<boolean | null>(null);
@@ -143,6 +150,17 @@ const mediaIdNum = !isSponsored
   const [isDesktop, setIsDesktop] = useState(false);
   const [showLikeAuthTooltip, setShowLikeAuthTooltip] = useState(false);
   const isLoggedIn = !!currentId;
+
+  useEffect(() => {
+  if (loadLevel === "off") return;
+  // existing follow logic…
+}, [video.ownerId, loadLevel]);
+
+useEffect(() => {
+  if (loadLevel === "off") return;
+  // existing liked logic…
+}, [mediaIdNum, adIdNum, isSponsored, video.likedByMe, loadLevel]);
+  
 
 
 
@@ -178,32 +196,7 @@ const mediaIdNum = !isSponsored
 
   // ===== INTERSECTION OBSERVER (auto load & play) =====
 
-  useEffect(() => {
-    const target = cardRef.current;
-    if (!target) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          const mostlyVisible =
-            entry.isIntersecting && entry.intersectionRatio >= 0.65;
-          setIsInViewport(mostlyVisible);
-
-          if (
-            (entry.isIntersecting || entry.intersectionRatio > 0.25) &&
-            !hasRequestedSourceRef.current
-          ) {
-            hasRequestedSourceRef.current = true;
-            setShouldLoad(true);
-          }
-        });
-      },
-      { threshold: [0.25, 0.65, 0.85] }
-    );
-
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, []);
+  
 
   // keep muted state in sync
   useEffect(() => {
@@ -214,21 +207,35 @@ const mediaIdNum = !isSponsored
 
   // auto play / reset on visibility change
   useEffect(() => {
-    const el = videoRef.current;
-    if (!el || !shouldLoad) return;
+  const el = videoRef.current;
+  if (!el) return;
 
-    if (isInViewport) {
-      el.currentTime = 0;
-      const maybePlay = el.play();
-      if (maybePlay) maybePlay.catch(() => setIsPlaying(false));
-    } else {
-      el.pause();
-      el.currentTime = 0;
-      setIsPlaying(false);
-      setCurrentTime(0);
-      setProgress(0);
-    }
-  }, [isInViewport, shouldLoad]);
+  // If we’re not allowed to have src, fully stop + reset
+  if (!allowSrc) {
+    el.pause();
+    el.removeAttribute("src");
+    el.load();
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setProgress(0);
+    setMetadataLoaded(false);
+    return;
+  }
+
+  // We have src, but only the active one plays
+  if (shouldAutoPlay) {
+    el.currentTime = 0;
+    const p = el.play();
+    if (p) p.catch(() => setIsPlaying(false));
+  } else {
+    el.pause();
+    el.currentTime = 0;
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setProgress(0);
+  }
+}, [allowSrc, shouldAutoPlay, video.src]);
+
 
   // ===== FOLLOW: initial state =====
 
@@ -571,25 +578,26 @@ const mediaIdNum = !isSponsored
           <div className="absolute inset-0 bg-neutral-800 animate-pulse" />
         )}
 
-        <video
-          ref={videoRef}
-          src={shouldLoad ? video.src : undefined}
-          preload={shouldLoad ? "metadata" : "none"}
-          muted={isMuted}
-          onLoadedMetadata={handleLoadedMetadata}
-          onTimeUpdate={handleTimeUpdate}
-          onPlay={handlePlay}
-          onPause={handlePause}
-          className={`
-            max-h-full max-w-full
-            ${isVertical ? "h-full w-auto" : "w-full h-auto"}
-            object-contain
-            transition-opacity duration-300
-            ${metadataLoaded ? "opacity-100" : "opacity-0"}
-          `}
-          loop
-          playsInline
+          <video
+            ref={videoRef}
+            src={allowSrc ? video.src : undefined}
+            preload={shouldAutoPlay ? "auto" : allowSrc ? "metadata" : "none"}
+            muted={isMuted}
+            onLoadedMetadata={handleLoadedMetadata}
+            onTimeUpdate={handleTimeUpdate}
+            onPlay={handlePlay}
+            onPause={handlePause}
+            className={`
+              max-h-full max-w-full
+              ${isVertical ? "h-full w-auto" : "w-full h-auto"}
+              object-contain
+              transition-opacity duration-300
+              ${metadataLoaded ? "opacity-100" : "opacity-0"}
+            `}
+            loop
+            playsInline
         />
+
       </div>
 
       {/* ❤️ LIKE BURST OVERLAY */}
@@ -754,7 +762,6 @@ const mediaIdNum = !isSponsored
               <div className="text-sm font-semibold truncate text-white">
                 {video.username}
               </div>
-              {isSponsored && <VerifiedBadgeIcon />}
               {video.verified && <VerifiedBadgeIcon />}
             </div>
           </Link>
@@ -1155,6 +1162,9 @@ export function SponsoredVideoCard(
       variant="sponsored"
       showFullscreenButton={false}
       visitUrl={props.visitUrl}
+      loadLevel={props.loadLevel}
+      toggleMute={props.toggleMute}
+
     />
   );
 }

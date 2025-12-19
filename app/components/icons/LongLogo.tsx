@@ -8,9 +8,11 @@ import Image from "next/image";
 export function LongLogo(
   ) {
   return (
-    <div className="flex gap-1 items-center text-2xl font-bold tracking-wide mb-8">
+    <div className="flex flex-col justify-center">
+
+    <div className="flex gap-1 items-center text-2xl font-bold tracking-wide">
         <span className="text-white">Upskirt</span>
-        <div className="flex py-1 items-center justify-center rounded-[10px] text-pink-500">
+        <div className="flex items-center justify-center rounded-[10px] text-pink-500">
           Candy
           <Image
             src={"/icons/logo7.png"}
@@ -20,6 +22,9 @@ export function LongLogo(
           
           />
         </div>
-      </div>
+      </div> 
+      <span className="text-sm">Alpha Test</span>
+    </div>
+
   );
 }

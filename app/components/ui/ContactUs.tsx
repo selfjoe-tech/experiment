@@ -1,4 +1,4 @@
-import { ChartLine, Mail } from "lucide-react";
+import { ChartLine, Mail, MessageCircleWarning } from "lucide-react";
 import Link from "next/link";
 
 function RedditIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -40,6 +40,17 @@ export const ContactUs = () => {
               >
                 <Mail className="h-4 w-4 text-pink-500" />
                 <span className="truncate">sales@upskirtcandy.com</span>
+              </a>
+
+
+              <div className="text-sm font-semibold text-white mb-2">Report</div>
+
+              <a
+                href="https://discord.gg/MfS4rqQU"
+                className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white/90 hover:bg-white/10 transition"
+              >
+                <MessageCircleWarning className="h-4 w-4 text-pink-500" />
+                <span className="truncate">Report Issues</span>
               </a>
 
             <div className="text-sm font-semibold mt-5 text-white">Socials</div>

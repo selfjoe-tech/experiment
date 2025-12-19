@@ -49,7 +49,7 @@ export async function globalSearch(query: string): Promise<GlobalSearchResult> {
   const [creatorRes, tagRes, imageRes, videoRes] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, username, avatar_url, follower_count")
+      .select("id, username, avatar_url, follower_count, verified")
       .ilike("username", pattern)
       .order("follower_count", { ascending: false })
       .limit(8),
@@ -84,6 +84,7 @@ export async function globalSearch(query: string): Promise<GlobalSearchResult> {
       username: row.username,
       avatarUrl: row.avatar_url ?? null,
       followerCount: row.follower_count ?? 0,
+      verifed: row.verified,
     })) ?? [];
 
   const tags: TagSearchResult[] =

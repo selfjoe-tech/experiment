@@ -502,7 +502,7 @@ export async function getUserProfileByUsername(username: string): Promise<{
 }> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, username, avatar_url")
+    .select("id, username, avatar_url, links")
     .eq("username", username)
     .single();
 
@@ -515,6 +515,7 @@ export async function getUserProfileByUsername(username: string): Promise<{
     id: data.id as string,
     username: data.username as string,
     avatarUrl: data.avatar_url,
+    links: data.links
   };
 }
 

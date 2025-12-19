@@ -87,6 +87,7 @@ async function insertMediaRow(params: {
   durationSeconds?: number;
   width?: number | null;
   height?: number | null;
+  tags?: [];
 }): Promise<InsertedMediaRow> {
   const { data, error } = await supabase
     .from("media")
@@ -105,6 +106,7 @@ async function insertMediaRow(params: {
         typeof params.width === "number" ? params.width : params.width ?? null,
       height:
         typeof params.height === "number" ? params.height : params.height ?? null,
+      tags: params.tags
     })
     .select("id, storage_path")
     .single();
@@ -123,6 +125,7 @@ export async function uploadTrimmedVideo(
   clip: ClipSelection,
   form: VideoUploadFormValues
 ): Promise<InsertedMediaRow> {
+  console.log(form.tags, "<<<<<< form tags")
 
     const sizeMB = clip.file.size / (1024 * 1024);
         console.log(
@@ -147,6 +150,7 @@ export async function uploadTrimmedVideo(
     description: form.description,
     storagePath,
     durationSeconds,
+    tags: form.tags
   });
 
   return row;

@@ -1,7 +1,7 @@
 // app/profile/[username]/page.tsx
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -27,6 +27,10 @@ import { getUserProfileFromCookies, getVerified } from "@/lib/actions/auth";
 import { FollowCounts, getFollowCountsByUsername, getMyFollowCounts, getUserProfileByUsername } from "@/lib/actions/social";
 import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
+import { ExternalLink } from "lucide-react";
+import { PROVIDERS, type ProviderKey } from "@/app/components/verify/providers";
+import { getUserMedia } from "@/app/components/explore/data";
+
 
 type MediaTab = "gifs" | "images";
 const ACCENT = "pink";
@@ -50,7 +54,7 @@ export default function ProfileMediaPage() {
   const [error, setError] = useState<string | null>(null);
   
     // Only used for the fullscreen overlay
-    const [overlayVideos, setOverlayVideos] = useState<Video[]>();
+const [overlayVideos, setOverlayVideos] = useState<Video[]>([]);
     const [overlayOpen, setOverlayOpen] = useState(false);
     const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -63,9 +67,27 @@ export default function ProfileMediaPage() {
 
     const [isMuted, setIsMuted] = useState(true)
     const toggleMute = () => setIsMuted((prev) => !prev);
+    const OVERLAY_LIMIT = 12;
+const overlayPageRef = useRef(0);
+const overlaySeenRef = useRef(new Set<string>());
+const overlaySessionRef = useRef(0);
+const isLoadingMoreRef = useRef(false);
+const [links, setLinks] = useState({})
+
+useEffect(() => {
+  overlaySessionRef.current += 1;
+  overlayPageRef.current = 0;
+  overlaySeenRef.current.clear();
+  setOverlayOpen(false);
+  setActiveVideoId(null);
+  setOverlayVideos([]);
+}, [username, tab, sortBy]);
 
 
-          function formatCount(n?: number | null): string {
+
+
+
+  function formatCount(n?: number | null): string {
   const num = n ?? 0;
   if (num >= 1_000_000) return `${Math.floor(num / 1_000_000)}M`;
   if (num >= 1_000) return `${Math.floor(num / 1_000)}k`;
@@ -74,34 +96,63 @@ export default function ProfileMediaPage() {
 
     
 
-  const handleVideoClick = (
-    video: Video,
-    _index: number,
-    currentVideos: Video[]
-  ) => {
-    setOverlayVideos(currentVideos);  // 👈 pass the grid’s list
-    setActiveVideoId(video.id);
-    setOverlayOpen(true);
-  };
+  const handleVideoClick = (video: Video, _index: number, currentVideos: Video[]) => {
+  overlaySessionRef.current += 1;
+
+  setOverlayVideos(currentVideos);
+  overlaySeenRef.current = new Set(
+    currentVideos.map((v: any) => String(v.id ?? v.mediaId))
+  );
+  overlayPageRef.current = Math.max(0, Math.ceil(currentVideos.length / OVERLAY_LIMIT));
+
+  setActiveVideoId(video.id);
+  setOverlayOpen(true);
+};
 
 
   
     const fetchMore = async () => {
-      if (isLoadingMore) return;
-      setIsLoadingMore(true);
-  
-      try {
-        const res = await fetch(`/api/explore?page=${page + 1}`);
-        const data = (await res.json()) as { videos: Video[] };
-  
-        setOverlayVideos((prev) => [...prev, ...data.videos]);
-        setPage((p) => p + 1);
-      } catch (err) {
-        console.error("Failed to load more videos", err);
-      } finally {
-        setIsLoadingMore(false);
+  if (tab !== "gifs") return;
+  if (isLoadingMoreRef.current) return;
+
+  const session = overlaySessionRef.current;
+  isLoadingMoreRef.current = true;
+  setIsLoadingMore(true);
+
+  try {
+    const batch = await getUserMedia({
+      username,
+      tab,
+      sortBy,
+      limit: OVERLAY_LIMIT,
+      page: overlayPageRef.current,
+    });
+
+    if (overlaySessionRef.current !== session) return;
+
+    const media = batch.filter((x: any) => x.type === "gif" || x.type === "video") as any[];
+    if (media.length === 0) return;
+
+    setOverlayVideos((prev) => {
+      const next = [...prev];
+      for (const m of media) {
+        const key = String((m as any).id ?? (m as any).mediaId);
+        if (!overlaySeenRef.current.has(key)) {
+          overlaySeenRef.current.add(key);
+          next.push(m as any);
+        }
       }
-    };
+      return next;
+    });
+
+    overlayPageRef.current += 1;
+  } catch (err) {
+    console.error("Profile overlay fetchMore error", err);
+  } finally {
+    setIsLoadingMore(false);
+    isLoadingMoreRef.current = false;
+  }
+};
 
 
  useEffect(() => {
@@ -118,6 +169,7 @@ export default function ProfileMediaPage() {
       if (cancelled) return;
 
       setVerified(isVerified); // 👈 no toggle, just set it
+      setLinks(profile.links)
       setFollowCounts(counts);
       setAvatar(profile.avatarUrl || "/avatar-placeholder.png");
       setFollowCountsLoading(false);
@@ -190,6 +242,24 @@ export default function ProfileMediaPage() {
     return copy;
   }, [items, sortBy]);
 
+  function normalizeUrl(raw: string) {
+  const v = (raw ?? "").trim();
+  if (!v) return "";
+  // If user pasted without scheme, assume https
+  if (!/^https?:\/\//i.test(v)) return `https://${v}`;
+  return v;
+}
+
+function isSafeExternalUrl(url: string) {
+  try {
+    const u = new URL(url);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+
 
   return (
     <div className="px-3 sm:px-4">
@@ -234,9 +304,47 @@ export default function ProfileMediaPage() {
               </div>
             </div>
 
+
+
             
 
             {/* Tag chips row under helper text */}
+
+            {/* Tag chips row under helper text */}
+          {(() => {
+            // linksJsonb is your jsonb object from DB, e.g. { onlyfans: "https://...", pornhub: "..."}
+            const linksJsonb = (links ?? {}) as Partial<Record<ProviderKey, string>>;
+
+            const items = PROVIDERS
+              .map((p) => {
+                const url = normalizeUrl(String(linksJsonb[p.key] ?? ""));
+                return { ...p, url };
+              })
+              .filter((p) => p.url && isSafeExternalUrl(p.url));
+
+            if (items.length === 0) return null;
+
+            return (
+              <div className="mt-3 flex flex-wrap gap-2">
+                
+                {items.map((p) => (
+                  <Link
+                    key={p.key}
+                    href={p.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Open ${p.label}`}
+                  >
+                      {/* your icon from PROVIDERS */}
+                      <span className="[&>svg]:h-8 [&>svg]:w-8">{p.short}</span>
+                    
+                    
+                  </Link>
+                ))}
+              </div>
+            );
+          })()}
+
           
           </div>
 
@@ -288,16 +396,6 @@ export default function ProfileMediaPage() {
 
 
 
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex items-baseline gap-2">
-      <span className="font-semibold">{value}</span>
-      <span className="text-white/70">{label}</span>
-    </div>
-  );
-}
-
 function ProfileTabs({
   active,
   username,
@@ -328,28 +426,6 @@ function ProfileTabs({
   );
 }
 
-/* --------------------- Modal --------------------- */
 
 
-function ActionRow({
-  icon,
-  label,
-  onClick,
-  danger,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-  danger?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors
-        ${danger ? "text-pink-400 hover:bg-pink-400/10" : "hover:bg-white/10"}`}
-    >
-      <span className={`shrink-0 ${danger ? "text-pink-400" : "text-white/90"}`}>{icon}</span>
-      <span className={`text-sm ${danger ? "text-pink-400" : "text-white"}`}>{label}</span>
-    </button>
-  );
-}
+

@@ -1,7 +1,8 @@
+// app/explore/[tab]/[tag]/page.tsx (or wherever this page is)
 "use client";
 
-import React, { useState } from "react";
-import Head from "next/head"; // 👈 NEW
+import React, { useCallback, useState } from "react";
+import Head from "next/head";
 import { useParams } from "next/navigation";
 import TagVideoFeed from "@/app/components/feed/TagVideoFeed";
 import type { FeedTab } from "@/app/components/feed/types";
@@ -20,7 +21,6 @@ export default function ExploreNicheTagPage() {
   const rawTab = params?.tab || "niches";
   const tagSlug = params?.tag || "";
 
-  // normalize tab
   const tab: string =
     ["gifs", "images", "creators", "niches"].includes(rawTab) ? rawTab : "niches";
 
@@ -30,15 +30,15 @@ export default function ExploreNicheTagPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [desktopNavHidden, setDesktopNavHidden] = useState(false);
 
-  const nicheTitle = slugToTitle(tagSlug); // e.g. "Gaming Fever"
+  const onScrollDirectionChange = useCallback((direction: "up" | "down") => {
+    const nextHidden = direction === "down";
+    setDesktopNavHidden((prev) => (prev === nextHidden ? prev : nextHidden));
+  }, []);
 
-  // ====== SEO STRINGS ======
+  const nicheTitle = slugToTitle(tagSlug);
+
   const contentKind =
-    tab === "images"
-      ? "Images"
-      : tab === "gifs"
-      ? "GIFs"
-      : "Videos";
+    tab === "images" ? "Images" : tab === "gifs" ? "GIFs" : "Videos";
 
   const title = `${nicheTitle} ${contentKind} | UpskirtCandy`;
   const description = `Watch ${nicheTitle.toLowerCase()} ${contentKind.toLowerCase()} on UpskirtCandy. Browse trending, newest and most viewed clips in this niche.`;
@@ -64,35 +64,22 @@ export default function ExploreNicheTagPage() {
         <meta name="description" content={description} />
         <link rel="canonical" href={canonical} />
         <meta name="robots" content="index,follow" />
-
-        {/* Open Graph */}
         <meta property="og:title" content={title} />
         <meta property="og:description" content={description} />
         <meta property="og:url" content={canonical} />
         <meta property="og:site_name" content="UpskirtCandy" />
         <meta property="og:type" content="website" />
-
-        {/* Twitter */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={title} />
         <meta name="twitter:description" content={description} />
-
-        {/* JSON-LD */}
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(schema),
-          }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
         />
       </Head>
 
       <div className="relative min-h-screen bg-black text-white overflow-hidden">
-        <TagVideoFeed
-          tagSlug={tagSlug}
-          onScrollDirectionChange={(direction) =>
-            setDesktopNavHidden(direction === "down")
-          }
-        />
+        <TagVideoFeed tagSlug={tagSlug} onScrollDirectionChange={onScrollDirectionChange} />
       </div>
     </>
   );

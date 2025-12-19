@@ -6,6 +6,7 @@ import { cookies } from "next/headers";
 import { supabase } from "@/lib/supabaseClient";
 import nodemailer from "nodemailer";
 import { revalidatePath } from "next/cache";
+import { getAuthCookieOptions } from "../server/cookies";
 
 
 
@@ -246,50 +247,40 @@ function normalizeEmail(raw: string) {
 
 export async function setAuthCookies(
   userId: string,
-   username: string, 
-   avatar: string = "",
-  verified: boolean = false,
-  
-  ) {
+  username: string,
+  avatar: string = "",
+  verified: boolean = false
+) {
   const store = await cookies();
+  const base = getAuthCookieOptions();
+
   store.set("userId", userId, {
+    ...base,
     httpOnly: true,
-    sameSite: "lax",
-    path: "/",
   });
-  // readable from client JS for quick checks
+
   store.set("isLoggedIn", "true", {
+    ...base,
     httpOnly: false,
-    sameSite: "lax",
-    path: "/",
   });
 
   store.set("username", username, {
+    ...base,
     httpOnly: false,
-    sameSite: "lax",
-    path: "/",
   });
 
-  store.set("verified", verified, {
+  store.set("verified", String(verified), {
+    ...base,
     httpOnly: false,
-    sameSite: "lax",
-    path: "/",
   });
 
-
-
-  if (avatar === "") {
-      return ;
-  } else {
+  if (avatar) {
     store.set("avatar", avatar, {
+      ...base,
       httpOnly: false,
-      sameSite: "lax",
-      path: "/",
     });
   }
-
 }
-
 /* ---------- SIGNUP ---------- */
 
 export async function signupAction(formData: FormData): Promise<AuthResult> {
@@ -516,23 +507,17 @@ export async function getVerified(username: string): Promise<boolean> {
 
 export type SimpleResult = { success: boolean };
 
-export async function logoutAction(): Promise<SimpleResult> {
+export async function logoutAction(): Promise<{ success: boolean }> {
   const store = await cookies();
-
-  // If you truly want to clear *all* cookies:
-  const names = ["userId", "isLoggedIn", "username", "avatar"];
+  const base = getAuthCookieOptions();
+  const names = ["userId", "isLoggedIn", "username", "avatar", "verified", "preferences"];
 
   for (const name of names) {
     store.set(name, "", {
-      path: "/",
+      ...base,
       maxAge: 0,
     });
   }
-  // If you prefer to clear only auth cookies, replace above with:
-  // const names = ["userId", "isLoggedIn", "username", "avatar"];
-  // for (const name of names) {
-  //   store.set(name, "", { path: "/", maxAge: 0 });
-  // }
 
   return { success: true };
 }
@@ -641,10 +626,9 @@ export async function updateUserPreferencesAction(
 
   // Store in cookies for client-side fetching
   store.set("preferences", JSON.stringify(normalized), {
-    httpOnly: false,
-    sameSite: "lax",
-    path: "/",
-  });
+  ...getAuthCookieOptions(),
+  httpOnly: false,
+});
 
   return { success: true };
 }

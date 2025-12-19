@@ -20,6 +20,7 @@ import { globalSearch } from "@/lib/actions/search";
 import { checkIsFollowing, toggleFollowUser } from "@/lib/actions/social";
 import LazyImage from "@/app/components/media/LazyImage";
 import LazyVideo from "@/app/components/media/LazyVideo";
+import { VerifiedBadgeIcon } from "../icons/VerifiedBadgeIcon";
 
 type TabKey = "creators" | "tags" | "images" | "videos" | "all";
 
@@ -333,6 +334,7 @@ function CreatorRow({
 }) {
   const [isFollowing, setIsFollowing] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
+  const verify = user.verified
 
   useEffect(() => {
     let cancelled = false;
@@ -364,6 +366,8 @@ function CreatorRow({
     }
   };
 
+  console.log(user, "<<<<<<,, user")
+
   const followersLabel =
     user.followerCount >= 1000
       ? `${Math.round(user.followerCount / 100) / 10}K FOLLOWERS`
@@ -390,8 +394,12 @@ function CreatorRow({
       </div>
 
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold truncate">
-          {user.username}
+        <div className="flex gap-2 text-sm font-semibold truncate">
+          <span>{user.username}</span>
+          <span>
+            {!verify === true && <VerifiedBadgeIcon />}
+          </span>
+          
         </div>
         {!compact && (
           <div className="text-[11px] text-white/60">

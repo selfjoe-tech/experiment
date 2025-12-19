@@ -180,6 +180,7 @@ export default function UploadFlow(props: Props) {
   // optimistic UI
   setTags((p) => [...p, label]);
   setQuery("");
+  
 
   startTransition(async () => {
     const res = await ensureTagAction({ label, slug: slugify(label) });
@@ -194,6 +195,7 @@ export default function UploadFlow(props: Props) {
     setTags((p) => p.filter((x) => x !== t));
 
   const canNextFromTags = tags.length >= 3 && tags.length <= 10;
+  console.log(tags)
 
   const submit = async () => {
   setSubmitError(null);
@@ -201,6 +203,7 @@ export default function UploadFlow(props: Props) {
 
   try {
     if (props.variant === "video") {
+      console.log(tags)
       await props.onSubmit({
         audience,
         tags,

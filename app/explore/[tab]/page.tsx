@@ -37,6 +37,11 @@ export default function ExploreTabPage({ initialVideos = [] }: Props) {
   const toggleMute = () => setIsMuted((prev) => !prev);
   const [hideHeader, setHideHeader] = useState(false);
   const lastScrollY = useRef(0);
+  const OVERLAY_LIMIT = 12;
+const overlayPageRef = useRef(0);
+const overlaySeenRef = useRef(new Set<string>());
+const overlaySessionRef = useRef(0);
+const isLoadingMoreRef = useRef(false);
 
   // ====== SEO STRINGS ======
   const tabLabelMap: Record<typeof tab, string> = {
@@ -74,15 +79,21 @@ export default function ExploreTabPage({ initialVideos = [] }: Props) {
   };
 
   // ===== existing logic (unchanged) =====
-  const handleVideoClick = (
-    video: Video,
-    _index: number,
-    currentVideos: Video[]
-  ) => {
-    setOverlayVideos(currentVideos);
-    setActiveVideoId(video.id);
-    setOverlayOpen(true);
-  };
+  const handleVideoClick = (video: Video, _index: number, currentVideos: Video[]) => {
+  overlaySessionRef.current += 1;
+
+  setOverlayVideos(currentVideos);
+
+  overlaySeenRef.current = new Set(
+    currentVideos.map((v: any) => String(v.id ?? v.mediaId))
+  );
+
+  // best-effort “start after what we already have”
+  overlayPageRef.current = Math.max(0, Math.ceil(currentVideos.length / OVERLAY_LIMIT));
+
+  setActiveVideoId(video.id);
+  setOverlayOpen(true);
+};
 
   const fetchMore = async () => {
     if (isLoadingMore) return;
@@ -194,6 +205,8 @@ export default function ExploreTabPage({ initialVideos = [] }: Props) {
             toggleMute={toggleMute}
             isMuted={isMuted}
           />
+
+          
         </div>
       </div>
     </>

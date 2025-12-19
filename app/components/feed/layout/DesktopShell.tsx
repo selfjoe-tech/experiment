@@ -185,9 +185,7 @@ const items: {
           )
         )}
       </nav>
-              <div className="mt-10">
                 <ContactUs />
-              </div>
       
       {showUploadAuthModal && (
   <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 backdrop-blur-sm">

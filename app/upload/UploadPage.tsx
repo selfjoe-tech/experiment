@@ -265,7 +265,10 @@ export default function UploadPage() {
             title: formValues.description?.slice(0, 80) ?? "",
             description: formValues.description ?? "",
             audience: formValues.audience,
+            tags: formValues.tags,
           });
+
+          console.log(formValues.tags, "<<<<<<<<< formulaValues tags")
 
           console.log("Inserted media row:", row);
           setProgress(100);
