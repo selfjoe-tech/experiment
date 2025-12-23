@@ -169,7 +169,7 @@ const downloadName = getSupabasePublicFilename(videoUrl, fallbackName);
     "w-full max-w-sm rounded-2xl bg-[#090909] border border-white/15 text-sm text-white shadow-2xl overflow-hidden";
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center px-3">
+    <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center px-3">
       <div className={baseCardClass}>
         <div className="h-1 w-full bg-gradient-to-r from-pink-500 via-yellow-400 to-purple-500" />
 
