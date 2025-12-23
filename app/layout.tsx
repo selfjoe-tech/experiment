@@ -104,7 +104,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="icon" type="image/png" href="https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png"/>
+        <link rel="icon" type="image/png" href="/uc.png"/>
         <meta name="juicyads-site-verification" content="50181bcfdf34b852dbb8a24813c6930a"></meta>
       </head>
       <body
