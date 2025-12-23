@@ -11,6 +11,7 @@ import { useInView } from "@/app/components/media/useInView";
 import type { SortKey } from "@/app/components/explore/SortDropdown";
 import { getUserMedia } from "@/app/components/explore/data";
 import VirtualizedSquareGrid from "@/app/components/media/VirtualizedSquareGrid";
+import GridVideoPreview from "@/app/components/media/GridVideoPreview";
 
 import {
   FullscreenImageOverlay,
@@ -227,7 +228,15 @@ export default function UserGrid({ username, tab, sortBy, onVideoClick }: Props)
               className={`w-full h-full ${tileChrome}`}
               onClick={() => onVideoClick?.(m as any, index, mediaItems)}
             >
-              <LazyVideo src={m.src} className="w-full h-full object-cover" hoverPlay />
+            <GridVideoPreview
+              src={m.src}
+              cacheKey={`user-media-${m.id}`}
+              className="w-full h-full"
+              hoverPlay
+              mobileLimit={6}
+              mobileMode="still"
+            />
+
             </button>
           )}
         />

@@ -23,7 +23,6 @@ export function LongLogo(
           />
         </div>
       </div> 
-      <span className="text-sm">Alpha Test</span>
     </div>
 
   );

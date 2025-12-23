@@ -8,6 +8,7 @@ import ExploreGrid from "@/app/components/explore/ExploreGrid";
 import SortDropdown, { SortKey } from "@/app/components/explore/SortDropdown";
 import FullscreenVideoOverlay from "@/app/components/feed/FullscreenVideoOverlay";
 import { Video } from "@/app/components/feed/types";
+import { getItemsForTab } from "@/app/components/explore/data";
 
 type Props = {
   initialVideos?: Video[];
@@ -42,6 +43,15 @@ const overlayPageRef = useRef(0);
 const overlaySeenRef = useRef(new Set<string>());
 const overlaySessionRef = useRef(0);
 const isLoadingMoreRef = useRef(false);
+
+useEffect(() => {
+  overlaySessionRef.current += 1;
+  overlayPageRef.current = 0;
+  overlaySeenRef.current.clear();
+  setOverlayOpen(false);
+  setActiveVideoId(null);
+  setOverlayVideos([]);
+}, [tab, sortBy]);
 
   // ====== SEO STRINGS ======
   const tabLabelMap: Record<typeof tab, string> = {
@@ -79,38 +89,57 @@ const isLoadingMoreRef = useRef(false);
   };
 
   // ===== existing logic (unchanged) =====
-  const handleVideoClick = (video: Video, _index: number, currentVideos: Video[]) => {
-  overlaySessionRef.current += 1;
-
-  setOverlayVideos(currentVideos);
-
-  overlaySeenRef.current = new Set(
-    currentVideos.map((v: any) => String(v.id ?? v.mediaId))
-  );
-
-  // best-effort “start after what we already have”
-  overlayPageRef.current = Math.max(0, Math.ceil(currentVideos.length / OVERLAY_LIMIT));
-
+  const handleVideoClick = (video: Video, _index: number, _items: any[]) => {
+  setOverlayVideos([video]);
   setActiveVideoId(video.id);
   setOverlayOpen(true);
 };
 
   const fetchMore = async () => {
-    if (isLoadingMore) return;
-    setIsLoadingMore(true);
+  if (tab !== "gifs") return;
+  if (isLoadingMoreRef.current) return;
 
-    try {
-      const res = await fetch(`/api/explore?page=${page + 1}`);
-      const data = (await res.json()) as { videos: Video[] };
+  const session = overlaySessionRef.current;
+  isLoadingMoreRef.current = true;
+  setIsLoadingMore(true);
 
-      setOverlayVideos((prev) => [...prev, ...data.videos]);
-      setPage((p) => p + 1);
-    } catch (err) {
-      console.error("Failed to load more videos", err);
-    } finally {
-      setIsLoadingMore(false);
-    }
-  };
+  try {
+    const batch = await getItemsForTab({
+      tab,
+      sortBy,
+      limit: OVERLAY_LIMIT,
+      page: overlayPageRef.current,
+    });
+
+    if (overlaySessionRef.current !== session) return;
+
+    const media = (batch as ExploreItem[]).filter(
+      (x: any) => x.type === "gif" || x.type === "video"
+    ) as any[];
+
+    if (media.length === 0) return;
+
+    setOverlayVideos((prev) => {
+      const next = [...prev];
+      for (const m of media) {
+        const key = String((m as any).id ?? (m as any).mediaId);
+        if (!overlaySeenRef.current.has(key)) {
+          overlaySeenRef.current.add(key);
+          next.push(m as any);
+        }
+      }
+      return next;
+    });
+
+    overlayPageRef.current += 1;
+  } catch (err) {
+    console.error("Explore overlay fetchMore error", err);
+  } finally {
+    setIsLoadingMore(false);
+    isLoadingMoreRef.current = false;
+  }
+};
+
 
   useEffect(() => {
     const handleScroll = () => {
@@ -200,7 +229,6 @@ const isLoadingMoreRef = useRef(false);
             onClose={() => setOverlayOpen(false)}
             videos={overlayVideos}
             initialVideoId={activeVideoId}
-            onEndReached={fetchMore}
             isLoadingMore={isLoadingMore}
             toggleMute={toggleMute}
             isMuted={isMuted}

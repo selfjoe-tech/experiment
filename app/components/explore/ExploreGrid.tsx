@@ -24,6 +24,8 @@ import {
   type ImageExploreItem,
 } from "../feed/FullscreenImageOverlay";
 import { ExploreGridSkeleton } from "../skeletons/ExploreGridSkeleton";
+import GridVideoPreview from "@/app/components/media/GridVideoPreview";
+
 
 // 🔧 UPDATED: add slug + simplify niche variant
 export type ExploreItem =
@@ -305,8 +307,15 @@ export default function ExploreGrid({ onVideoClick, tab, sortBy, fetcher }: Prop
               className={`block w-full h-full ${tileChrome}`}
             >
               <div className="relative w-full h-full">
-                <LazyVideo src={n.src} className="w-full h-full object-cover" />
-                <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/85 to-transparent">
+              <GridVideoPreview
+                src={n.src}
+                cacheKey={`niche-${n.slug}`}
+                className="w-full h-full"
+                mobileLimit={4}          // niches are few, but keep it extra safe
+                mobileMode="still"
+              />                
+              
+              <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/85 to-transparent">
                   <div className="text-white/70 text-sm font-semibold truncate">{n.name}</div>
                 </div>
               </div>
@@ -336,8 +345,15 @@ export default function ExploreGrid({ onVideoClick, tab, sortBy, fetcher }: Prop
               className={`w-full h-full ${tileChrome}`}
               onClick={() => onVideoClick(m as any, index, mediaItems)}
             >
-              <LazyVideo src={m.src} className="w-full h-full object-cover" hoverPlay />
-            </button>
+          <GridVideoPreview
+            src={m.src}
+            cacheKey={`media-${m.id}`}
+            className="w-full h-full"
+            hoverPlay
+            mobileLimit={6}          // allow some motion, but not a stampede
+            mobileMode="still"       // still on mobile = less memory
+          />            
+          </button>
           )}
         />
 

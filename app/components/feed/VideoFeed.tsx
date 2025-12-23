@@ -11,7 +11,6 @@ import React, {
 } from "react";
 import VideoCard, { SponsoredVideoCard } from "./VideoCard";
 import type { FeedTab, Video } from "./types";
-import FullscreenVideoOverlay from "./FullscreenVideoOverlay";
 import {
   fetchTrendingVideosBatch,
   registerView,
@@ -20,12 +19,17 @@ import {
   registerAdView,
 } from "@/lib/actions/mediaFeed";
 
+import { X } from "lucide-react";
+
+
 const BATCH_SIZE = 3;
 const PREFETCH_AHEAD = 2;
 
 // windowing
 const MAX_WINDOW = 9;    // how many cards to keep mounted
 const KEEP_BEHIND = 1;   // keep at least 1 behind current index
+
+
 
 type FeedState = { items: Video[]; dropped: number };
 type Action =
@@ -73,6 +77,8 @@ export default function VideoFeed({
 }: Props) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const lastScrollTop = useRef(0);
+  const [maximize, setMaximize] = useState(true)
+
 
   const [state, dispatch] = useReducer(reducer, { items: [], dropped: 0 });
   const { items: videos, dropped } = state;
@@ -92,14 +98,74 @@ export default function VideoFeed({
   const seenIdsRef = useRef<Set<number>>(new Set());
   const seenAdIdsRef = useRef<Set<string>>(new Set());
   const forYouBatchCountRef = useRef(0);
+  const [cardH, setCardH] = useState(0);
 
-  const [fullscreenOpen, setFullscreenOpen] = useState(false);
-  const [fullscreenStartId, setFullscreenStartId] = useState<string | null>(null);
+  const [overlayOpen, setOverlayOpen] = useState(false);
 
+// when switching layouts, keep the *same snap index* even though height changes
+const pendingScrollAbsIndexRef = useRef<number | null>(null);
+
+const requestScrollToAbsIndex = useCallback((absIndex: number) => {
+  pendingScrollAbsIndexRef.current = absIndex;
+}, []);
+
+const openOverlayAtIndex = useCallback(
+  (absIndex: number) => {
+    requestScrollToAbsIndex(absIndex);
+    setOverlayOpen(prev => !prev);
+  },
+  [requestScrollToAbsIndex]
+);
+
+const closeOverlay = useCallback(() => {
+  const el = scrollRef.current;
+  if (!el) {
+    setOverlayOpen(false);
+    return;
+  }
+
+  const h = cardH || el.clientHeight || window.innerHeight || 1;
+  const absIndex = Math.round(el.scrollTop / h);
+
+  requestScrollToAbsIndex(absIndex);
+  setOverlayOpen(false);
+}, [cardH, requestScrollToAbsIndex]);
+
+// after overlay opens/closes, height changes -> re-align scrollTop to keep the same snapped item
+useLayoutEffect(() => {
+  const el = scrollRef.current;
+  if (!el) return;
+  if (pendingScrollAbsIndexRef.current == null) return;
+  if (!cardH) return;
+
+  el.scrollTop = pendingScrollAbsIndexRef.current * cardH;
+  pendingScrollAbsIndexRef.current = null;
+}, [overlayOpen, cardH]);
+
+// esc closes overlay + prevent page scrolling behind it
+useEffect(() => {
+  if (!overlayOpen) return;
+
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === "Escape") closeOverlay();
+  };
+
+  window.addEventListener("keydown", onKey);
+
+  const prevOverflow = document.body.style.overflow;
+  document.body.style.overflow = "hidden";
+
+  return () => {
+    window.removeEventListener("keydown", onKey);
+    document.body.style.overflow = prevOverflow;
+  };
+}, [overlayOpen, closeOverlay]);
+
+  
   const toggleMute = () => setIsMuted((p) => !p);
 
   // card height for spacer math
-  const [cardH, setCardH] = useState(0);
+  
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -337,14 +403,29 @@ export default function VideoFeed({
 
   const noVideos = !loading && initialLoaded && videos.length === 0;
 
+  const mainClass = overlayOpen
+  ? "relative z-[80] h-[100dvh] w-full overflow-y-scroll overscroll-y-contain snap-y snap-mandatory shadow-2xl backdrop-blur"
+  : "relative h-screen snap-y snap-mandatory overflow-y-scroll overscroll-y-contain lg:pt-70 lg:pb-70 lg:pl-[17rem] lg:pr-[21rem]";
+
+const sectionHeightClass = overlayOpen
+  ? "h-full" // each snap item equals the container height
+  : "h-screen w-full lg:h-[100dvh]";
+
+
   return (
-    <>
-      <main
-        ref={scrollRef}
-        onScroll={handleScroll}
-        className="relative h-screen snap-y snap-mandatory overflow-y-scroll overscroll-y-contain
-                   lg:pt-70 lg:pb-70 lg:pl-[17rem] lg:pr-[21rem]"
-      >
+  <>
+    {/* Overlay background */}
+    
+
+    {/* This wrapper becomes the overlay "frame" but keeps the SAME main element mounted */}
+    <div
+      className={
+        overlayOpen
+          ? "fixed inset-0 z-[80] grid place-items-center"
+          : "relative"
+      }
+    >
+      <main ref={scrollRef} onScroll={handleScroll} className={mainClass}>
         {feedError && (
           <div className="sticky top-0 z-20 bg-red-900/90 text-red-100 text-xs px-4 py-2 text-center">
             {feedError}
@@ -359,11 +440,7 @@ export default function VideoFeed({
 
         {/* Spacer keeps scroll stable when we prune */}
         {dropped > 0 && cardH > 0 && (
-          <div
-            aria-hidden
-            style={{ height: dropped * cardH }}
-            className="snap-none"
-          />
+          <div aria-hidden style={{ height: dropped * cardH }} className="snap-none" />
         )}
 
         {videos.map((video, index) => {
@@ -371,7 +448,6 @@ export default function VideoFeed({
           const isAd = !!anyVideo._isAd;
           const visitUrl: string | undefined = anyVideo._adLandingUrl ?? undefined;
 
-          // Only keep src attached for current + 1 neighbor
           const dist = Math.abs(index - currentIndex);
           const loadLevel: "active" | "near" | "off" =
             dist === 0 ? "active" : dist === 1 ? "near" : "off";
@@ -380,58 +456,51 @@ export default function VideoFeed({
             ? `ad-${anyVideo._adId ?? video.id}`
             : `media-${video.mediaId ?? video.id}`;
 
+          const absIndex = dropped + index;
+
           return (
             <section
               key={key}
-              className="snap-center snap-always flex items-center justify-center h-screen w-full lg:h-[100dvh]"
+              className={`snap-center snap-always flex items-center justify-center w-full ${sectionHeightClass}`}
             >
               {isAd ? (
                 <SponsoredVideoCard
                   video={video}
                   isMuted={isMuted}
                   toggleMute={toggleMute}
-                  visitUrl={visitUrl || "#"}
+                  visitUrl={visitUrl || "/ads"}
                   loadLevel={loadLevel}
+                  maximize={maximize}
+                  changeMaxButton={() => setMaximize(prev => !prev)}
                 />
               ) : (
                 <VideoCard
                   video={video}
-                  onRequestFullscreen={() => {
-                    setFullscreenStartId(video.id);
-                    setFullscreenOpen(true);
-                  }}
+                  onRequestFullscreen={() => openOverlayAtIndex(absIndex)}
                   toggleMute={toggleMute}
                   isMuted={isMuted}
                   loadLevel={loadLevel}
+                  maximize={maximize}
+                  changeMaxButton={() => setMaximize(prev => !prev)}
                 />
               )}
             </section>
           );
         })}
       </main>
+    </div>
 
-      {/* Loader OUTSIDE snap list so it doesn’t create snap points */}
-      {loading && (
-        <div className="pointer-events-none fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
-          <div className="rounded-full bg-black/70 border border-white/15 px-4 py-2 text-xs text-white/80 backdrop-blur">
-            Loading…
-          </div>
+    {/* Loader stays global */}
+    {loading && (
+      <div className="pointer-events-none fixed bottom-6 left-1/2 -translate-x-1/2 z-[95]">
+        <div className="rounded-full bg-black/70 border border-white/15 px-4 py-2 text-xs text-white/80 backdrop-blur">
+          Loading…
         </div>
-      )}
+      </div>
+    )}
+  </>
+);
 
-      <FullscreenVideoOverlay
-        open={fullscreenOpen}
-        onClose={() => setFullscreenOpen(false)}
-        videos={videos}
-        baseIndex={dropped}
-        initialVideoId={fullscreenStartId}
-        toggleMute={toggleMute}
-        isMuted={isMuted}
-        onEndReached={loadMore}
-        isLoadingMore={loading}
-      />
-    </>
-  );
 }
 
 

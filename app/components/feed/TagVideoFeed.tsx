@@ -11,14 +11,14 @@ import React, {
   useState,
 } from "react";
 import VideoCard from "./VideoCard";
-import FullscreenVideoOverlay from "./FullscreenVideoOverlay";
 import type { Video } from "./types";
 import { fetchVideosByTagBatch, registerView } from "@/lib/actions/mediaFeed";
+import { X } from "lucide-react";
 
 const BATCH_SIZE = 3;
 const PREFETCH_AHEAD = 2;
 
-// windowing (same idea as VideoFeed)
+// windowing
 const MAX_WINDOW = 9;
 const KEEP_BEHIND = 1;
 
@@ -60,6 +60,7 @@ type Props = {
 export default function TagVideoFeed({ tagSlug, onScrollDirectionChange }: Props) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const lastScrollTop = useRef(0);
+  const [maximize, setMaximize] = useState(false)
 
   const [state, dispatch] = useReducer(reducer, { items: [], dropped: 0 });
   const { items: videos, dropped } = state;
@@ -81,12 +82,12 @@ export default function TagVideoFeed({ tagSlug, onScrollDirectionChange }: Props
   // ignore stale async results when tag changes
   const tagSessionRef = useRef(0);
 
-  const [fullscreenOpen, setFullscreenOpen] = useState(false);
-  const [fullscreenStartId, setFullscreenStartId] = useState<string | null>(null);
-
   const toggleMute = () => setIsMuted((p) => !p);
 
-  // card height for spacer math
+  // --- overlay mode (same concept as your VideoFeed) ---
+  const [overlayOpen, setOverlayOpen] = useState(false);
+
+  // card height for spacer + scroll math
   const [cardH, setCardH] = useState(0);
   useLayoutEffect(() => {
     const el = scrollRef.current;
@@ -105,6 +106,62 @@ export default function TagVideoFeed({ tagSlug, onScrollDirectionChange }: Props
     };
   }, []);
 
+  // preserve abs index when switching UI layouts
+  const pendingScrollAbsIndexRef = useRef<number | null>(null);
+
+  const requestScrollToAbsIndex = useCallback((absIndex: number) => {
+    pendingScrollAbsIndexRef.current = absIndex;
+  }, []);
+
+  const openOverlayAtIndex = useCallback(
+    (absIndex: number) => {
+      requestScrollToAbsIndex(absIndex);
+      setOverlayOpen(prev => !prev);
+    },
+    [requestScrollToAbsIndex]
+  );
+
+  const closeOverlay = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) {
+      setOverlayOpen(false);
+      return;
+    }
+
+    const h = cardH || el.clientHeight || window.innerHeight || 1;
+    const absIndex = Math.round(el.scrollTop / h);
+
+    requestScrollToAbsIndex(absIndex);
+    setOverlayOpen(false);
+  }, [cardH, requestScrollToAbsIndex]);
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (pendingScrollAbsIndexRef.current == null) return;
+    if (!cardH) return;
+
+    el.scrollTop = pendingScrollAbsIndexRef.current * cardH;
+    pendingScrollAbsIndexRef.current = null;
+  }, [overlayOpen, cardH]);
+
+  useEffect(() => {
+    if (!overlayOpen) return;
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeOverlay();
+    };
+    window.addEventListener("keydown", onKey);
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [overlayOpen, closeOverlay]);
+
   // current index in window (used for pruning + loadLevel)
   const [currentIndex, setCurrentIndex] = useState(0);
   const currentIndexRef = useRef(0);
@@ -115,15 +172,12 @@ export default function TagVideoFeed({ tagSlug, onScrollDirectionChange }: Props
   }, [videos.length]);
 
   const rafTickingRef = useRef(false);
-
-  // gate prefetch by GLOBAL last index, not window length
   const lastPrefetchGlobalLastRef = useRef<number>(-1);
 
   const loadMore = useCallback(async () => {
     if (loadingRef.current) return;
     if (!hasMoreRef.current) return;
     if (!tagSlug) return;
-    if (fullscreenOpen) return; // don’t load behind overlay
 
     const sessionAtStart = tagSessionRef.current;
 
@@ -132,8 +186,6 @@ export default function TagVideoFeed({ tagSlug, onScrollDirectionChange }: Props
     setFeedError(null);
 
     try {
-      // optional safety cap:
-      // const excludeIds = Array.from(seenIdsRef.current).slice(-600);
       const excludeIds = Array.from(seenIdsRef.current);
 
       const batch = await fetchVideosByTagBatch({
@@ -142,7 +194,6 @@ export default function TagVideoFeed({ tagSlug, onScrollDirectionChange }: Props
         excludeIds,
       });
 
-      // tag changed while fetching → ignore
       if (tagSessionRef.current !== sessionAtStart) return;
 
       if (!batch || batch.length === 0) {
@@ -162,7 +213,6 @@ export default function TagVideoFeed({ tagSlug, onScrollDirectionChange }: Props
         currentIndex: currentIndexRef.current,
       });
 
-      // register views + mark seen
       bumped.forEach((v) => {
         if (typeof v.mediaId === "number") {
           seenIdsRef.current.add(v.mediaId);
@@ -179,7 +229,7 @@ export default function TagVideoFeed({ tagSlug, onScrollDirectionChange }: Props
       }
       loadingRef.current = false;
     }
-  }, [tagSlug, fullscreenOpen]);
+  }, [tagSlug]);
 
   const handleScroll = (e: UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
@@ -198,11 +248,8 @@ export default function TagVideoFeed({ tagSlug, onScrollDirectionChange }: Props
       rafTickingRef.current = false;
 
       const h = cardH || el.clientHeight || window.innerHeight || 1;
-
-      // absolute index in the full feed
       const absoluteIndex = Math.round(el.scrollTop / h);
 
-      // index within current window (after dropped)
       const idxInWindow = clamp(
         absoluteIndex - dropped,
         0,
@@ -214,7 +261,6 @@ export default function TagVideoFeed({ tagSlug, onScrollDirectionChange }: Props
         setCurrentIndex(idxInWindow);
       }
 
-      // Prefetch based on GLOBAL last index
       const len = videosLenRef.current;
       if (!loadingRef.current && hasMoreRef.current && len > 0) {
         const globalLastIndex = dropped + len - 1;
@@ -228,7 +274,6 @@ export default function TagVideoFeed({ tagSlug, onScrollDirectionChange }: Props
     });
   };
 
-  // keep currentIndex correct after pruning/appending
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -272,82 +317,95 @@ export default function TagVideoFeed({ tagSlug, onScrollDirectionChange }: Props
 
   const noVideos = !loading && initialLoaded && videos.length === 0;
 
+  // ✅ match your preferred VideoFeed overlay UI (full bleed)
+  const mainClass = overlayOpen
+    ? "relative z-[80] h-[100dvh] w-full overflow-y-scroll overscroll-y-contain snap-y snap-mandatory shadow-2xl backdrop-blur"
+    : "relative h-screen snap-y snap-mandatory overflow-y-scroll overscroll-y-contain lg:pt-70 lg:pb-70 lg:pl-[17rem] lg:pr-[21rem]";
+
+  const sectionHeightClass = overlayOpen ? "h-full" : "h-screen w-full lg:h-[100dvh]";
+
   return (
     <>
-      <main
-        ref={scrollRef}
-        onScroll={handleScroll}
-        className="relative h-screen snap-y snap-mandatory overflow-y-scroll overscroll-y-contain
-                   lg:pt-70 lg:pb-70 lg:pl-[17rem] lg:pr-[21rem]"
-      >
-        {feedError && (
-          <div className="sticky top-0 z-20 bg-red-900/90 text-red-100 text-xs px-4 py-2 text-center">
-            {feedError}
-          </div>
-        )}
+      {/* Pink blur veil + click-outside close */}
+      {overlayOpen && (
+        <div className="fixed inset-0 z-[70]">
+          <button
+            type="button"
+            aria-label="Close fullscreen"
+            onClick={closeOverlay}
+            className="absolute inset-0 bg-black/60 backdrop-blur-xl"
+          />
+          <div className="absolute inset-0 bg-pink-500/15" />
 
-        {noVideos && (
-          <div className="flex h-full items-center justify-center text-white/70">
-            No videos for this niche yet.
-          </div>
-        )}
+          <button
+            type="button"
+            onClick={closeOverlay}
+            aria-label="Close"
+            className="fixed top-4 left-4 z-[90] rounded-full bg-black/60 border border-white/15 p-2 text-white hover:bg-white/10"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      )}
 
-        {/* Spacer keeps scroll stable when we prune */}
-        {dropped > 0 && cardH > 0 && (
-          <div aria-hidden style={{ height: dropped * cardH }} className="snap-none" />
-        )}
+      <div className={overlayOpen ? "fixed inset-0 z-[80] grid place-items-center" : "relative"}>
+        <main ref={scrollRef} onScroll={handleScroll} className={mainClass}>
+          {feedError && (
+            <div className="sticky top-0 z-20 bg-red-900/90 text-red-100 text-xs px-4 py-2 text-center">
+              {feedError}
+            </div>
+          )}
 
-        {videos.map((video, index) => {
-          // Only keep src attached for current + 1 neighbor (VideoFeed style)
-          const dist = Math.abs(index - currentIndex);
-          const loadLevel: "active" | "near" | "off" =
-            dist === 0 ? "active" : dist === 1 ? "near" : "off";
+          {noVideos && (
+            <div className="flex h-full items-center justify-center text-white/70">
+              No videos for this niche yet.
+            </div>
+          )}
 
-          const key = `media-${video.mediaId ?? video.id}`;
+          {/* spacer keeps scroll stable when we prune */}
+          {dropped > 0 && cardH > 0 && (
+            <div aria-hidden style={{ height: dropped * cardH }} className="snap-none" />
+          )}
 
-          return (
-            <section
-              key={key}
-              className="snap-center snap-always flex items-center justify-center h-screen w-full lg:h-[100dvh]"
-            >
-              <VideoCard
-                video={video}
-                onRequestFullscreen={() => {
-                  setFullscreenStartId(video.id);
-                  setFullscreenOpen(true);
-                }}
-                toggleMute={toggleMute}
-                isMuted={isMuted}
-                loadLevel={loadLevel}
-              />
-            </section>
-          );
-        })}
-      </main>
+          {videos.map((video, index) => {
+            const dist = Math.abs(index - currentIndex);
+            const loadLevel: "active" | "near" | "off" =
+              dist === 0 ? "active" : dist === 1 ? "near" : "off";
 
-      {/* Loader OUTSIDE snap list so it doesn’t create snap points */}
+            const key = `media-${video.mediaId ?? video.id}`;
+            const absIndex = dropped + index;
+
+            return (
+              <section
+                key={key}
+                className={`snap-center snap-always flex items-center justify-center w-full ${sectionHeightClass}`}
+              >
+                <VideoCard
+                  video={video}
+                  onRequestFullscreen={() => openOverlayAtIndex(absIndex)}
+                  toggleMute={toggleMute}
+                  isMuted={isMuted}
+                  loadLevel={loadLevel}
+                  maximize={maximize}
+                  changeMaxButton={() => setMaximize(prev => !prev)}
+                />
+              </section>
+            );
+          })}
+        </main>
+      </div>
+
+      {/* Loader OUTSIDE snap list */}
       {loading && (
-        <div className="pointer-events-none fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+        <div className="pointer-events-none fixed bottom-6 left-1/2 -translate-x-1/2 z-[95]">
           <div className="rounded-full bg-black/70 border border-white/15 px-4 py-2 text-xs text-white/80 backdrop-blur">
             Loading…
           </div>
         </div>
       )}
-
-      <FullscreenVideoOverlay
-        open={fullscreenOpen}
-        onClose={() => setFullscreenOpen(false)}
-        videos={videos}
-        initialVideoId={fullscreenStartId}
-        toggleMute={toggleMute}
-        isMuted={isMuted}
-        onEndReached={loadMore}
-        isLoadingMore={loading}
-      />
     </>
   );
 }
-
 
 
 

@@ -113,26 +113,30 @@ export default function VirtualizedSquareGrid<T>({
 
   // If we haven't measured yet, render a small non-virtual preview (bonus: avoids “one-row flash”)
   if (!hostWidth) {
-    const previewCount = Math.min(items.length, cols * 8);
-    return (
-      <div ref={hostRef} className="w-full">
-        <div
-          className={gridClassName}
-          style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-            gap: `${gapPx}px`,
-          }}
-        >
-          {items.slice(0, previewCount).map((item, i) => (
-            <React.Fragment key={getKey ? getKey(item, i) : i}>
-              {renderItem(item, i)}
-            </React.Fragment>
-          ))}
-        </div>
+  const skeletonCount = Math.min(items.length || cols * 6, cols * 6);
+
+  return (
+    <div ref={hostRef} className="w-full">
+      <div
+        className={gridClassName}
+        style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+          gap: `${gapPx}px`,
+        }}
+      >
+        {Array.from({ length: skeletonCount }).map((_, i) => (
+          <div
+            key={i}
+            className="rounded-xl border border-white/10 bg-white/5 animate-pulse"
+            style={{ aspectRatio: "1 / 1" }}
+          />
+        ))}
       </div>
-    );
-  }
+    </div>
+  );
+}
+
 
   // Slice items for visible rows
   const startIndex = range.startRow * cols;

@@ -282,14 +282,7 @@ export default function FullscreenVideoOverlay({
         )}
       </div>
 
-      <div className="hidden lg:flex fixed right-6 top-1/2 -translate-y-1/2 z-[95] flex-col gap-3">
-        <button onClick={() => scrollOneStep("up")} aria-label="Previous video">
-          <ChevronUp className="h-6 w-6" />
-        </button>
-        <button onClick={() => scrollOneStep("down")} aria-label="Next video">
-          <ChevronDown className="h-6 w-6" />
-        </button>
-      </div>
+      
     </div>
   );
 }

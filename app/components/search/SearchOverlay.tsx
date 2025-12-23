@@ -397,7 +397,7 @@ function CreatorRow({
         <div className="flex gap-2 text-sm font-semibold truncate">
           <span>{user.username}</span>
           <span>
-            {!verify === true && <VerifiedBadgeIcon />}
+            {verify && <VerifiedBadgeIcon />}
           </span>
           
         </div>

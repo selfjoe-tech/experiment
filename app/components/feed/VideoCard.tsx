@@ -20,6 +20,7 @@ import {
   X,
   MoveLeft,
   ChevronLeftIcon,
+  Minimize2,
 } from "lucide-react";
 import type { Video } from "./types";
 import {
@@ -72,6 +73,8 @@ type Props = {
   onClose?: () => void;
   open?: boolean;
   loadLevel?: LoadLevel;
+  maximize: boolean;
+  changeMaxButtin: () => void;
 
 
 };
@@ -90,6 +93,9 @@ export default function VideoCard({
   open,
   onClose,
   loadLevel = "active",
+  maximize,
+  changeMaxButton,
+
 
 
 }: Props) {
@@ -110,6 +116,7 @@ const mediaIdNum = !isSponsored
   const cardRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const clickTimeoutRef = useRef<number | null>(null);
+
 
   const [isPlaying, setIsPlaying] = useState(false);
 
@@ -567,7 +574,7 @@ useEffect(() => {
       ref={cardRef}
       className={`
         relative lg:h-[100vh]
-        ${open ? "h-[100vh]" : "h-[80vh]"}
+        ${maximize ? "h-[80vh]" : "h-[100vh]"}
         flex items-center justify-center
         bg-neutral-900 shadow-5xl overflow-hidden
       `}
@@ -588,8 +595,8 @@ useEffect(() => {
             onPlay={handlePlay}
             onPause={handlePause}
             className={`
-              max-h-full max-w-full
-              ${isVertical ? "h-full w-auto" : "w-full h-auto"}
+              h-[100vh] w-full
+              ${isVertical ? "h-full w-auto" : "w-full h-full"}
               object-contain
               transition-opacity duration-300
               ${metadataLoaded ? "opacity-100" : "opacity-0"}
@@ -620,19 +627,7 @@ useEffect(() => {
         )}
       </button>
 
-      <div className="absolute flex left-3 top-12 z-30 flex-col items-center">
-        {open && 
-          <button
-            onClick={() => {
-              onClose();
-              
-            }}
-          >
-            <ChevronLeftIcon size={30}/>
-          </button>
-        }
-        
-      </div>
+      
 
       {/* right-side actions */}
       <div className="absolute right-3 bottom-24 z-30 flex flex-col items-center gap-4">
@@ -640,24 +635,36 @@ useEffect(() => {
           <Eye className="h-7 w-7" />
         </StatBubble>
 
-        {showFullscreenButton && (
-          <div className="hidden lg:block">
+
+
+          {open ?  
+
+          (<button
+            onClick={() => {
+              onClose();
+              
+            }}
+          >
+            <Minimize2 />
+          </button>)
+          :
+
+          (<div className="">
             <IconCircleButton
               onClick={() => {
                 onRequestFullscreen?.();
-                const el = videoRef.current;
-                if (!el) return;
-                if (!el.paused) {
-                  el.pause();
-                }
+                
+                changeMaxButton?.()
               }}
               label="Full screen"
-              className="hidden lg:flex"
+              className=""
             >
-              <Maximize2 className="h-7 w-7" />
+              {maximize ? <Maximize2 className="h-7 w-7" /> : <Minimize2/>}
             </IconCircleButton>
-          </div>
-        )}
+          </div>)
+          }
+          
+        
 
         <IconCircleButton onClick={toggleMute!} label="Mute / unmute">
           {isMuted ? (
@@ -873,6 +880,7 @@ useEffect(() => {
           open={optionsOpen}
           onClose={() => setOptionsOpen(false)}
           mediaId={mediaIdNum || video.id}
+          videoUrl={video.src}
         />
       )}
 
@@ -1164,6 +1172,8 @@ export function SponsoredVideoCard(
       visitUrl={props.visitUrl}
       loadLevel={props.loadLevel}
       toggleMute={props.toggleMute}
+      maximize={props.maximize}
+      changeMaxButton={props.changeMaxButton}
 
     />
   );

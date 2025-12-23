@@ -96,15 +96,8 @@ useEffect(() => {
 
     
 
-  const handleVideoClick = (video: Video, _index: number, currentVideos: Video[]) => {
-  overlaySessionRef.current += 1;
-
-  setOverlayVideos(currentVideos);
-  overlaySeenRef.current = new Set(
-    currentVideos.map((v: any) => String(v.id ?? v.mediaId))
-  );
-  overlayPageRef.current = Math.max(0, Math.ceil(currentVideos.length / OVERLAY_LIMIT));
-
+  const handleVideoClick = (video: Video) => {
+  setOverlayVideos([video]);     // ✅ only one
   setActiveVideoId(video.id);
   setOverlayOpen(true);
 };
@@ -384,7 +377,6 @@ function isSafeExternalUrl(url: string) {
                 onClose={() => setOverlayOpen(false)}
                 videos={overlayVideos}
                 initialVideoId={activeVideoId}
-                onEndReached={fetchMore}
                 isLoadingMore={isLoadingMore}
                 isMuted={isMuted}
                 toggleMute={toggleMute}

@@ -1,4 +1,3 @@
-// app/components/feed/VideoOptionsModal.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -7,8 +6,8 @@ import {
   Share2,
   Code2,
   MessageSquareWarning,
-  Copy,
   Check,
+  Download,
 } from "lucide-react";
 import {
   REPORT_REASONS,
@@ -20,11 +19,56 @@ type Props = {
   open: boolean;
   onClose: () => void;
   mediaId: number | string;
+  videoUrl: string; // ✅ supabase public URL
 };
 
 type Mode = "options" | "report-step1" | "report-step2" | "report-done";
 
-export default function VideoOptionsModal({ open, onClose, mediaId }: Props) {
+function getSupabasePublicFilename(url: string, fallback: string) {
+  try {
+    const u = new URL(url);
+    const parts = u.pathname.split("/").filter(Boolean);
+    const last = parts[parts.length - 1] || "";
+    const clean = decodeURIComponent(last);
+    return clean || fallback;
+  } catch {
+    // If URL parsing fails, try a simple split
+    const last = (url.split("?")[0] || "").split("/").pop() || "";
+    return last || fallback;
+  }
+}
+
+/**
+ * Force download via fetch -> blob -> <a download>
+ * Notes:
+ * - This will use memory proportional to file size (big videos = big RAM).
+ * - Requires CORS to allow GET from your origin (Supabase public URLs usually do).
+ */
+async function forceDownload(url: string, filename: string) {
+  const res = await fetch(url, { mode: "cors" });
+  if (!res.ok) throw new Error(`Download failed (${res.status})`);
+
+  const blob = await res.blob();
+  const blobUrl = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = blobUrl;
+  a.download = filename;
+  a.rel = "noopener";
+  // no target needed for downloads
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  URL.revokeObjectURL(blobUrl);
+}
+
+export default function VideoOptionsModal({
+  open,
+  onClose,
+  mediaId,
+  videoUrl,
+}: Props) {
   const [origin, setOrigin] = useState("");
   const [copied, setCopied] = useState<"embed" | "share" | null>(null);
 
@@ -36,10 +80,12 @@ export default function VideoOptionsModal({ open, onClose, mediaId }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // download UX
+  const [dlLoading, setDlLoading] = useState(false);
+  const [dlError, setDlError] = useState<string | null>(null);
+
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setOrigin(window.location.origin);
-    }
+    if (typeof window !== "undefined") setOrigin(window.location.origin);
   }, []);
 
   // Reset internal state whenever the modal opens/closes
@@ -51,6 +97,9 @@ export default function VideoOptionsModal({ open, onClose, mediaId }: Props) {
       setCopied(null);
       setSubmitting(false);
       setSubmitError(null);
+
+      setDlLoading(false);
+      setDlError(null);
     }
   }, [open]);
 
@@ -64,6 +113,9 @@ export default function VideoOptionsModal({ open, onClose, mediaId }: Props) {
 
   const iframeSnippet = `<iframe src="${embedUrl}" width="360" height="640" style="border:0;overflow:hidden" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>`;
 
+  const fallbackName = `upskirtcandy_${idStr}.mp4`;
+const downloadName = getSupabasePublicFilename(videoUrl, fallbackName);
+
   const copyText = async (text: string, kind: "embed" | "share") => {
     try {
       await navigator.clipboard.writeText(text);
@@ -71,6 +123,24 @@ export default function VideoOptionsModal({ open, onClose, mediaId }: Props) {
       setTimeout(() => setCopied(null), 1500);
     } catch (err) {
       console.error("clipboard error", err);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!videoUrl) return;
+
+    setDlError(null);
+    setDlLoading(true);
+    try {
+      await forceDownload(videoUrl, downloadName);
+    } catch (e: any) {
+      console.error("download error", e);
+      // Helpful hint: if CORS blocks fetch, open-in-new-tab still works
+      setDlError(
+        "Download failed. If this keeps happening, try opening the media URL in a new tab and downloading from there."
+      );
+    } finally {
+      setDlLoading(false);
     }
   };
 
@@ -101,10 +171,8 @@ export default function VideoOptionsModal({ open, onClose, mediaId }: Props) {
   return (
     <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center px-3">
       <div className={baseCardClass}>
-        {/* gradient edge */}
         <div className="h-1 w-full bg-gradient-to-r from-pink-500 via-yellow-400 to-purple-500" />
 
-        {/* Header */}
         <div className="flex items-center justify-between px-5 pt-4 pb-2">
           <h2 className="font-semibold">
             {mode.startsWith("report") ? "Report Content" : "Options"}
@@ -119,9 +187,11 @@ export default function VideoOptionsModal({ open, onClose, mediaId }: Props) {
           </button>
         </div>
 
-        {/* CONTENT MODES */}
         {mode === "options" && (
           <div className="px-5 pb-5 space-y-4">
+            {/* ✅ Download */}
+            
+
             {/* Embed */}
             <div className="space-y-2">
               <button
@@ -189,9 +259,46 @@ export default function VideoOptionsModal({ open, onClose, mediaId }: Props) {
                 </span>
               </div>
             </button>
+
+
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={handleDownload}
+                disabled={dlLoading}
+                className="w-full flex items-center justify-between rounded-xl border border-white/10 px-3 py-2.5 hover:bg-white/5 transition disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10">
+                    <Download className="h-4 w-4" />
+                  </span>
+                  <span>{dlLoading ? "Downloading…" : "Download"}</span>
+                </div>
+                
+              </button>
+
+              {dlError && (
+                <p className="text-[11px] text-red-400">{dlError}</p>
+              )}
+
+              {/* Optional: "Open media" fallback */}
+              <a
+                href={videoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-[11px] text-pink-500 underline underline-offset-2 hover:text-white/80"
+              >
+                Click here if download fails
+              </a>
+            </div>
+
+
+
+
           </div>
         )}
 
+        {/* report-step1 */}
         {mode === "report-step1" && (
           <div className="px-5 pb-5 space-y-4">
             <p className="text-xs text-white/70">
@@ -245,6 +352,7 @@ export default function VideoOptionsModal({ open, onClose, mediaId }: Props) {
           </div>
         )}
 
+        {/* report-step2 */}
         {mode === "report-step2" && (
           <div className="px-5 pb-5 space-y-4">
             <p className="text-xs text-white/70">
@@ -283,6 +391,7 @@ export default function VideoOptionsModal({ open, onClose, mediaId }: Props) {
           </div>
         )}
 
+        {/* report-done */}
         {mode === "report-done" && (
           <div className="px-5 pb-5 space-y-4">
             <p className="text-sm text-white">

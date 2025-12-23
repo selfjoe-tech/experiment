@@ -9,11 +9,10 @@ export function ShortLogo(
         
           <Image
             src={"/icons/logo7.png"}
-            height={60}
-            width={60}
+            height={40}
+            width={40}
             alt="Upskirt Candy heart shaped logo with a halo on top of it"
           />
-          <span className="text-sm">Alpha Test</span>
         
       </div>
   );

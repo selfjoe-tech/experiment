@@ -110,7 +110,7 @@ export default function HomePage() {
 
 function ForYouLoginGate() {
   return (
-    <main className="relative w-full h-screen lg:pl-[17rem] lg:pr-[21rem]">
+    <main className="relative h-screen lg:pl-[17rem] lg:pr-[21rem]">
       <div className="relative h-full flex items-center justify-center">
         {/* Background image behind the card */}
 
