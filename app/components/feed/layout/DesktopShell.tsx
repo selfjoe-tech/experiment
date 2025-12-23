@@ -129,7 +129,7 @@ export default function DesktopShell({ navHidden}: Props) {
   // const avatarUrl = profile.avatarUrl; // if you want to show an avatar somewhere
 
   const uploadItem = isLoggedIn
-  ? { label: "Upload", icon: UploadIcon, href: "/upload" }
+  ? { label: "Upload", icon: UploadIcon, href: "https://upload.upskirtcandy.com/upload" }
   : { label: "Upload", icon: UploadIcon, onClick: () => setShowUploadAuthModal(true) };
 
 const items: {

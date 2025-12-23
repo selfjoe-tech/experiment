@@ -268,7 +268,7 @@ function MobileBottomNav({ isAuthed = true }: { isAuthed?: boolean }) {
         <NavLink href="/" label="Home" icon={Home} />
         <NavLink href="/explore/gifs" label="Explore" icon={Compass} />
         {isAuthed ? (
-          <NavLink href="/upload" label="Upload" icon={PlusCircleIcon} />
+          <NavLink href="https://upload.upskirtcandy.com/upload" label="Upload" icon={PlusCircleIcon} />
         ) : (
           <button
             type="button"
