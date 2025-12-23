@@ -5,7 +5,6 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { supabase } from "@/lib/supabaseClient";
 import nodemailer from "nodemailer";
-import { revalidatePath } from "next/cache";
 import { getAuthCookieOptions } from "../server/cookies";
 
 
@@ -252,7 +251,7 @@ export async function setAuthCookies(
   verified: boolean = false
 ) {
   const store = await cookies();
-  const base = getAuthCookieOptions();
+  const base = await getAuthCookieOptions();
 
   store.set("userId", userId, {
     ...base,
@@ -509,7 +508,7 @@ export type SimpleResult = { success: boolean };
 
 export async function logoutAction(): Promise<{ success: boolean }> {
   const store = await cookies();
-  const base = getAuthCookieOptions();
+  const base = await getAuthCookieOptions();
   const names = ["userId", "isLoggedIn", "username", "avatar", "verified", "preferences"];
 
   for (const name of names) {
@@ -624,9 +623,11 @@ export async function updateUserPreferencesAction(
     }
   }
 
+  const base = await getAuthCookieOptions();
+
   // Store in cookies for client-side fetching
   store.set("preferences", JSON.stringify(normalized), {
-  ...getAuthCookieOptions(),
+  ...base,
   httpOnly: false,
 });
 

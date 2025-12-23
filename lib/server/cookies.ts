@@ -1,10 +1,10 @@
-export function getAuthCookieOptions() {
+export async function getAuthCookieOptions() {
   const isProd = process.env.NODE_ENV === "production";
 
   // IMPORTANT:
   // - NEVER set `domain` on localhost
   // - only set domain in prod for subdomain sharing
-  const domain = isProd ? (process.env.COOKIE_DOMAIN || undefined) : undefined;
+  const domain = isProd ? "upskirtcandy.com" : undefined;
 
   return {
     path: "/",
