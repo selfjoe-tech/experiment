@@ -1,7 +1,6 @@
-import type { Metadata,  Viewport } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,66 +12,61 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const SITE_URL = "https://upskirtcandy.com";
+const SITE_NAME = "Upskirt Candy";
+const SITE_URL =
+  (process.env.NEXT_PUBLIC_SITE_URL || "https://upskirtcandy.com").replace(/\/$/, "");
+const DEFAULT_TITLE = `${SITE_NAME} | Porn GIFs, Videos & Clips`;
+const DEFAULT_DESCRIPTION =
+  "Upskirt Candy is a short-form adult video and GIF platform. Discover trending creators, niches, and content in a continuous feed.";
+const DEFAULT_OG_IMAGE =
+  "https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png";
+
+const siteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: SITE_NAME,
+  url: SITE_URL,
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Upskirt Candy – Porn GIFs & Videos",
-    template: "%s • Upskirt Candy",
+    default: DEFAULT_TITLE,
+    template: `%s | ${SITE_NAME}`,
   },
-  description:
-    "Upskirt Candy is a short-form porn video & GIF platform similar to RedGif. Discover trending creators, niches and content in a doom-scroll style feed.",
-    keywords: [
-    "Upskirt Candy",
+  description: DEFAULT_DESCRIPTION,
+  keywords: [
+    SITE_NAME,
     "adult gifs",
     "adult short clips",
     "nsfw gifs",
-    "creator platform",
-    "adult creators",
-    "porn",
-    "xvideos",
-    "upskirt",
+    "adult creator platform",
+    "porn gifs",
+    "upskirt videos",
     "upskirt creampie",
-    "sex",
-    "pornhub",
-    "secretary",
-    "sub",
-    "stepsister",
-    "redgif",
-    "onlyfans",
-    "fansly",
-    "loyalfans",
-    "privacy.com",
-    "full video",
-    "full video download",
-    "twerking",
-    "tits",
-    "big tits",
-    "creampie"
+    "adult social feed",
+    "short form adult video",
   ],
   openGraph: {
     type: "website",
     url: SITE_URL,
-    siteName: "Upskirt Candy",
-    title: "Upskirt Candy – Porn GIFs, Videos and Images of Upskirts",
-    description:
-      "Scroll through endless Porn GIFs, videos and images from verified creators.",
+    siteName: SITE_NAME,
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
     images: [
       {
-        url: "https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png",
+        url: DEFAULT_OG_IMAGE,
         width: 1200,
         height: 630,
-        alt: "Upskirt Candy – Porn Adult GIF & video platform",
+        alt: `${SITE_NAME} logo`,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Upskirt Candy – Porn GIFs & Videos & Images - Upskirt - Upskirt Creampie",
-    description:
-      "Adult short-form GIFs, videos and images from verified creators.",
-    images: ["https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png"],
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    images: [DEFAULT_OG_IMAGE],
   },
   robots: {
     index: true,
@@ -82,12 +76,19 @@ export const metadata: Metadata = {
       follow: true,
       "max-image-preview": "large",
       "max-video-preview": -1,
+      "max-snippet": -1,
     },
   },
   alternates: {
     canonical: SITE_URL,
   },
-  
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
+  },
+  applicationName: SITE_NAME,
+  creator: SITE_NAME,
 };
 
 export const viewport: Viewport = {
@@ -104,15 +105,20 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="icon" type="image/png" href="/uc.png"/>
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="apple-touch-icon" href="/favicon.ico" />
         <meta name="juicyads-site-verification" content="50181bcfdf34b852dbb8a24813c6930a"></meta>
+        <meta name="6a97888e-site-verification" content="469cfda4ca51063fa73eab8f03ed6f37"></meta>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(siteJsonLd) }}
+        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
       </body>
-    
     </html>
   );
 }

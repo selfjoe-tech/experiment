@@ -2,21 +2,18 @@
 import type { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
-  const base = "https://upskirtcandy.com";
+  const base =
+    (process.env.NEXT_PUBLIC_SITE_URL || "https://upskirtcandy.com").replace(/\/$/, "");
 
   return {
     rules: [
       {
         userAgent: "*",
         allow: "/",
-        disallow: [
-          "/admin",
-          "/ads/upload",
-          "/api",
-          "/_next",
-        ],
+        disallow: ["/admin", "/api", "/_next"],
       },
     ],
     sitemap: `${base}/sitemap.xml`,
+    host: base,
   };
 }

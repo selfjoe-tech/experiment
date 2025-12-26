@@ -1,16 +1,20 @@
 // app/ads/head.tsx
 import React from "react";
 
+const SITE_NAME = "Upskirt Candy";
+const BASE_URL =
+  (process.env.NEXT_PUBLIC_SITE_URL || "https://upskirtcandy.com").replace(/\/$/, "");
+const DEFAULT_OG_IMAGE =
+  "https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png";
+
 export default function Head() {
-  const siteName = "UpskirtCandy";
-  const baseUrl = "https://upskirtcandy.com";
-  const url = `${baseUrl}/ads`;
+  const url = `${BASE_URL}/ads`;
 
-  const title = `Advertise on ${siteName} | In-feed video, image & banner ads`;
+  const title = `Advertise on ${SITE_NAME} | In-feed video, image, and banner ads`;
   const description =
-    "Promote your brand with in-feed video, image, and banner ads on UpskirtCandy. Sponsored posts appear in the feed with views, likes, and clicks tracked. Contact sales@upskirtcandy.com to get started.";
+    "Promote your brand with in-feed video, image, and banner ads on Upskirt Candy. Sponsored posts appear in the feed with views, likes, and clicks tracked. Contact sales@upskirtcandy.com to get started.";
 
-  const image = `${baseUrl}/ads-og.jpg`; // <- create this OG image if you want, or change to your default
+  const image = DEFAULT_OG_IMAGE;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -21,20 +25,20 @@ export default function Head() {
     description,
     isPartOf: {
       "@type": "WebSite",
-      "@id": `${baseUrl}/#website`,
-      name: siteName,
-      url: baseUrl,
+      "@id": `${BASE_URL}/#website`,
+      name: SITE_NAME,
+      url: BASE_URL,
     },
     mainEntity: {
       "@type": "Service",
       "@id": `${url}#ads-service`,
-      name: `Advertising on ${siteName}`,
+      name: `Advertising on ${SITE_NAME}`,
       description:
-        "Sponsored video, image, and banner placements inside the UpskirtCandy feed with view and click tracking.",
+        "Sponsored video, image, and banner placements inside the Upskirt Candy feed with view and click tracking.",
       provider: {
         "@type": "Organization",
-        name: siteName,
-        url: baseUrl,
+        name: SITE_NAME,
+        url: BASE_URL,
       },
       areaServed: {
         "@type": "Place",
@@ -49,33 +53,33 @@ export default function Head() {
     potentialAction: {
       "@type": "ContactAction",
       target: "mailto:sales@upskirtcandy.com",
-      name: "Contact UpskirtCandy ad sales",
+      name: `Contact ${SITE_NAME} ad sales`,
     },
   };
 
   return (
     <>
-      {/* Basic SEO */}
       <title>{title}</title>
       <meta name="description" content={description} />
       <link rel="canonical" href={url} />
       <meta name="robots" content="index,follow" />
+      <meta
+        name="googlebot"
+        content="index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1"
+      />
 
-      {/* Open Graph */}
       <meta property="og:type" content="website" />
-      <meta property="og:site_name" content={siteName} />
+      <meta property="og:site_name" content={SITE_NAME} />
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />
       <meta property="og:url" content={url} />
       <meta property="og:image" content={image} />
 
-      {/* Twitter */}
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={title} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={image} />
 
-      {/* JSON-LD */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

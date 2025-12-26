@@ -8,6 +8,9 @@ export default function Head({ params }: { params: { id: string } }) {
 
   return (
     <>
+      <link rel="canonical" href={canonical} />
+      <meta name="robots" content="index,follow" />
+      <meta name="googlebot" content="index,follow" />
       <link rel="alternate" type="application/json+oembed" href={oembedHref} />
     </>
   );

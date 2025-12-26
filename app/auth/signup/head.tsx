@@ -1,16 +1,20 @@
-// app/auth/signin/head.tsx
+// app/auth/signup/head.tsx
 import React from "react";
 
+const SITE_NAME = "Upskirt Candy";
+const BASE_URL =
+  (process.env.NEXT_PUBLIC_SITE_URL || "https://upskirtcandy.com").replace(/\/$/, "");
+const DEFAULT_OG_IMAGE =
+  "https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png";
+
 export default function Head() {
-  const siteName = "UpskirtCandy";
-  const baseUrl = "https://upskirtcandy.com";
-  const url = `${baseUrl}/auth/signin`;
+  const url = `${BASE_URL}/auth/signup`;
 
-  const title = `Sign in to ${siteName}`;
+  const title = `Sign up for ${SITE_NAME}`;
   const description =
-    "Sign in to UpskirtCandy with your email code to continue watching, uploading, and managing your creator content.";
+    "Create your Upskirt Candy account to keep watching, upload your own content, and grow your creator profile.";
 
-  const image = `${baseUrl}/og-default.jpg`;
+  const image = DEFAULT_OG_IMAGE;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -21,40 +25,37 @@ export default function Head() {
     description,
     isPartOf: {
       "@type": "WebSite",
-      "@id": `${baseUrl}/#website`,
-      name: siteName,
-      url: baseUrl,
+      "@id": `${BASE_URL}/#website`,
+      name: SITE_NAME,
+      url: BASE_URL,
     },
     potentialAction: {
-      "@type": "LoginAction",
+      "@type": "RegisterAction",
       target: url,
-      name: `Sign in to ${siteName}`,
+      name: `Sign up for ${SITE_NAME}`,
     },
   };
 
   return (
     <>
-      {/* Basic SEO */}
       <title>{title}</title>
       <meta name="description" content={description} />
       <link rel="canonical" href={url} />
-      <meta name="robots" content="noindex,nofollow" />
+      <meta name="robots" content="index,follow" />
+      <meta name="googlebot" content="index,follow" />
 
-      {/* Open Graph */}
       <meta property="og:type" content="website" />
-      <meta property="og:site_name" content={siteName} />
+      <meta property="og:site_name" content={SITE_NAME} />
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />
       <meta property="og:url" content={url} />
       <meta property="og:image" content={image} />
 
-      {/* Twitter */}
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={title} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={image} />
 
-      {/* JSON-LD */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
