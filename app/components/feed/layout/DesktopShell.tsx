@@ -343,52 +343,33 @@ export function JuicyAd() {
 }
 
 export function DesktopAdsColumn() {
-  const [ads, setAds] = useState<SidebarAd[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const result = await fetchDesktopSidebarAds();
-        if (!cancelled) {
-          setAds(result);
-        }
-      } catch (err) {
-        console.error("DesktopAdsColumn error", err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   return (
-    <aside className="hidden lg:flex fixed inset-y-0 right-0 w-80 flex-col bg-black/95 border-l border-white/10 px-4 py-6 z-30 overflow-y-auto">
+    <aside className="hidden lg:flex fixed inset-y-0 right-0 w-80 flex-col bg-black/95 border-l border-white/10 px-4 py-6 z-30 h-500 overflow-y-auto">
       <h2 className="text-sm font-semibold mb-4">Sponsored</h2>
-      <div className="space-y-4">
-        {/* Real ads if we have them */}
-        {ads.map((ad) => (
-          <AdCard key={ad.id} ad={ad} />
-        ))}
-                
 
+      {/* JuicyAds v3.0 */}
+      <Script
+        id="juicyads-jads"
+        src="https://poweredby.jads.co/js/jads.js"
+        strategy="afterInteractive"
+        data-cfasync="false"
+        async
+      />
 
-        {/* Fallback placeholders if no ads available */}
-        {!loading && ads.length === 0 && (
-          <>
-            <AdCard name="Advertise Here" />
-            <AdCard name="Advertise Here" />
-            <AdCard name="Advertise Here" />
-            <AdCard name="Advertise Here" />
-            <AdCard name="Advertise Here" />
-          </>
-        )}
+      <div className="rounded-2xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
+        {/* Ad slot (308x1044) */}
+        <ins id="1108076" data-width="308" data-height="1044"></ins>
       </div>
+
+      <Script
+        id="juicyads-init-1108076"
+        strategy="afterInteractive"
+        data-cfasync="false"
+        dangerouslySetInnerHTML={{
+          __html: `(adsbyjuicy = window.adsbyjuicy || []).push({'adzone':1108076});`,
+        }}
+      />
+      {/* JuicyAds END */}
     </aside>
   );
 }

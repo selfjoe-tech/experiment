@@ -51,6 +51,14 @@ import SearchOverlay from "@/app/components/search/SearchOverlay";
 import { ShortLogo } from "../../icons/ShortLogo";
 import { MobileAd } from "../../ads/AdCard";
 import { ContactUs } from "../../ui/ContactUs";
+import { DesktopAdsColumn } from "./DesktopShell";
+import Script from "next/script";
+
+declare global {
+  interface Window {
+    adsbyjuicy?: any[];
+  }
+}
 
 
 export default function MobileChrome(props: Props) {
@@ -90,6 +98,49 @@ function DiscordIcon(props: React.SVGProps<SVGSVGElement>) {
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C18.6274 0 24 5.37258 24 12C24 18.6274 18.6274 24 12 24C5.37258 24 0 18.6274 0 12C0 5.37258 5.37258 0 12 0ZM13.5786 7.17529C15.4548 7.74225 16.3308 8.55925 16.3379 8.56592C15.1854 7.94192 14.0552 7.63507 13.0024 7.51465C12.2046 7.42707 11.4397 7.44904 10.7637 7.53662C10.6973 7.53664 10.642 7.54767 10.5757 7.55859C10.1878 7.59143 9.24571 7.73358 8.06006 8.24805C7.65448 8.43214 7.41147 8.5631 7.40625 8.56592C7.41355 8.55907 8.33402 7.69836 10.3208 7.13135L10.21 7C10.208 6.99996 8.69046 6.96833 7.0957 8.1499C7.08047 8.17727 5.50003 11.0241 5.5 14.5322C5.5033 14.5378 6.4352 16.1198 8.87988 16.1963C8.8847 16.1905 9.29208 15.7011 9.62256 15.2876C8.21518 14.8716 7.68311 13.9956 7.68311 13.9956C7.68311 13.9956 7.79377 14.0727 7.99316 14.1821C8.00423 14.1931 8.0155 14.2039 8.0376 14.2148C8.07083 14.2367 8.10446 14.2477 8.1377 14.2695C8.4146 14.4227 8.69152 14.5431 8.94629 14.6416C9.40064 14.8168 9.94403 14.9919 10.5757 15.1123C11.4068 15.2655 12.382 15.3206 13.4458 15.1235C13.9666 15.0359 14.4987 14.8827 15.0527 14.6528C15.4406 14.5105 15.8728 14.3024 16.3271 14.0068C16.3271 14.0068 15.7729 14.9045 14.3213 15.3096C14.6517 15.7231 15.048 16.1907 15.0527 16.1963C17.4898 16.1199 18.4343 14.5474 18.4434 14.5322C18.4433 11.0195 16.8588 8.16994 16.8477 8.1499C15.259 6.97283 13.7473 6.99973 13.7339 7L13.5786 7.17529ZM10.2114 11.2822C10.838 11.2823 11.3434 11.8458 11.3325 12.5332C11.3325 13.2207 10.838 13.7846 10.2114 13.7847C9.59573 13.7847 9.08984 13.2208 9.08984 12.5332C9.08998 11.8458 9.58482 11.2822 10.2114 11.2822ZM14.2241 11.2822C14.8507 11.2823 15.3451 11.8458 15.3452 12.5332C15.3452 13.2207 14.8507 13.7846 14.2241 13.7847C13.6084 13.7847 13.1025 13.2208 13.1025 12.5332C13.1027 11.8458 13.5975 11.2822 14.2241 11.2822Z" fill="#BAB9C0"></path></svg>
   );
 }
+
+export function JuicyAd308x1044_1108082() {
+  return (
+    <>
+      {/* JuicyAds v3.0 loader (safe to include; Next dedupes by id if you reuse the same id globally) */}
+      <Script
+        id="juicyads-jads"
+        src="https://poweredby.jads.co/js/jads.js"
+        strategy="afterInteractive"
+        data-cfasync="false"
+        async
+      />
+
+      {/* Ad slot */}
+      <div className="rounded-2xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
+        <ins id="1108082" data-width="308" data-height="1044"></ins>
+      </div>
+
+      {/* Queue ad request */}
+      <Script
+        id="juicyads-init-1108082"
+        strategy="afterInteractive"
+        data-cfasync="false"
+        dangerouslySetInnerHTML={{
+          __html: `(adsbyjuicy = window.adsbyjuicy || []).push({'adzone':1108082});`,
+        }}
+      />
+    </>
+  );
+}
+
+export function MobiledAdsColumn() {
+  return (
+    <aside className="w-80 flex-col bg-black/95 border-l border-white/10 px-4 py-6 z-30 h-500 overflow-y-auto">
+      <h2 className="text-sm font-semibold mb-4">Sponsored</h2>
+
+      {/* Implemented component for adzone 1108082 */}
+      <JuicyAd308x1044_1108082 />
+    </aside>
+  );
+}
+
+
 
 function MobileTopBar({
   activeTab,
@@ -165,6 +216,11 @@ function MobileTopBar({
           </div>
 
           <ContactUs />
+
+          <div className=" w-full flex justify-center">
+            <MobiledAdsColumn />
+          </div>
+
 
 
         </aside>
@@ -252,8 +308,16 @@ const NavLink = ({
           active ? "text-pink-500" : "text-white/60"
         }`}
       >
-        <Icon className="h-5 w-5" />
-        <span>{label}</span>
+        {
+
+          label ? <Icon className="h-5 w-5" /> : 
+          <Icon className="h-10 w-10" />
+
+        }
+        {label && 
+                (<span>{label}</span>)
+
+        }
       </Link>
     );
   };
@@ -268,15 +332,14 @@ function MobileBottomNav({ isAuthed = true }: { isAuthed?: boolean }) {
         <NavLink href="/" label="Home" icon={Home} />
         <NavLink href="/explore/gifs" label="Explore" icon={Compass} />
         {isAuthed ? (
-          <NavLink href="https://upload.upskirtcandy.com/upload" label="Upload" icon={PlusCircleIcon} />
+          <NavLink href="https://upload.upskirtcandy.com/upload" icon={PlusCircleIcon} />
         ) : (
           <button
             type="button"
             onClick={() => setShowUploadAuthModal(true)}
             className="flex flex-col items-center gap-0.5 text-white/60"
           >
-            <PlusCircleIcon className="h-5 w-5" />
-            <span>Upload</span>
+            <PlusCircleIcon className="h-10 w-10" />
           </button>
         )}        
 

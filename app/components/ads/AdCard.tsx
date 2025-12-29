@@ -5,13 +5,20 @@ import { supabase } from "@/lib/supabaseClient";
 import { ArrowUpRightFromSquare } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { fetchRandomMobileBannerAd, type SidebarAd } from "@/lib/actions/ads";
+import Script from "next/script";
 
 
 const ACCENT_START = "#a855f7";
 const ACCENT_END = "#ec4899";
+
+declare global {
+  interface Window {
+    adsbyjuicy?: any[];
+  }
+}
 
 export function AdCard({ name }: { name: string }) {
   const router = useRouter();
@@ -75,88 +82,36 @@ export function MobileAdCard({ name }: { name: string }) {
 
 
 export function MobileAd() {
-  const [ad, setAd] = useState<SidebarAd | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-  let cancelled = false;
-
-  (async () => {
-    try {
-      const result = await fetchRandomMobileBannerAd();
-      if (!cancelled) {
-        setAd(result);
-      }
-    } catch (err) {
-      console.error("MobileAd thrown error", err);
-    } finally {
-      if (!cancelled) setLoading(false);
-    }
-  })();
-
-  return () => {
-    cancelled = true;
-  };
-}, []);
-
-  const hrefRaw =
-    ad?.landing_url && ad.landing_url.trim().length > 0
-      ? ad.landing_url.trim()
-      : "/ads";
-
-  const href = hrefRaw;
-  const isExternal =
-    href.startsWith("http://") || href.startsWith("https://");
-
-  const labelText = ad
-    ? `Visit ${ad.owner_username || "this sponsor"}`
-    : "Buy Ad Space";
-
-  const mediaUrl =
-    ad?.storage_path != null ? buildPublicUrl(ad.storage_path) : null;
-
-  // If loading OR no valid ad/image → default pill
-  if (loading || !ad || !mediaUrl) {
-    return (
-      <Link href="/ads" className="flex gap-2">
-        <div
-          className="text-nowrap h-10 px-5 gap-2 w-full flex rounded-[50px] items-center justify-center text-sm font-semibold text-white"
-          style={{
-            backgroundImage: `radial-gradient(circle at 0% 0%, ${ACCENT_START}, transparent 55%), radial-gradient(circle at 100% 100%, ${ACCENT_END}, transparent 55%), linear-gradient(135deg, #020617, #0f172a)`,
-          }}
-        >
-          {labelText}
-          <ArrowUpRightFromSquare size={20} />
-        </div>
-      </Link>
-    );
-  }
-
-  // Real image ad
   return (
-    <Link
-      href={href}
-      target={isExternal ? "_blank" : undefined}
-      rel={isExternal ? "noopener noreferrer" : undefined}
-      className="flex flex-col gap-2"
-    >
-      <div className=" rounded-2xl overflow-hidden border border-white/10 bg-black/80">
-        {/* Banner image */}
-        <div className="relative w-full h-10 bg-black">
-          <Image
-            src={mediaUrl}
-            alt={`${ad.owner_username}'s mobile ad on Upskirt Candy - Porn videos` || "Sponsored ad"}
-            fill
-            sizes="100vw"
-            className="object-cover"
-          />
-          
+    <div className="flex flex-col max-w-200 ">
+      {/* JuicyAds v3.0: loads the engine that fetches/renders ads */}
+      <Script
+        id="juicyads-jads"
+        src="https://poweredby.jads.co/js/jads.js"
+        strategy="afterInteractive"
+        data-cfasync="false"
+        async
+      />
+
+      <div className="rounded-2xl overflow-hidden border border-white/10 bg-black/80">
+        {/* Ad slot */}
+        <div className="relative w-60 h-10 bg-black flex items-center justify-center">
+          <ins id="1107996" data-width="300" data-height="50"></ins>
         </div>
 
+        {/* JuicyAds init: queues the ad request (jads.js will pick it up) */}
+        <Script
+          id="juicyads-init-1107996"
+          strategy="afterInteractive"
+          data-cfasync="false"
+          dangerouslySetInnerHTML={{
+            __html: `(adsbyjuicy = window.adsbyjuicy || []).push({'adzone':1107996});`,
+          }}
+        />
 
-        {/* Text + CTA row */}
+        {/* Optional footer / CTA */}
         
       </div>
-    </Link>
+    </div>
   );
 }

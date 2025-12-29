@@ -100,6 +100,7 @@ export const viewport: Viewport = {
 };
 
 
+
 export default function RootLayout({
   children,
 }: Readonly<{

@@ -3,7 +3,7 @@
 
 import { supabase } from "@/lib/supabaseClient";
 import { v4 as uuidv4 } from "uuid";
-import { getUserProfileFromCookies, getUserIdFromCookies } from "@/lib/actions/auth";
+import { getUserProfileFromCookies, getUserIdFromCookies, getVerified } from "@/lib/actions/auth";
 
 export type CommentNode = {
   id: string;
@@ -13,6 +13,7 @@ export type CommentNode = {
   likes: number;
   liked_by?: string[];      // userIds who liked the comment
   replies: CommentNode[];
+  verified: boolean;
 };
 
 /** Safely normalize whatever is in media.comments into an array of CommentNode */
@@ -136,6 +137,7 @@ export async function addCommentForMedia(options: {
   }
 
   const existing = ensureArray(data?.comments);
+  const verified = await getVerified(username);
 
   const newNode: CommentNode = {
     id: uuidv4(),
@@ -145,6 +147,7 @@ export async function addCommentForMedia(options: {
     likes: 0,
     liked_by: [],
     replies: [],
+    verified: verified,
   };
 
   const updatedComments = parentId

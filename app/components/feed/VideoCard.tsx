@@ -21,6 +21,9 @@ import {
   MoveLeft,
   ChevronLeftIcon,
   Minimize2,
+  LoaderCircle,
+  LoaderPinwheel,
+  Loader,
 } from "lucide-react";
 import type { Video } from "./types";
 import {
@@ -33,6 +36,8 @@ import {
 } from "@/lib/actions/social";
 import VideoOptionsModal from "@/app/components/feed/VideoOptionsModal";
 import { getUserIdFromCookies } from "@/lib/actions/auth";
+import Script from "next/script";
+
 
 import {
   Dialog,
@@ -80,6 +85,8 @@ type Props = {
 };
 
 type LoadLevel = "active" | "near" | "off";
+
+
 
 
 export default function VideoCard({
@@ -157,6 +164,7 @@ const shouldAutoPlay = loadLevel === "active";  const [metadataLoaded, setMetada
   const [isDesktop, setIsDesktop] = useState(false);
   const [showLikeAuthTooltip, setShowLikeAuthTooltip] = useState(false);
   const isLoggedIn = !!currentId;
+  const [sendCommentLoading, setSendCommentLoading] = useState(false)
 
   useEffect(() => {
   if (loadLevel === "off") return;
@@ -517,6 +525,7 @@ useEffect(() => {
 
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSendCommentLoading(true);
 
     if (!mediaIdNum || !newComment.trim()) return;
     try {
@@ -532,6 +541,7 @@ useEffect(() => {
       console.error("addCommentForMedia error", err);
       setCommentsError(err?.message ?? "Failed to post comment.");
     }
+    setSendCommentLoading(false)
   };
 
   const handleToggleCommentLike = async (commentId: string) => {
@@ -627,17 +637,21 @@ useEffect(() => {
         )}
       </button>
 
+
+
+      
+
       
 
       {/* right-side actions */}
-      <div className="absolute right-3 bottom-24 z-30 flex flex-col items-center gap-4">
-        <StatBubble label={video.views.toLocaleString()}>
+      <div className="absolute right-1 bottom-15 z-30 flex flex-col items-center gap-4">
+        <StatBubble label={video.views.toLocaleString()} classname={isSponsored && "mb-20"}>
           <Eye className="h-7 w-7" />
         </StatBubble>
 
 
 
-          {open ?  
+          {!isSponsored && (open ?  
 
           (<button
             onClick={() => {
@@ -661,18 +675,21 @@ useEffect(() => {
             >
               {maximize ? <Maximize2 className="h-7 w-7" /> : <Minimize2/>}
             </IconCircleButton>
-          </div>)
+          </div>))
           }
           
         
-
-        <IconCircleButton onClick={toggleMute!} label="Mute / unmute">
-          {isMuted ? (
-            <VolumeX className="h-7 w-7" />
-          ) : (
-            <Volume2 className="h-7 w-7" />
-          )}
-        </IconCircleButton>
+          {
+            !isSponsored && 
+            <IconCircleButton onClick={toggleMute!} label="Mute / unmute">
+              {isMuted ? (
+                <VolumeX className="h-7 w-7" />
+              ) : (
+                <Volume2 className="h-7 w-7" />
+              )}
+            </IconCircleButton>
+          }
+        
 
         {/* LIKE BUTTON */}
         {!isSponsored && (
@@ -736,13 +753,27 @@ useEffect(() => {
 
         {/* MORE OPTIONS */}
         {!isSponsored && (
-          <IconCircleButton
-            onClick={() => setOptionsOpen(true)}
-            label="More options"
+          <div className="flex h-25 hover:bg-black/80 "
+
           >
-            <EllipsisIcon className="h-7 w-7" />
-          </IconCircleButton>
+          <IconCircleButton
+            label="More options"
+            onClick={() => setOptionsOpen(true)}
+          >
+            <EllipsisIcon 
+              className="h-7 w-7" 
+            />
+          </IconCircleButton>          
+          </div>
+
         )}
+
+        
+        
+
+
+
+
       </div>
 
       {/* bottom info + scrubber */}
@@ -901,6 +932,7 @@ useEffect(() => {
         }
         replyTo={replyTo}
         setReplyTo={setReplyTo}
+        sendCommentLoading={sendCommentLoading}
       />
     </div>
   );
@@ -913,6 +945,7 @@ type IconCircleButtonProps = {
   className?: string;
   disabled?: boolean;
 };
+
 
 function IconCircleButton({
   children,
@@ -927,7 +960,7 @@ function IconCircleButton({
       aria-label={label}
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className={`h-10 w-10 rounded-full flex items-center justify-center text-lg text-white hover:bg-black/80 disabled:opacity-50 ${
+      className={`cursor-pointer h-10 w-10 rounded-full flex items-center justify-center text-lg text-white hover:bg-black/80 disabled:opacity-50 ${
         className || ""
       }`}
     >
@@ -939,12 +972,13 @@ function IconCircleButton({
 function StatBubble({
   label,
   children,
+  classname
 }: {
   label: string | number;
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center text-xs hover:bg-black/80 rounded-full">
+    <div className={`${classname} flex flex-col items-center text-xs hover:bg-black/80 rounded-full`}>
       <div className="h-10 w-10 rounded-full flex items-center justify-center text-white">
         {children}
       </div>
@@ -992,7 +1026,8 @@ function CommentsOverlay({
   onLikeComment,
   onReplyStart,
   replyTo,
-  setReplyTo
+  setReplyTo,
+  sendCommentLoading,
 }: CommentsOverlayProps) {
 
   const content = (
@@ -1045,9 +1080,10 @@ function CommentsOverlay({
             type="submit"
             size="sm"
             className="h-10 px-4 rounded-full bg-white text-black text-xs font-semibold hover:bg-white/90"
+            disabled={sendCommentLoading}
 
           >
-            <SendHorizonal />
+            {sendCommentLoading ? <Loader /> : <SendHorizonal /> }
           </Button>
         </div>
       </form>
@@ -1118,6 +1154,7 @@ function CommentList({
             <Link href={`/${c.username}`}>
               <div className="flex items-center gap-2">
                 <span className="font-semibold">{c.username}</span>
+                {c.verified && <VerifiedBadgeIcon />}
               </div>
             </Link>
             

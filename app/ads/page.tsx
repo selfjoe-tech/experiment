@@ -202,26 +202,14 @@ export default function AdsPage() {
               </div>
 
               {/* Side column feature + preview */}
-              <FeatureRow
-                title="Side column of feed"
-                body="A bold visual card appears at the side of the feed on desktop, giving your brand premium placement beside the main video feed."
-              />
+              
 
-              <SideColumnPreview
-                imageUrl={sideBannerPreview?.objectUrl ?? null}
-                onTry={() => setSideBannerDialogOpen(true)}
-              />
+              
 
               {/* Top-of-feed banner feature + preview */}
-              <FeatureRow
-                title="Top-of-feed banner card"
-                body="A pill-shaped banner appears at the very top of the feed on mobile, giving your brand the first impression before the first swipe."
-              />
+              
 
-              <TopBannerPreview
-                imageUrl={topBannerPreview?.objectUrl ?? null}
-                onTry={() => setTopBannerDialogOpen(true)}
-              />
+              
             </div>
           </div>
 
