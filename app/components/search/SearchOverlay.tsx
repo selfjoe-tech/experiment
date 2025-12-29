@@ -341,7 +341,7 @@ function CreatorRow({
     let cancelled = false;
     (async () => {
       try {
-          const verified = getVerified(user.username);
+          const verified = await getVerified(user.username);
           setVerify(verified);
 
 
