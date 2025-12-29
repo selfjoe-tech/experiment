@@ -553,12 +553,7 @@ export async function getUserProfileFromCookies(): Promise<{
 
   let avatarUrl: string | null = null;
 
-  if (avatarPath) {
-    const { data } = supabase.storage
-      .from("media")
-      .getPublicUrl(avatarPath);
-    avatarUrl = data.publicUrl || null;
-  }
+  avatarUrl = avatarPath;
 
   return { username, avatarUrl, isLoggedIn };
 }

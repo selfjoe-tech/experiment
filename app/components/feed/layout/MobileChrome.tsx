@@ -131,7 +131,7 @@ export function JuicyAd308x1044_1108082() {
 
 export function MobiledAdsColumn() {
   return (
-    <aside className="w-80 flex-col bg-black/95 border-l border-white/10 px-4 py-6 z-30 h-500 overflow-y-auto">
+    <aside className="w-80 flex-col bg-black/95 border-l border-white/10 px-4 py-6 z-30 h-[400px] overflow-y-auto">
       <h2 className="text-sm font-semibold mb-4">Sponsored</h2>
 
       {/* Implemented component for adzone 1108082 */}
@@ -316,7 +316,6 @@ const NavLink = ({
         }
         {label && 
                 (<span>{label}</span>)
-
         }
       </Link>
     );

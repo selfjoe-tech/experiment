@@ -19,6 +19,7 @@ import { VerifiedBadgeIcon } from "../icons/VerifiedBadgeIcon";
 import Image from "next/image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getMyFollowCounts, type FollowCounts } from "@/lib/actions/social";
+import { profile } from "console";
 
 const ACCENT = "pink";
 
@@ -74,16 +75,20 @@ export default function ProfileMenuContent() {
 
     (async () => {
       try {
-        const [profile, verifiedFlag, counts] = await Promise.all([
+        const [profile, counts] = await Promise.all([
           getUserProfileFromCookies(),
-          getVerified(),
+          
           getMyFollowCounts(),
         ]);
+
+        const verifiedFlag = await getVerified(profile.username);
 
         if (cancelled) return;
 
         setUsername(profile.username ?? "");
         setAvatar(profile.avatarUrl ?? "");
+
+
         if (verifiedFlag === true) {
           setVerified(true);
         }

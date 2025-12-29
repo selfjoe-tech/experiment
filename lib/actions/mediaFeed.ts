@@ -150,7 +150,9 @@ export async function fetchTrendingVideosBatch(opts: {
   const { limit, excludeIds = [] } = opts;
 
   const preferences = await getEffectivePreferences();
-  const OVERFETCH_MULTIPLIER = 6;
+
+  // Bigger pool helps mixing work well
+  const OVERFETCH_MULTIPLIER = 10;
   const overfetchLimit = Math.max(limit * OVERFETCH_MULTIPLIER, limit);
 
   let query = supabase
@@ -188,7 +190,7 @@ export async function fetchTrendingVideosBatch(opts: {
     query = query.not("id", "in", `(${excludeIds.join(",")})`);
   }
 
-  // "Trending-ish": high views & somewhat recent
+  // Make sure high-view stuff is actually in the pool
   query = query
     .order("view_count", { ascending: false })
     .order("created_at", { ascending: false });
@@ -202,15 +204,144 @@ export async function fetchTrendingVideosBatch(opts: {
 
   if (!data || data.length === 0) return [];
 
-  const pool = [...(data as any[])];
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
+  const rows = data as any[];
+
+  // --- helpers ---
+  const shuffleInPlace = <T,>(arr: T[]) => {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  };
+
+  const pickFromTopWindow = <T,>(ranked: T[], count: number, windowSize: number) => {
+    if (count <= 0 || ranked.length === 0) return { picked: [] as T[], remaining: ranked };
+    const w = Math.max(1, Math.min(windowSize, ranked.length));
+    const window = ranked.slice(0, w);
+    const rest = ranked.slice(w);
+
+    shuffleInPlace(window);
+    const picked = window.slice(0, Math.min(count, window.length));
+    const leftoverWindow = window.slice(picked.length);
+
+    return { picked, remaining: [...leftoverWindow, ...rest] };
+  };
+
+  // --- buckets ---
+  // random bucket: views==0 OR likes==0 (you requested ratio not applied + random)
+  const randomBucket: any[] = [];
+
+  // ratio eligible: views>0 AND likes>0 (ratio applies)
+  const ratioRanked: { row: any; score: number }[] = [];
+
+  for (const row of rows) {
+    const views = Number(row.view_count ?? 0);
+    const likes = Number(row.like_count ?? 0);
+
+    if (views <= 0 || likes <= 0) {
+      randomBucket.push(row);
+      continue;
+    }
+
+    const ratio = views / likes; // view_count : like_count
+    const score = Math.abs(ratio - 1); // closer to 1 is better
+    ratioRanked.push({ row, score });
   }
 
-  const picked = pool.slice(0, limit);
+  // Ratio ranking: closest to 1 first
+  ratioRanked.sort((a, b) => a.score - b.score);
 
-  return picked.map((row) => {
+  // High-views ranking: ONLY from ratio-eligible rows (likes>0 && views>0)
+  // so we don't violate your rule that likes==0 should be random.
+  const highViewsRanked = [...ratioRanked]
+    .sort((a, b) => Number(b.row.view_count ?? 0) - Number(a.row.view_count ?? 0))
+    .map((x) => x.row);
+
+  const ratioRows = ratioRanked.map((x) => x.row);
+
+  // --- mix policy (tweak these) ---
+  const RATIO_SHARE = 0.6;
+  const HIGHVIEWS_SHARE = 0.3;
+  const RANDOM_SHARE = 0.1;
+
+  let ratioCount = Math.round(limit * RATIO_SHARE);
+  let highCount = Math.round(limit * HIGHVIEWS_SHARE);
+  let randCount = Math.max(0, limit - ratioCount - highCount);
+
+  // ensure totals add up
+  const total = ratioCount + highCount + randCount;
+  if (total !== limit) ratioCount += limit - total;
+
+  // We only want ONE of each row
+  const picked: any[] = [];
+  const pickedIds = new Set<number>();
+
+  const pushUnique = (r: any) => {
+    const id = Number(r?.id);
+    if (!Number.isFinite(id)) return false;
+    if (pickedIds.has(id)) return false;
+    pickedIds.add(id);
+    picked.push(r);
+    return true;
+  };
+
+  // Pick from ranked pools with randomness inside a "top window"
+  // Windows control how “stable” vs “random” it feels.
+  const ratioWindow = Math.min(ratioRows.length, Math.max(limit * 6, 40));
+  const highWindow = Math.min(highViewsRanked.length, Math.max(limit * 6, 40));
+
+  // 1) Ratio-first picks (random within the best window)
+  let ratioRemaining = ratioRows;
+  {
+    const { picked: rPicked, remaining } = pickFromTopWindow(ratioRemaining, ratioCount, ratioWindow);
+    ratioRemaining = remaining;
+    for (const r of rPicked) pushUnique(r);
+  }
+
+  // 2) Inject high-view picks (random within top high-view window)
+  let highRemaining = highViewsRanked;
+  {
+    const { picked: hPicked, remaining } = pickFromTopWindow(highRemaining, highCount, highWindow);
+    highRemaining = remaining;
+    for (const r of hPicked) pushUnique(r);
+  }
+
+  // 3) Random bucket picks (shuffle then take)
+  shuffleInPlace(randomBucket);
+  for (const r of randomBucket) {
+    if (picked.length >= limit) break;
+    pushUnique(r);
+  }
+
+  // 4) Fill if we still don't have enough (fallback order: ratio -> high -> random)
+  if (picked.length < limit) {
+    // remaining ratio
+    shuffleInPlace(ratioRemaining); // extra randomness once quota is satisfied
+    for (const r of ratioRemaining) {
+      if (picked.length >= limit) break;
+      pushUnique(r);
+    }
+  }
+  if (picked.length < limit) {
+    shuffleInPlace(highRemaining);
+    for (const r of highRemaining) {
+      if (picked.length >= limit) break;
+      pushUnique(r);
+    }
+  }
+  if (picked.length < limit) {
+    // if somehow still short (rare), just take from original rows
+    const tail = rows.filter((r) => !pickedIds.has(Number(r.id)));
+    shuffleInPlace(tail);
+    for (const r of tail) {
+      if (picked.length >= limit) break;
+      pushUnique(r);
+    }
+  }
+
+  // Map to your existing Video shape (unchanged)
+  return picked.slice(0, limit).map((row) => {
     const publicUrl = buildPublicUrl(row.storage_path);
     const tags: string[] = row.tags ?? [];
 
@@ -227,10 +358,10 @@ export async function fetchTrendingVideosBatch(opts: {
       hashtags: tags,
       verified: row.owner?.verified,
       ownerId: row.owner.id,
-
     } satisfies Video;
   });
 }
+
 
 
 /**

@@ -344,10 +344,11 @@ export function JuicyAd() {
 
 export function DesktopAdsColumn() {
   return (
-    <aside className="hidden lg:flex fixed inset-y-0 right-0 w-80 flex-col bg-black/95 border-l border-white/10 px-4 py-6 z-30 h-500 overflow-y-auto">
+    <aside className="hidden lg:flex fixed inset-y-0 right-0 w-80 flex-col bg-black/95 border-l border-white/10 px-4 py-6 z-30 overflow-y-auto">
       <h2 className="text-sm font-semibold mb-4">Sponsored</h2>
 
       {/* JuicyAds v3.0 */}
+      .
       <Script
         id="juicyads-jads"
         src="https://poweredby.jads.co/js/jads.js"
@@ -356,7 +357,7 @@ export function DesktopAdsColumn() {
         async
       />
 
-      <div className="rounded-2xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
+      <div className="rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
         {/* Ad slot (308x1044) */}
         <ins id="1108076" data-width="308" data-height="1044"></ins>
       </div>

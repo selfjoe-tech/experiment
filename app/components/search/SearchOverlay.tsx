@@ -21,6 +21,7 @@ import { checkIsFollowing, toggleFollowUser } from "@/lib/actions/social";
 import LazyImage from "@/app/components/media/LazyImage";
 import LazyVideo from "@/app/components/media/LazyVideo";
 import { VerifiedBadgeIcon } from "../icons/VerifiedBadgeIcon";
+import { getVerified } from "@/lib/actions/auth";
 
 type TabKey = "creators" | "tags" | "images" | "videos" | "all";
 
@@ -334,12 +335,16 @@ function CreatorRow({
 }) {
   const [isFollowing, setIsFollowing] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
-  const verify = user.verified
+  const [verify, setVerify] = useState();
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
+          const verified = getVerified(user.username);
+          setVerify(verified);
+
+
         const following = await checkIsFollowing(user.id);
         if (!cancelled) setIsFollowing(following);
       } catch (err) {
