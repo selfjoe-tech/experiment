@@ -111,18 +111,18 @@ export function JuicyAd308x1044_1108082() {
         async
       />
 
-      {/* Ad slot */}
-      <div className="rounded-2xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
-        <ins id="1108082" data-width="308" data-height="1044"></ins>
-      </div>
+            <div className="rounded-2xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
+                  <ins id="1108264" data-width="308" data-height="2592"></ins>
+            </div>
 
-      {/* Queue ad request */}
+
+
       <Script
-        id="juicyads-init-1108082"
+        id="juicyads-init-1108264"
         strategy="afterInteractive"
         data-cfasync="false"
         dangerouslySetInnerHTML={{
-          __html: `(adsbyjuicy = window.adsbyjuicy || []).push({'adzone':1108082});`,
+          __html: `(adsbyjuicy = window.adsbyjuicy || []).push({'adzone':1108264});`,
         }}
       />
     </>

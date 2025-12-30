@@ -357,17 +357,20 @@ export function DesktopAdsColumn() {
         async
       />
 
-      <div className="rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
-        {/* Ad slot (308x1044) */}
-        <ins id="1108076" data-width="308" data-height="1044"></ins>
-      </div>
+
+            <div className="rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+            
+                  <ins id="1108263" data-width="308" data-height="2592"></ins>
+
+            </div>
+
 
       <Script
-        id="juicyads-init-1108076"
+        id="juicyads-init-1108263"
         strategy="afterInteractive"
         data-cfasync="false"
         dangerouslySetInnerHTML={{
-          __html: `(adsbyjuicy = window.adsbyjuicy || []).push({'adzone':1108076});`,
+          __html: `(adsbyjuicy = window.adsbyjuicy || []).push({'adzone':1108263});`,
         }}
       />
       {/* JuicyAds END */}
