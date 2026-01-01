@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  htmlLimitedBots: /bot|crawler|spider|facebookexternalhit|Twitterbot|Slackbot|redditbot/i,
   serverExternalPackages: ["ffmpeg-static"],
   outputFileTracingIncludes: {
     "/api/trim-video": ["./node_modules/ffmpeg-static/**"],

@@ -119,6 +119,7 @@ export async function GET(req: Request) {
         status: 200,
         headers: {
           "Access-Control-Allow-Origin": "*",
+          "Content-Type": "application/json+oembed",
           "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
         },
       }
