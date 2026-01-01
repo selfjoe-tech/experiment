@@ -1,71 +1,126 @@
-import { NextRequest, NextResponse } from "next/server";
-import { fetchVideoForEmbed } from "@/lib/actions/mediaFeed";
+// app/api/oembed/route.ts
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
-  const u = new URL(req.url);
-  const url = u.searchParams.get("url") || "";
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
 
-  // expect: https://upskirtcandy.com/watch/123
-  let id: number | null = null;
+function parseMediaIdFromResourceUrl(raw: string): number | null {
+  let u: URL;
   try {
-    const parsed = new URL(url);
-    const parts = parsed.pathname.split("/").filter(Boolean);
-    id = Number(parts[parts.length - 1]);
+    u = new URL(raw);
   } catch {
-    id = null;
+    return null;
   }
 
-  if (!id) return NextResponse.json({ error: "Invalid url" }, { status: 400 });
+  // allow www + non-www
+  const host = u.hostname.replace(/^www\./, "");
+  if (host !== "upskirtcandy.com") return null;
 
-  const v = await fetchVideoForEmbed(id);
-  if (!v) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const parts = u.pathname.split("/").filter(Boolean);
+  // support /watch/:id (and optionally /embed/:id)
+  if (parts.length < 2) return null;
+  if (parts[0] !== "watch" && parts[0] !== "embed") return null;
 
-  const canonical = `https://upskirtcandy.com/watch/${id}`;
-  const embedUrl = `https://upskirtcandy.com/embed/${id}`;
+  const id = Number(parts[1]);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
 
-  const width = 720;
-  const height = 1280;
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
 
-  const fallbackThumb =
-  "https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png";
+    const urlParam = searchParams.get("url");
+    const format = (searchParams.get("format") ?? "json").toLowerCase();
 
- const thumb =
-    (v as any).poster ?? (v as any).thumbnailUrl ?? fallbackThumb;
+    // oEmbed defines format=json|xml; if you only support json, return 501 for xml :contentReference[oaicite:2]{index=2}
+    if (format !== "json") {
+      return new NextResponse(null, { status: 501 });
+    }
 
-  const payload = {
-    // ✅ Standard oEmbed (snake_case) keys
-    version: "1.0",
-    type: "video",
-    provider_name: "UpskirtCandy",
-    provider_url: "https://upskirtcandy.com",
-    author_name: "Upskirt Candy",
-    author_url: "https://upskirtcandy.com",
-    title: v.title ?? "Video",
+    if (!urlParam) {
+      return NextResponse.json({ error: "Missing url parameter" }, { status: 400 });
+    }
 
-    thumbnail_url: thumb,
-    thumbnail_width: 1200,
-    thumbnail_height: 630,
+    const mediaId = parseMediaIdFromResourceUrl(urlParam);
+    if (!mediaId) {
+      // Spec encourages 404 when you have no representation for that url :contentReference[oaicite:3]{index=3}
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
-    width,
-    height,
-    html: `<iframe src="${embedUrl}" width="${width}" height="${height}" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>`,
+    const maxwidth = searchParams.get("maxwidth");
+    const maxheight = searchParams.get("maxheight");
 
-    providerName: "UpskirtCandy",
-    providerUrl: "https://upskirtcandy.com",
-    authorName: "Upskirt Candy",
-    authorUrl: "https://upskirtcandy.com",
-    thumbnailUrl: thumb,
-    thumbnailWidth: 1200,
-    thumbnailHeight: 630,
-  };
+    // Defaults: your vertical video footprint
+    const requestedW = maxwidth ? clamp(parseInt(maxwidth, 10) || 720, 200, 1920) : 720;
+    const requestedH = maxheight ? clamp(parseInt(maxheight, 10) || 1280, 200, 1920) : 1280;
 
-  return new NextResponse(JSON.stringify(payload), {
-    status: 200,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "public, max-age=300, s-maxage=300",
-    },
-  });
+    // IMPORTANT: make sure these env vars exist on Vercel (Production env)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      console.error("Missing Supabase env vars", { supabaseUrl: !!supabaseUrl, supabaseKey: !!supabaseKey });
+      return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+    }
+
+    // Create client INSIDE handler (avoids import-time crashes)
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: { persistSession: false },
+    });
+
+    // TODO: adapt columns/table to your schema
+    const { data, error } = await supabase
+      .from("media")
+      .select("id,title,description,thumbnail_url,width,height")
+      .eq("id", mediaId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Supabase error", error);
+      return NextResponse.json({ error: "Database error" }, { status: 500 });
+    }
+    if (!data) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const siteUrl = "https://www.upskirtcandy.com"; // keep consistent with your canonical domain
+    const width = data.width ?? requestedW;
+    const height = data.height ?? requestedH;
+
+    // oEmbed video type requires html + width + height :contentReference[oaicite:4]{index=4}
+    const embedSrc = `${siteUrl}/embed/${mediaId}`;
+    const html = `<iframe src="${embedSrc}" width="${width}" height="${height}" frameborder="0" scrolling="no" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>`;
+
+    return NextResponse.json(
+      {
+        version: "1.0",
+        type: "video",
+        provider_name: "Upskirt Candy",
+        provider_url: siteUrl,
+        title: data.title ?? `UpskirtCandy video #${mediaId}`,
+        author_name: "Upskirt Candy",
+        author_url: siteUrl,
+        width,
+        height,
+        html,
+        thumbnail_url: data.thumbnail_url ?? undefined,
+      },
+      {
+        status: 200,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
+        },
+      }
+    );
+  } catch (err) {
+    console.error("oEmbed fatal", err);
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+  }
 }
