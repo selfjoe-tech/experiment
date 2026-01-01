@@ -72,9 +72,23 @@ export async function GET(req: Request) {
       .maybeSingle();
 
     if (error) {
-      console.error("Supabase error", error);
-      return NextResponse.json({ error: `Database error ${error}` }, { status: 500 });
-    }
+  // Best logging (shows full shape in Vercel logs)
+  console.error("Supabase error:", error);
+  console.error("Supabase error JSON:", JSON.stringify(error, null, 2));
+
+  // Safe-ish structured response (useful while debugging)
+  const safe = {
+    message: error.message ?? String(error),
+    details: (error as any).details,
+    hint: (error as any).hint,
+    code: (error as any).code,
+  };
+
+  return NextResponse.json(
+    { error: "Database error", supabase: safe },
+    { status: 500 }
+  );
+}
     if (!data) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
