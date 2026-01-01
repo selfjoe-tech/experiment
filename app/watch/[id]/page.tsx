@@ -43,6 +43,8 @@ export async function generateMetadata({
 
   const canonical = `${SITE_URL}/watch/${mediaId}`;
   const embedUrl = `${SITE_URL}/embed/${mediaId}`;
+  const oembedUrl = `${SITE_URL}/api/oembed?format=json&url=${encodeURIComponent(canonical)}`;
+
 
   let meta: any = null;
   try {
@@ -61,7 +63,6 @@ export async function generateMetadata({
 
   const videos = meta?.contentUrl
     ? [
-        // Direct MP4
         {
           url: meta.contentUrl,
           secureUrl: meta.contentUrl,
@@ -69,8 +70,6 @@ export async function generateMetadata({
           width: 720,
           height: 1280,
         },
-        // Optional: an embeddable HTML player URL (some scrapers prefer this)
-        // If you don't want it, delete this object.
         {
           url: embedUrl,
           secureUrl: embedUrl,
@@ -84,14 +83,12 @@ export async function generateMetadata({
   return {
     title,
     description,
-    alternates: { canonical },
-
     openGraph: {
       type: "video.other",
       url: canonical,
       title,
       description,
-      siteName: "UpskirtCandy",
+      siteName: "Upskirt Candy",
       images: [{ url: ogImage, width: 1200, height: 630 }],
       videos,
     },
@@ -102,8 +99,21 @@ export async function generateMetadata({
       description,
       images: [ogImage],
     },
+
+    alternates: {
+      canonical: canonical,
+      types: {
+        "application/json+oembed": oembedUrl,
+      },
+    },
+
+    
   };
 }
+
+
+
+
 
 export default async function WatchPage({
   params,
@@ -113,6 +123,8 @@ export default async function WatchPage({
   const { id } = await params;
   return <WatchClient mediaId={Number(id)} />;
 }
+
+
 
 
 
