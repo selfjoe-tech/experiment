@@ -907,12 +907,16 @@ useEffect(() => {
       <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-pink/60 to-transparent" />
 
       {!isSponsored && (
-        <VideoOptionsModal
+        <div className="z-[200]">
+
+          <VideoOptionsModal
           open={optionsOpen}
           onClose={() => setOptionsOpen(false)}
           mediaId={mediaIdNum || video.id}
           videoUrl={video.src}
         />
+        </div>
+        
       )}
 
       {/* COMMENTS OVERLAY: drawer on mobile, dialog on desktop */}

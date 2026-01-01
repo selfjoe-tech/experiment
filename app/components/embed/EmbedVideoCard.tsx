@@ -8,6 +8,7 @@ import { Eye, Play, Volume2, VolumeX, EllipsisIcon } from "lucide-react";
 import type { Video } from "@/app/components/feed/types";
 import VideoOptionsModal from "@/app/components/feed/VideoOptionsModal";
 import { LongLogo } from "../icons/LongLogo";
+import { useRouter } from "next/navigation";
 
 type Props = {
   video: Video;
@@ -22,6 +23,8 @@ export default function EmbedVideoCard({
 }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const clickTimeoutRef = useRef<number | null>(null);
+
+  const router = useRouter();
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -126,10 +129,7 @@ export default function EmbedVideoCard({
   const showSkeleton = !metadataLoaded;
 
   return (
-    <a
-    href={`/watch/${encodeURIComponent(mediaIdNum)}`}
-    
-    >
+  
     <div
       className="
         relative lg:h-[100vh]
@@ -137,6 +137,7 @@ export default function EmbedVideoCard({
         flex items-center justify-center
         bg-neutral-900 shadow-5xl overflow-hidden
       "
+      onClick={() => router.push(`/watch/${encodeURIComponent(mediaIdNum)}`)}
     >
       <div className="relative h-full flex items-center justify-center text-white">
         {showSkeleton && (
@@ -189,12 +190,6 @@ export default function EmbedVideoCard({
           <Eye className="h-7 w-7" />
         </StatBubble>
 
-        <IconCircleButton
-          onClick={() => setOptionsOpen(true)}
-          label="More options"
-        >
-          <EllipsisIcon className="h-7 w-7" />
-        </IconCircleButton>
 
         <IconCircleButton onClick={toggleMute ?? (() => {})} label="Mute">
           {isMuted ? (
@@ -282,14 +277,9 @@ export default function EmbedVideoCard({
       <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/60 to-transparent" />
 
       {/* Options modal (Embed / Share / Report) */}
-      <VideoOptionsModal
-        open={optionsOpen}
-        onClose={() => setOptionsOpen(false)}
-        mediaId={mediaIdNum || video.id}
-      />
+      
     </div>    
 
-    </a>
 
   );
 }
