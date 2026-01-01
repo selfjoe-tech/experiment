@@ -67,7 +67,7 @@ export async function GET(req: Request) {
     // TODO: adapt columns/table to your schema
     const { data, error } = await supabase
       .from("media")
-      .select("id,title,description,thumbnail_url,width,height")
+      .select("id,title,description")
       .eq("id", mediaId)
       .maybeSingle();
 
@@ -94,8 +94,8 @@ export async function GET(req: Request) {
     }
 
     const siteUrl = "https://www.upskirtcandy.com"; // keep consistent with your canonical domain
-    const width = data.width ?? requestedW;
-    const height = data.height ?? requestedH;
+    const width = 720;
+    const height = 1080;
 
     // oEmbed video type requires html + width + height :contentReference[oaicite:4]{index=4}
     const embedSrc = `${siteUrl}/embed/${mediaId}`;
@@ -113,7 +113,7 @@ export async function GET(req: Request) {
         width,
         height,
         html,
-        thumbnail_url: data.thumbnail_url ?? undefined,
+        thumbnail_url: "https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png",
       },
       {
         status: 200,
