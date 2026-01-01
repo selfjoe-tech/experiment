@@ -1,6 +1,6 @@
 // app/api/oembed/route.ts
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,20 +60,10 @@ export async function GET(req: Request) {
     const requestedH = maxheight ? clamp(parseInt(maxheight, 10) || 1280, 200, 1920) : 1280;
 
     // IMPORTANT: make sure these env vars exist on Vercel (Production env)
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey =
-      process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      console.error("Missing Supabase env vars", { supabaseUrl: !!supabaseUrl, supabaseKey: !!supabaseKey });
-      return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
-    }
+    
 
     // Create client INSIDE handler (avoids import-time crashes)
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      auth: { persistSession: false },
-    });
-
+    const supabase = getSupabaseAdmin(); 
     // TODO: adapt columns/table to your schema
     const { data, error } = await supabase
       .from("media")
@@ -83,7 +73,7 @@ export async function GET(req: Request) {
 
     if (error) {
       console.error("Supabase error", error);
-      return NextResponse.json({ error: "Database error" }, { status: 500 });
+      return NextResponse.json({ error: `Database error ${error}` }, { status: 500 });
     }
     if (!data) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
