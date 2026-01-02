@@ -4,6 +4,8 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { trackProfileVisitByUsername } from "@/lib/actions/earn";
+
 import {
   Ellipsis,
   User2,
@@ -146,6 +148,24 @@ useEffect(() => {
     isLoadingMoreRef.current = false;
   }
 };
+
+useEffect(() => {
+  if (!username) return;
+
+  const w = window as any;
+  w.__pvLastTs ??= {}; // { [username]: lastTimestampMs }
+
+  const now = Date.now();
+  const last = w.__pvLastTs[username] ?? 0;
+
+  // Prevent React Strict Mode (dev) double-fire + accidental duplicate calls
+  if (now - last < 1500) return;
+  w.__pvLastTs[username] = now;
+
+  trackProfileVisitByUsername(username).catch(() => {});
+}, [username]);
+
+
 
 
  useEffect(() => {

@@ -1,6 +1,5 @@
 "use server";
 
-
 import { getSupabaseAdmin } from "../supabaseAdmin";
 import { getUserIdFromCookies } from "./auth";
 
@@ -15,7 +14,7 @@ export type EarnDashboardData = {
   paypalEmailSetAt: string | null;
 
   userType: UserType;
-  rate: number;
+  rate: number; // USD per 1,000 views
 
   visitsPerDay: Record<string, number>;
   totalUsd: number;
@@ -24,21 +23,18 @@ export type EarnDashboardData = {
   hasAffiliateRequest: boolean;
 };
 
-
-
 function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
 
-function computeTotal(visitsPerDay: Record<string, number>, rate: number, since?: string | null) {
+function computeTotal(visitsPerDay: Record<string, number>, ratePer1k: number, since?: string | null) {
   const keys = Object.keys(visitsPerDay);
-  const filtered = since
-    ? keys.filter((k) => k >= since.slice(0, 10)) // compare YYYY-MM-DD strings
-    : keys;
+  const filtered = since ? keys.filter((k) => k >= since.slice(0, 10)) : keys;
 
   let total = 0;
   for (const day of filtered) {
-    total += (visitsPerDay[day] ?? 0) * rate;
+    const views = visitsPerDay[day] ?? 0;
+    total += (views / 1000) * ratePer1k;
   }
   return round2(total);
 }
@@ -51,18 +47,11 @@ export async function getEarnDashboard(): Promise<EarnDashboardData> {
 
   const userId = id;
 
-  // Fetch profile + earnings + last payout + affiliate request in parallel (no waterfall after auth)
   const [profileRes, earnRes, payoutRes, affRes] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("id, username, verified")
-      .eq("id", userId)
-      .single(),
+    supabase.from("profiles").select("id, username, verified").eq("id", userId).single(),
     supabase
       .from("creator_earnings")
-      .select(
-        "user_id, username, paypal_email, paypal_email_set_at, user_type, rate, visits_per_day, last_payout_amount_usd, last_payout_requested_at"
-      )
+      .select("user_id, username, paypal_email, paypal_email_set_at, user_type, rate, visits_per_day, last_payout_amount_usd, last_payout_requested_at")
       .eq("user_id", userId)
       .maybeSingle(),
     supabase
@@ -72,12 +61,7 @@ export async function getEarnDashboard(): Promise<EarnDashboardData> {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    supabase
-      .from("affiliate_requests")
-      .select("id, status")
-      .eq("user_id", userId)
-      .limit(1)
-      .maybeSingle(),
+    supabase.from("affiliate_requests").select("id, status").eq("user_id", userId).limit(1).maybeSingle(),
   ]);
 
   if (profileRes.error) throw new Error(profileRes.error.message);
@@ -88,7 +72,10 @@ export async function getEarnDashboard(): Promise<EarnDashboardData> {
   const visitsPerDay: Record<string, number> = (earn?.visits_per_day ?? {}) as any;
 
   const userType = (earn?.user_type ?? "ordinary") as UserType;
-  const rate = Number(earn?.rate ?? 0.147);
+
+  // rate is USD per 1,000 views
+  const defaultRate = userType === "affiliate" ? 0.21 : 0.147;
+  const rate = Number(earn?.rate ?? defaultRate);
 
   const paypalEmail = earn?.paypal_email ?? null;
   const paypalEmailSetAt = earn?.paypal_email_set_at ?? null;
@@ -97,15 +84,9 @@ export async function getEarnDashboard(): Promise<EarnDashboardData> {
 
   const lastPayout =
     payoutRes.data?.amount_usd != null
-      ? {
-          amountUsd: Number(payoutRes.data.amount_usd),
-          requestedAt: payoutRes.data.created_at as string,
-        }
+      ? { amountUsd: Number(payoutRes.data.amount_usd), requestedAt: payoutRes.data.created_at as string }
       : earn?.last_payout_amount_usd != null
-      ? {
-          amountUsd: Number(earn.last_payout_amount_usd),
-          requestedAt: (earn.last_payout_requested_at ?? new Date().toISOString()) as string,
-        }
+      ? { amountUsd: Number(earn.last_payout_amount_usd), requestedAt: (earn.last_payout_requested_at ?? new Date().toISOString()) as string }
       : null;
 
   return {
@@ -141,7 +122,7 @@ export async function savePaypalEmail(email: string, confirmEmail: string) {
 
   const { username } = profileRes.data;
 
-  // Upsert creator_earnings row. Default rate stays 0.147 unless you change it later.
+  // Upsert creator_earnings row. rate is USD per 1,000 views.
   const upsertRes = await supabase
     .from("creator_earnings")
     .upsert(
@@ -167,14 +148,9 @@ export async function requestPayout() {
   const id = await getUserIdFromCookies();
   if (!id) return { ok: false, error: "Not authenticated" };
 
-  // Fetch everything needed in parallel
   const [profileRes, earnRes] = await Promise.all([
     supabase.from("profiles").select("id, username, verified").eq("id", id).single(),
-    supabase
-      .from("creator_earnings")
-      .select("paypal_email, paypal_email_set_at, rate, visits_per_day")
-      .eq("user_id", id)
-      .maybeSingle(),
+    supabase.from("creator_earnings").select("paypal_email, paypal_email_set_at, rate, visits_per_day, user_type").eq("user_id", id).maybeSingle(),
   ]);
 
   if (profileRes.error) return { ok: false, error: profileRes.error.message };
@@ -184,14 +160,16 @@ export async function requestPayout() {
   const paypalEmail = earn?.paypal_email ?? null;
   if (!paypalEmail) return { ok: false, error: "Add your PayPal email first." };
 
-  const rate = Number(earn?.rate ?? 0.147);
+  const userType = (earn?.user_type ?? "ordinary") as UserType;
+  const defaultRate = userType === "affiliate" ? 0.21 : 0.147;
+  const rate = Number(earn?.rate ?? defaultRate);
+
   const visitsPerDay: Record<string, number> = (earn?.visits_per_day ?? {}) as any;
 
   const totalUsd = computeTotal(visitsPerDay, rate, earn?.paypal_email_set_at ?? null);
 
   if (totalUsd < 50) return { ok: false, error: "Minimum payout is $50." };
 
-  // Insert payout request + reset table
   const nowIso = new Date().toISOString();
 
   const insertReq = supabase.from("payout_requests").insert({
@@ -221,6 +199,7 @@ export async function requestPayout() {
   return { ok: true, amountUsd: totalUsd, requestedAt: nowIso };
 }
 
+
 export async function applyAffiliate() {
   const supabase = getSupabaseAdmin();
 
@@ -240,6 +219,58 @@ export async function applyAffiliate() {
 
   // If already exists, just treat as ok
   if ((res as any)?.error?.code === "23505") return { ok: true };
+
+  return { ok: true };
+}
+
+
+export async function trackProfileVisitByUsername(viewedUsername: string) {
+  const supabase = getSupabaseAdmin();
+
+  const u = (viewedUsername ?? "").trim();
+  if (!u) return { ok: false, error: "Missing username" };
+
+  // Find profile owner
+  const profRes = await supabase
+    .from("profiles")
+    .select("id, username")
+    .ilike("username", u)
+    .maybeSingle();
+
+  if (profRes.error) return { ok: false, error: profRes.error.message };
+  if (!profRes.data?.id) return { ok: true, skipped: true, reason: "not_found" };
+
+  const ownerId = profRes.data.id as string;
+
+  // Skip self-views (if logged in)
+  const viewerId = await getUserIdFromCookies().catch(() => null);
+  if (viewerId && viewerId === ownerId) return { ok: true, skipped: true, reason: "self" };
+
+  // Only track earnings after PayPal email is set (matches your UI rule)
+  const earnRes = await supabase
+    .from("creator_earnings")
+    .select("paypal_email_set_at")
+    .eq("user_id", ownerId)
+    .maybeSingle();
+
+  if (earnRes.error) return { ok: false, error: earnRes.error.message };
+  if (!earnRes.data?.paypal_email_set_at) return { ok: true, skipped: true, reason: "not_tracking" };
+
+  // Use SA local date so "daily" matches your timezone
+  const day = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Johannesburg",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date()); // => YYYY-MM-DD
+
+  // Atomic increment (RPC)
+  const rpc = await supabase.rpc("increment_creator_daily_visit", {
+    p_user_id: ownerId,
+    p_day: day,
+  });
+
+  if (rpc.error) return { ok: false, error: rpc.error.message };
 
   return { ok: true };
 }
