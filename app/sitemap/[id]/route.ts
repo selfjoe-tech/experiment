@@ -1,10 +1,10 @@
+// app/sitemap/[id]/route.ts
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
+export const runtime = "nodejs";
 export const revalidate = 3600;
 
-const BASE =
-  (process.env.NEXT_PUBLIC_SITE_URL || "https://www.upskirtcandy.com").replace(/\/$/, "");
-
+const BASE = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.upskirtcandy.com").replace(/\/$/, "");
 const CHUNK_SIZE = 45_000;
 
 const TAGS_TABLE = "tags";
@@ -13,12 +13,6 @@ const TAGS_UPDATED_COL = "updated_at";
 
 function abs(path: string) {
   return `${BASE}${path.startsWith("/") ? path : `/${path}`}`;
-}
-
-function safeDate(v: unknown): string | undefined {
-  if (!v) return undefined;
-  const d = new Date(String(v));
-  return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
 }
 
 function xmlEscape(s: string) {
@@ -30,6 +24,12 @@ function xmlEscape(s: string) {
     .replaceAll("'", "&apos;");
 }
 
+function safeIsoDate(v: unknown): string | null {
+  if (!v) return null;
+  const d = new Date(String(v));
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 async function countOrZero(table: string, filter?: (q: any) => any): Promise<number> {
   const supabase = getSupabaseAdmin();
   let q = supabase.from(table).select("id", { head: true, count: "exact" });
@@ -39,17 +39,40 @@ async function countOrZero(table: string, filter?: (q: any) => any): Promise<num
   return res.count ?? 0;
 }
 
-export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } } // <-- NOT a Promise
-) {
-  const n = Number.parseInt(params.id, 10);
-  if (!Number.isFinite(n) || n < 0) return new Response("", { status: 404 });
+function urlset(urls: Array<{ loc: string; lastmod?: string | null }>) {
+  const items = urls
+    .map((u) => {
+      const lastmod = u.lastmod ? `<lastmod>${xmlEscape(u.lastmod)}</lastmod>` : "";
+      return `  <url><loc>${xmlEscape(u.loc)}</loc>${lastmod}</url>`;
+    })
+    .join("\n");
 
-  const supabase = getSupabaseAdmin();
+  return (
+    `<?xml version="1.0" encoding="UTF-8"?>\n` +
+    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+    items +
+    `\n</urlset>\n`
+  );
+}
+
+export async function GET(_req: Request, ctx: { params: { id: string } }) {
+  // ctx.params is NOT a Promise in route handlers
+  const raw = ctx.params?.id ?? "";
+
+  // Support /sitemap/1 and /sitemap/1.xml (because [id] can be "1.xml")
+  const idStr = raw.toLowerCase().endsWith(".xml") ? raw.slice(0, -4) : raw;
+  const n = Number.parseInt(idStr, 10);
+
   const nowIso = new Date().toISOString();
 
-  // Count pages
+  // If the id is junk, return empty urlset
+  if (!Number.isFinite(n) || n < 0) {
+    return new Response(urlset([]), {
+      headers: { "Content-Type": "application/xml; charset=utf-8" },
+    });
+  }
+
+  // Count totals so we can know whether this id belongs to profiles or tags
   const verifiedProfiles = await countOrZero("profiles", (q) =>
     q.eq("verified", true).not("username", "is", null)
   );
@@ -59,48 +82,47 @@ export async function GET(
   const tagPages = Math.ceil(tags / CHUNK_SIZE);
   const totalPages = profilePages + tagPages;
 
-  // 0 = static
+  // /sitemap/0(.xml) -> static urls
   if (n === 0) {
     const urls = [
       { loc: abs("/"), lastmod: nowIso },
+
       { loc: abs("/explore"), lastmod: nowIso },
       { loc: abs("/explore/gifs"), lastmod: nowIso },
       { loc: abs("/explore/images"), lastmod: nowIso },
       { loc: abs("/explore/niches"), lastmod: nowIso },
+
       { loc: abs("/verify"), lastmod: nowIso },
       { loc: abs("/ads"), lastmod: nowIso },
+
+      // you wanted these indexed:
       { loc: abs("/auth/login"), lastmod: nowIso },
       { loc: abs("/auth/signup"), lastmod: nowIso },
+
       { loc: abs("/saved"), lastmod: nowIso },
       { loc: abs("/settings"), lastmod: nowIso },
     ];
 
-    const body =
-      `<?xml version="1.0" encoding="UTF-8"?>\n` +
-      `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
-      urls
-        .map(
-          (u) =>
-            `  <url><loc>${xmlEscape(u.loc)}</loc><lastmod>${u.lastmod}</lastmod></url>`
-        )
-        .join("\n") +
-      `\n</urlset>\n`;
+    return new Response(urlset(urls), {
+      headers: {
+        "Content-Type": "application/xml; charset=utf-8",
+        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+      },
+    });
+  }
 
-    return new Response(body, {
+  // Outside range -> empty
+  if (n > totalPages) {
+    return new Response(urlset([]), {
       headers: { "Content-Type": "application/xml; charset=utf-8" },
     });
   }
 
-  if (n < 1 || n > totalPages) return new Response("", { status: 404 });
+  const supabase = getSupabaseAdmin();
 
-  // profiles: 1..profilePages, then tags
-  const profileStart = 1;
-  const profileEndExclusive = profileStart + profilePages;
-  const tagStart = profileEndExclusive;
-
-  // profiles chunk
-  if (n >= profileStart && n < profileEndExclusive) {
-    const chunkIndex = n - profileStart;
+  // IDs 1..profilePages = profiles
+  if (n >= 1 && n <= profilePages) {
+    const chunkIndex = n - 1; // 0-based
     const from = chunkIndex * CHUNK_SIZE;
     const to = from + CHUNK_SIZE - 1;
 
@@ -112,37 +134,35 @@ export async function GET(
       .order("username", { ascending: true })
       .range(from, to);
 
-    const rows = (res.data ?? []) as Array<{ username: string; updated_at?: string | null }>;
-    const urls = rows
-      .map((r) => {
-        const u = String(r.username || "").trim();
-        if (!u) return null;
+    if (res.error) {
+      return new Response(urlset([]), {
+        headers: { "Content-Type": "application/xml; charset=utf-8" },
+      });
+    }
+
+    const urls = (res.data ?? [])
+      .map((r: any) => {
+        const uname = String(r.username || "").trim();
+        if (!uname) return null;
         return {
-          loc: abs(`/${encodeURIComponent(u)}`),
-          lastmod: safeDate(r.updated_at) ?? nowIso,
+          loc: abs(`/${encodeURIComponent(uname)}`),
+          lastmod: safeIsoDate(r.updated_at) ?? nowIso,
         };
       })
       .filter(Boolean) as Array<{ loc: string; lastmod: string }>;
 
-    const body =
-      `<?xml version="1.0" encoding="UTF-8"?>\n` +
-      `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
-      urls
-        .map(
-          (u) =>
-            `  <url><loc>${xmlEscape(u.loc)}</loc><lastmod>${u.lastmod}</lastmod></url>`
-        )
-        .join("\n") +
-      `\n</urlset>\n`;
-
-    return new Response(body, {
-      headers: { "Content-Type": "application/xml; charset=utf-8" },
+    return new Response(urlset(urls), {
+      headers: {
+        "Content-Type": "application/xml; charset=utf-8",
+        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+      },
     });
   }
 
-  // tags chunk
-  if (n >= tagStart && n < tagStart + tagPages) {
-    const chunkIndex = n - tagStart;
+  // IDs after profiles are tags
+  const tagId = n - profilePages; // 1..tagPages
+  if (tagId >= 1 && tagId <= tagPages) {
+    const chunkIndex = tagId - 1;
     const from = chunkIndex * CHUNK_SIZE;
     const to = from + CHUNK_SIZE - 1;
 
@@ -152,33 +172,32 @@ export async function GET(
       .order(TAGS_SLUG_COL, { ascending: true })
       .range(from, to);
 
-    const rows = (res.data ?? []) as Array<Record<string, any>>;
-    const urls = rows
-      .map((r) => {
+    if (res.error) {
+      return new Response(urlset([]), {
+        headers: { "Content-Type": "application/xml; charset=utf-8" },
+      });
+    }
+
+    const urls = (res.data ?? [])
+      .map((r: any) => {
         const slug = String(r[TAGS_SLUG_COL] || "").trim();
         if (!slug) return null;
         return {
           loc: abs(`/explore/niches/${encodeURIComponent(slug)}`),
-          lastmod: safeDate(r[TAGS_UPDATED_COL]) ?? nowIso,
+          lastmod: safeIsoDate(r[TAGS_UPDATED_COL]) ?? nowIso,
         };
       })
       .filter(Boolean) as Array<{ loc: string; lastmod: string }>;
 
-    const body =
-      `<?xml version="1.0" encoding="UTF-8"?>\n` +
-      `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
-      urls
-        .map(
-          (u) =>
-            `  <url><loc>${xmlEscape(u.loc)}</loc><lastmod>${u.lastmod}</lastmod></url>`
-        )
-        .join("\n") +
-      `\n</urlset>\n`;
-
-    return new Response(body, {
-      headers: { "Content-Type": "application/xml; charset=utf-8" },
+    return new Response(urlset(urls), {
+      headers: {
+        "Content-Type": "application/xml; charset=utf-8",
+        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+      },
     });
   }
 
-  return new Response("", { status: 404 });
+  return new Response(urlset([]), {
+    headers: { "Content-Type": "application/xml; charset=utf-8" },
+  });
 }
