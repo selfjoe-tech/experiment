@@ -9,7 +9,7 @@ const CHUNK_SIZE = 45_000;
 
 const TAGS_TABLE = "tags";
 const TAGS_SLUG_COL = "slug";
-const TAGS_UPDATED_COL = "created_at";
+const TAGS_UPDATED_COL = "created_at"; // ✅ keep created_at
 
 function abs(path: string) {
   return `${BASE}${path.startsWith("/") ? path : `/${path}`}`;
@@ -55,73 +55,73 @@ function urlset(urls: Array<{ loc: string; lastmod?: string | null }>) {
   );
 }
 
+function xmlResponse(body: string, headers: Record<string, string>, status = 200) {
+  return new Response(body, {
+    status,
+    headers: {
+      "Content-Type": "application/xml; charset=utf-8",
+      ...headers,
+    },
+  });
+}
+
 export async function GET(req: Request, context: { params?: { id?: string } }) {
-  // ✅ Robust id extraction (params OR URL fallback)
   const fromParams = context?.params?.id;
   const fromPath = new URL(req.url).pathname.split("/").pop();
   const raw = String(fromParams ?? fromPath ?? "");
 
-  // Support /sitemap/0 and /sitemap/0.xml
+  // support /sitemap/0 and /sitemap/0.xml
   const idStr = raw.toLowerCase().endsWith(".xml") ? raw.slice(0, -4) : raw;
-
-  // Extract leading digits safely ("1", "1.xml", "1-something")
   const m = idStr.match(/^(\d+)/);
   const n = m ? Number.parseInt(m[1], 10) : Number.NaN;
 
   const nowIso = new Date().toISOString();
 
-  // Helpful debug header so you can verify the handler is reading id correctly
   const baseHeaders: Record<string, string> = {
-    "Content-Type": "application/xml; charset=utf-8",
     "X-Sitemap-Id-Raw": raw,
     "X-Sitemap-Id-Parsed": String(n),
   };
 
+  // ✅ invalid id → 404 (not empty 200)
   if (!Number.isFinite(n) || n < 0) {
-    return new Response(urlset([]), { headers: baseHeaders });
+    return xmlResponse("Not found", { ...baseHeaders, "Cache-Control": "public, max-age=60" }, 404);
   }
 
-  // /sitemap/0(.xml) -> static routes
+  // /sitemap/0(.xml) -> static routes (never empty)
   if (n === 0) {
     const urls = [
       { loc: abs("/"), lastmod: nowIso },
-
       { loc: abs("/explore"), lastmod: nowIso },
       { loc: abs("/explore/gifs"), lastmod: nowIso },
       { loc: abs("/explore/images"), lastmod: nowIso },
       { loc: abs("/explore/niches"), lastmod: nowIso },
-
       { loc: abs("/verify"), lastmod: nowIso },
       { loc: abs("/ads"), lastmod: nowIso },
-
-      // you wanted these indexed:
       { loc: abs("/auth/login"), lastmod: nowIso },
       { loc: abs("/auth/signup"), lastmod: nowIso },
-
       { loc: abs("/saved"), lastmod: nowIso },
       { loc: abs("/settings"), lastmod: nowIso },
     ];
 
-    return new Response(urlset(urls), {
-      headers: {
-        ...baseHeaders,
-        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
-      },
+    return xmlResponse(urlset(urls), {
+      ...baseHeaders,
+      "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
     });
   }
 
   // Count totals to map chunk ids to profiles/tags
-  const verifiedProfiles = await countOrZero("profiles", (q) =>
-    q.eq("verified", true).not("username", "is", null)
-  );
-  const tags = await countOrZero(TAGS_TABLE);
+  const [verifiedProfiles, tags] = await Promise.all([
+    countOrZero("profiles", (q) => q.eq("verified", true).not("username", "is", null)),
+    countOrZero(TAGS_TABLE),
+  ]);
 
   const profilePages = Math.ceil(verifiedProfiles / CHUNK_SIZE);
   const tagPages = Math.ceil(tags / CHUNK_SIZE);
   const totalPages = profilePages + tagPages;
 
+  // ✅ out of range → 404 (not empty 200)
   if (n > totalPages) {
-    return new Response(urlset([]), { headers: baseHeaders });
+    return xmlResponse("Not found", { ...baseHeaders, "Cache-Control": "public, max-age=60" }, 404);
   }
 
   const supabase = getSupabaseAdmin();
@@ -134,14 +134,15 @@ export async function GET(req: Request, context: { params?: { id?: string } }) {
 
     const res = await supabase
       .from("profiles")
-      .select("username, updated_at")
+      .select("username, updated_at, created_at") // created_at fallback if updated_at missing
       .eq("verified", true)
       .not("username", "is", null)
       .order("username", { ascending: true })
       .range(from, to);
 
+    // ✅ transient failure → 503 so Google retries (don’t cache empties)
     if (res.error) {
-      return new Response(urlset([]), { headers: baseHeaders });
+      return xmlResponse("Upstream error", { ...baseHeaders, "Cache-Control": "no-store" }, 503);
     }
 
     const urls = (res.data ?? [])
@@ -150,16 +151,19 @@ export async function GET(req: Request, context: { params?: { id?: string } }) {
         if (!uname) return null;
         return {
           loc: abs(`/${encodeURIComponent(uname)}`),
-          lastmod: safeIsoDate(r.updated_at) ?? nowIso,
+          lastmod: safeIsoDate(r.updated_at ?? r.created_at) ?? nowIso,
         };
       })
       .filter(Boolean) as Array<{ loc: string; lastmod: string }>;
 
-    return new Response(urlset(urls), {
-      headers: {
-        ...baseHeaders,
-        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
-      },
+    // ✅ if empty, treat as not-found (prevents “missing url” error)
+    if (urls.length === 0) {
+      return xmlResponse("Not found", { ...baseHeaders, "Cache-Control": "public, max-age=60" }, 404);
+    }
+
+    return xmlResponse(urlset(urls), {
+      ...baseHeaders,
+      "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
     });
   }
 
@@ -177,7 +181,7 @@ export async function GET(req: Request, context: { params?: { id?: string } }) {
       .range(from, to);
 
     if (res.error) {
-      return new Response(urlset([]), { headers: baseHeaders });
+      return xmlResponse("Upstream error", { ...baseHeaders, "Cache-Control": "no-store" }, 503);
     }
 
     const urls = (res.data ?? [])
@@ -191,13 +195,15 @@ export async function GET(req: Request, context: { params?: { id?: string } }) {
       })
       .filter(Boolean) as Array<{ loc: string; lastmod: string }>;
 
-    return new Response(urlset(urls), {
-      headers: {
-        ...baseHeaders,
-        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
-      },
+    if (urls.length === 0) {
+      return xmlResponse("Not found", { ...baseHeaders, "Cache-Control": "public, max-age=60" }, 404);
+    }
+
+    return xmlResponse(urlset(urls), {
+      ...baseHeaders,
+      "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
     });
   }
 
-  return new Response(urlset([]), { headers: baseHeaders });
+  return xmlResponse("Not found", { ...baseHeaders, "Cache-Control": "public, max-age=60" }, 404);
 }
