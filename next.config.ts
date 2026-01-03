@@ -1,11 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  async rewrites() {
-    return [
-      { source: "/sitemap/:id.xml", destination: "/sitemap/:id" },
-    ];
-  },
+  
     matcher: ['/((?!api|_next/static|_next/image|sitemap\\.xml|sitemap/|robots\\.txt|favicon\\.ico).*)'],
 
   htmlLimitedBots: /bot|crawler|spider|facebookexternalhit|Twitterbot|Slackbot|redditbot/i,
