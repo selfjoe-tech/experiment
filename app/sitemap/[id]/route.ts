@@ -55,34 +55,33 @@ function urlset(urls: Array<{ loc: string; lastmod?: string | null }>) {
   );
 }
 
-export async function GET(_req: Request, ctx: { params: { id: string } }) {
-  // ctx.params is NOT a Promise in route handlers
-  const raw = ctx.params?.id ?? "";
+export async function GET(req: Request, context: { params?: { id?: string } }) {
+  // ✅ Robust id extraction (params OR URL fallback)
+  const fromParams = context?.params?.id;
+  const fromPath = new URL(req.url).pathname.split("/").pop();
+  const raw = String(fromParams ?? fromPath ?? "");
 
-  // Support /sitemap/1 and /sitemap/1.xml (because [id] can be "1.xml")
+  // Support /sitemap/0 and /sitemap/0.xml
   const idStr = raw.toLowerCase().endsWith(".xml") ? raw.slice(0, -4) : raw;
-  const n = Number.parseInt(idStr, 10);
+
+  // Extract leading digits safely ("1", "1.xml", "1-something")
+  const m = idStr.match(/^(\d+)/);
+  const n = m ? Number.parseInt(m[1], 10) : Number.NaN;
 
   const nowIso = new Date().toISOString();
 
-  // If the id is junk, return empty urlset
+  // Helpful debug header so you can verify the handler is reading id correctly
+  const baseHeaders: Record<string, string> = {
+    "Content-Type": "application/xml; charset=utf-8",
+    "X-Sitemap-Id-Raw": raw,
+    "X-Sitemap-Id-Parsed": String(n),
+  };
+
   if (!Number.isFinite(n) || n < 0) {
-    return new Response(urlset([]), {
-      headers: { "Content-Type": "application/xml; charset=utf-8" },
-    });
+    return new Response(urlset([]), { headers: baseHeaders });
   }
 
-  // Count totals so we can know whether this id belongs to profiles or tags
-  const verifiedProfiles = await countOrZero("profiles", (q) =>
-    q.eq("verified", true).not("username", "is", null)
-  );
-  const tags = await countOrZero(TAGS_TABLE);
-
-  const profilePages = Math.ceil(verifiedProfiles / CHUNK_SIZE);
-  const tagPages = Math.ceil(tags / CHUNK_SIZE);
-  const totalPages = profilePages + tagPages;
-
-  // /sitemap/0(.xml) -> static urls
+  // /sitemap/0(.xml) -> static routes
   if (n === 0) {
     const urls = [
       { loc: abs("/"), lastmod: nowIso },
@@ -105,24 +104,31 @@ export async function GET(_req: Request, ctx: { params: { id: string } }) {
 
     return new Response(urlset(urls), {
       headers: {
-        "Content-Type": "application/xml; charset=utf-8",
+        ...baseHeaders,
         "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
       },
     });
   }
 
-  // Outside range -> empty
+  // Count totals to map chunk ids to profiles/tags
+  const verifiedProfiles = await countOrZero("profiles", (q) =>
+    q.eq("verified", true).not("username", "is", null)
+  );
+  const tags = await countOrZero(TAGS_TABLE);
+
+  const profilePages = Math.ceil(verifiedProfiles / CHUNK_SIZE);
+  const tagPages = Math.ceil(tags / CHUNK_SIZE);
+  const totalPages = profilePages + tagPages;
+
   if (n > totalPages) {
-    return new Response(urlset([]), {
-      headers: { "Content-Type": "application/xml; charset=utf-8" },
-    });
+    return new Response(urlset([]), { headers: baseHeaders });
   }
 
   const supabase = getSupabaseAdmin();
 
-  // IDs 1..profilePages = profiles
+  // 1..profilePages => profiles
   if (n >= 1 && n <= profilePages) {
-    const chunkIndex = n - 1; // 0-based
+    const chunkIndex = n - 1;
     const from = chunkIndex * CHUNK_SIZE;
     const to = from + CHUNK_SIZE - 1;
 
@@ -135,9 +141,7 @@ export async function GET(_req: Request, ctx: { params: { id: string } }) {
       .range(from, to);
 
     if (res.error) {
-      return new Response(urlset([]), {
-        headers: { "Content-Type": "application/xml; charset=utf-8" },
-      });
+      return new Response(urlset([]), { headers: baseHeaders });
     }
 
     const urls = (res.data ?? [])
@@ -153,13 +157,13 @@ export async function GET(_req: Request, ctx: { params: { id: string } }) {
 
     return new Response(urlset(urls), {
       headers: {
-        "Content-Type": "application/xml; charset=utf-8",
+        ...baseHeaders,
         "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
       },
     });
   }
 
-  // IDs after profiles are tags
+  // Remaining => tags
   const tagId = n - profilePages; // 1..tagPages
   if (tagId >= 1 && tagId <= tagPages) {
     const chunkIndex = tagId - 1;
@@ -173,9 +177,7 @@ export async function GET(_req: Request, ctx: { params: { id: string } }) {
       .range(from, to);
 
     if (res.error) {
-      return new Response(urlset([]), {
-        headers: { "Content-Type": "application/xml; charset=utf-8" },
-      });
+      return new Response(urlset([]), { headers: baseHeaders });
     }
 
     const urls = (res.data ?? [])
@@ -191,13 +193,11 @@ export async function GET(_req: Request, ctx: { params: { id: string } }) {
 
     return new Response(urlset(urls), {
       headers: {
-        "Content-Type": "application/xml; charset=utf-8",
+        ...baseHeaders,
         "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
       },
     });
   }
 
-  return new Response(urlset([]), {
-    headers: { "Content-Type": "application/xml; charset=utf-8" },
-  });
+  return new Response(urlset([]), { headers: baseHeaders });
 }
