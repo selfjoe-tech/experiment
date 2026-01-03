@@ -3,7 +3,7 @@ import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 export const revalidate = 3600;
 
 const BASE =
-  (process.env.NEXT_PUBLIC_SITE_URL || "https://upskirtcandy.com").replace(/\/$/, "");
+  (process.env.NEXT_PUBLIC_SITE_URL || "https://www.upskirtcandy.com").replace(/\/$/, "");
 
 const CHUNK_SIZE = 45_000;
 const TAGS_TABLE = "tags";
@@ -39,8 +39,10 @@ export async function GET() {
   const totalPages = profilePages + tagPages;
 
   // child sitemaps live at /sitemap/0, /sitemap/1, ...
-  const sitemapUrls: string[] = [`${BASE}/sitemap/0`];
-  for (let i = 1; i <= totalPages; i++) sitemapUrls.push(`${BASE}/sitemap/${i}`);
+  const sitemapUrls: string[] = [`${BASE}/sitemap/0.xml`];
+for (let i = 1; i <= totalPages; i++) {
+  sitemapUrls.push(`${BASE}/sitemap/${i}.xml`);
+}
 
   const body =
     `<?xml version="1.0" encoding="UTF-8"?>\n` +
