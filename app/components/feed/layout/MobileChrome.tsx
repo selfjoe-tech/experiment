@@ -45,6 +45,8 @@ type Props = {
   searchQuery: string;
   setSearchQuery: (value: string) => void;
   isLoggedIn?: boolean;
+  bottomNavHidden?: boolean; // ✅ add
+
 };
 
 import SearchOverlay from "@/app/components/search/SearchOverlay";
@@ -71,11 +73,11 @@ export default function MobileChrome(props: Props) {
        ]);
         setIsLoggedIn(logged);
       })();
-    }, [isLoggedIn]);
+    }, []);
   return (
     <>
       <MobileTopBar {...props} />
-      <MobileBottomNav isAuthed={isLoggedIn} />
+      <MobileBottomNav isAuthed={isLoggedIn} hidden={!!props.bottomNavHidden}/>
     </>
   );
 }
@@ -321,13 +323,27 @@ const NavLink = ({
     );
   };
 
-function MobileBottomNav({ isAuthed = true }: { isAuthed?: boolean }) {
+function MobileBottomNav({ 
+  isAuthed = true, 
+    hidden = false,
+
+}: { isAuthed?: boolean ;
+    hidden?: boolean;
+
+}) {
   const [showUploadAuthModal, setShowUploadAuthModal] = useState(false);
+  
 
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-black/95 border-t border-white/10 z-40">
-      <div className="flex h-full items-center justify-around text-[11px]">
+<nav
+      className={[
+        "lg:hidden fixed bottom-0 left-0 right-0 h-16",
+        "bg-black/95 border-t border-white/10 z-40",
+        "transition-transform duration-200 ease-out will-change-transform",
+        hidden ? "translate-y-full" : "translate-y-0",
+      ].join(" ")}
+    >      <div className="flex h-full items-center justify-around text-[11px]">
         <NavLink href="/" label="Home" icon={Home} />
         <NavLink href="/explore/gifs" label="Explore" icon={Compass} />
         {isAuthed ? (

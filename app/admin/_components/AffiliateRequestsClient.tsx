@@ -4,6 +4,7 @@ import { useMemo, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { adminAcceptAffiliateRequest, adminRejectAffiliateRequest, type AffiliateRequestRow } from "@/lib/actions/admin";
 import { CheckCircle2, XCircle } from "lucide-react";
+import Link from "next/link";
 
 function fmtDate(iso: string) {
   const d = new Date(iso);
@@ -148,7 +149,7 @@ export default function AffiliateRequestsClient({
                 const statusTone = r.status === "accepted" ? "good" : r.status === "rejected" ? "bad" : "warn";
                 return (
                   <tr key={r.id} className={`border-b border-white/5 ${zebra}`}>
-                    <td className="py-3 px-4 font-semibold">{r.username}</td>
+                    <td className="py-3 px-4 font-semibold"><Link href={`https://www.upskirtcandy.com/${r.username}`}>{r.username}</Link></td>
                     <td className="py-3 px-4">
                       <Badge tone={statusTone}>{r.status}</Badge>
                     </td>

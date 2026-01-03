@@ -9,6 +9,10 @@ import {
   X,
   AlertCircle,
   Clock,
+  ChartBarIncreasing,
+  ChartLine,
+  CoinsIcon,
+  DollarSign,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -371,12 +375,39 @@ export default function VerifyPage() {
 
 
         <form onSubmit={handleSubmit} className="space-y-6">
+
+
+          {/* STEP 2 – PHOTO */}
+          <section className="rounded-2xl bg-[#121212] border border-white/10 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-7">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,2.2fr)] items-center">
+              <div>
+                <StepHeader step={1} title="Benefits of being verified" />
+                
+                <ul className="mt-3 space-y-2 text-sm text-white/75 list-disc pl-5">
+                  <li>
+                    <p className="flex gap-1">
+                      Monetize (earn everytime someone visits your profile) <DollarSign className="bg-yellow-500 rounded-full" />
+                    </p>
+                  </li>
+                  <li>
+                    <p className="flex gap-2">
+                     Get a verified icon next to your username <VerifiedBadgeIcon />
+                    </p>
+                  </li>
+                  <li>Appear easily in Google searches with searches relevant to our website</li>
+                  <li>Adding other social media links</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+
           {/* STEP 1 – LINKS */}
           <section className="rounded-2xl bg-[#121212] border border-white/10 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-7">
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,2.2fr)]">
               {/* Left copy */}
               <div>
-                <StepHeader step={1} title="Provide your links" />
+                <StepHeader step={2} title="Provide your links" />
                 <p className="mt-3 text-sm text-white/80">
                   Click a logo to add a link field. You must add{" "}
                   <span className="font-semibold">at least one</span> link, but
@@ -487,7 +518,7 @@ export default function VerifyPage() {
           <section className="rounded-2xl bg-[#121212] border border-white/10 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-7">
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,2.2fr)] items-center">
               <div>
-                <StepHeader step={2} title="Upload photo" />
+                <StepHeader step={3} title="Upload photo" />
                 <p className="mt-3 text-sm text-white/80">
                   Your verification photo must follow these rules:
                 </p>
@@ -544,7 +575,7 @@ export default function VerifyPage() {
           <section className="rounded-2xl bg-[#121212] border border-white/10 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-7">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <StepHeader step={3} title='Hit "Verify Account"' />
+                <StepHeader step={4} title='Hit "Verify Account"' />
                 <p className="mt-3 text-sm text-white/75 max-w-md">
                   When you submit, we’ll review your links and photo. You’ll get
                   an email once your verification has been approved or if we

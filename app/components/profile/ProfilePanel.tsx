@@ -11,6 +11,7 @@ import {
   Coins,
   X,
   ShieldCheck,
+  DollarSign,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -263,7 +264,7 @@ export function ProfilePanel({
   <span className="pointer-events-none absolute inset-0 bg-black/20" />
 
   <span className="relative z-10 flex items-center gap-2">
-    <Coins className="h-4 w-4 text-amber-200 opacity-90" />
+    <DollarSign className="h-4 w-4 text-amber-200 opacity-90" />
     <span className="text-sm">Earn</span>
     {verified ? (
       <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[11px] text-emerald-200">
@@ -272,7 +273,7 @@ export function ProfilePanel({
       </span>
     ) : (
       <span className="ml-2 inline-flex items-center rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[11px] text-white/70">
-        Locked
+        Not verified
       </span>
     )}
   </span>

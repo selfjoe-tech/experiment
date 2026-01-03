@@ -13,6 +13,11 @@ const links = [
   { href: "/admin/verify", label: "Verify" },
   { href: "/admin/ads", label: "Ads" },
   { href: "/admin/users", label: "Users" },
+  { href: "/admin/affiliate-requests", label: "Affiliate requests" },
+  { href: "/admin/payout-requests", label: "Payout Requests" },
+
+
+
 ];
 
 function AdminSidebar() {

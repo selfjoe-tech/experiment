@@ -34,6 +34,9 @@ export default function HomePage() {
     
   }, [isLoggedIn]);
 
+  const [mobileNavHidden, setMobileNavHidden] = useState(false);
+
+
   const showForYouGate =
     activeTab === "forYou" && authLoaded && !isLoggedIn;
 
@@ -54,6 +57,8 @@ export default function HomePage() {
         }}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
+          bottomNavHidden={mobileNavHidden} 
+
       />
 
       {/* For you / Trending switch – fixed over the video area */}
@@ -90,9 +95,15 @@ export default function HomePage() {
         <VideoFeed
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          onScrollDirectionChange={(direction) =>
-            setDesktopNavHidden(direction === "down")
+          onScrollDirectionChange={(direction) => {
+                const hide = direction === "down";
+
+            setDesktopNavHidden(hide);
+            setMobileNavHidden(hide);} // ✅ mobile follows same rule
+
+            
           }
+          
         />
       ) : (
         // tiny fallback while auth status loads

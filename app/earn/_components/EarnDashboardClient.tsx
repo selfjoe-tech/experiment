@@ -358,7 +358,7 @@ export default function EarnDashboardClient({ initial }: { initial: EarnDashboar
               className="w-full h-11 px-4 rounded-2xl border border-white/15 bg-black/40 text-white font-semibold disabled:opacity-60 hover:bg-black/50"
               title={isAffiliate ? "You are already an affiliate." : initial.hasAffiliateRequest ? "Request already submitted." : ""}
             >
-              {isAffiliate ? "Affiliate ✅" : initial.hasAffiliateRequest ? "Affiliate request sent" : "Apply to be an affiliate (100% cut)"}
+              {isAffiliate ? "Affiliate ✅" : initial.hasAffiliateRequest ? "Affiliate request sent" : "Apply to be an affiliate"}
             </button>
 
             {!isAffiliate && (

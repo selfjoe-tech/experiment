@@ -15,6 +15,7 @@ import {
   Coins,
   X,
   ShieldCheck,
+  DollarSign,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -211,8 +212,8 @@ export default function ProfileMenuContent() {
             onClick={onEarnClick}
           >
             <span className="flex items-center gap-2 text-sm">
-              <Coins className="h-4 w-4 text-amber-200 opacity-90" />
-              <span className="text-white">Earn</span>
+              <DollarSign className="h-4 w-4 text-amber-200 opacity-90" />
+              <span className="text-white">Monetize</span>
               {verified ? (
                 <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[11px] text-emerald-200">
                   <ShieldCheck className="h-3 w-3" />
@@ -220,7 +221,7 @@ export default function ProfileMenuContent() {
                 </span>
               ) : (
                 <span className="ml-2 inline-flex items-center rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[11px] text-white/70">
-                  Locked
+                  Not verified
                 </span>
               )}
             </span>

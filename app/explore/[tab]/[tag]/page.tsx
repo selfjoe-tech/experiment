@@ -1,11 +1,12 @@
-// app/explore/[tab]/[tag]/page.tsx (or wherever this page is)
-"use client";
+import type { Metadata } from "next";
+import ExploreNicheTagClient from "./ExploreNicheTagClient";
 
-import React, { useCallback, useState } from "react";
-import Head from "next/head";
-import { useParams } from "next/navigation";
-import TagVideoFeed from "@/app/components/feed/TagVideoFeed";
-import type { FeedTab } from "@/app/components/feed/types";
+const SITE_NAME = "Upskirt Candy";
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://upskirtcandy.com").replace(/\/$/, "");
+
+function abs(path: string) {
+  return `${SITE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+}
 
 function slugToTitle(slug: string): string {
   const decoded = decodeURIComponent(slug);
@@ -16,71 +17,60 @@ function slugToTitle(slug: string): string {
     .join(" ");
 }
 
-export default function ExploreNicheTagPage() {
-  const params = useParams<{ tab: string; tag: string }>();
-  const rawTab = params?.tab || "niches";
-  const tagSlug = params?.tag || "";
+function normalizeTab(rawTab: string) {
+  return ["gifs", "images", "creators", "niches"].includes(rawTab) ? rawTab : "niches";
+}
 
-  const tab: string =
-    ["gifs", "images", "creators", "niches"].includes(rawTab) ? rawTab : "niches";
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ tab: string; tag: string }>;
+}): Promise<Metadata> {
 
-  // Keep MobileChrome nav happy (even if not displayed)
-  const [activeTab, setActiveTab] = useState<FeedTab>("trending");
-  const [isMobileSearching, setIsMobileSearching] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [desktopNavHidden, setDesktopNavHidden] = useState(false);
+  const attribute = await params;
+  const rawTab = attribute?.tab || "niches";
+  const tagSlug = attribute?.tag || "";
 
-  const onScrollDirectionChange = useCallback((direction: "up" | "down") => {
-    const nextHidden = direction === "down";
-    setDesktopNavHidden((prev) => (prev === nextHidden ? prev : nextHidden));
-  }, []);
-
+  const tab = normalizeTab(rawTab);
   const nicheTitle = slugToTitle(tagSlug);
 
-  const contentKind =
-    tab === "images" ? "Images" : tab === "gifs" ? "GIFs" : "Videos";
+  const contentKind = tab === "images" ? "Images" : tab === "gifs" ? "GIFs" : "Videos";
 
-  const title = `${nicheTitle} ${contentKind} | UpskirtCandy`;
-  const description = `Watch ${nicheTitle.toLowerCase()} ${contentKind.toLowerCase()} on UpskirtCandy. Browse trending, newest and most viewed clips in this niche.`;
-  const canonical = `https://upskirtcandy.com/explore/${tab}/${tagSlug}`;
+  const title = `${nicheTitle} ${contentKind} | ${SITE_NAME}`;
+  const description = `Watch ${nicheTitle.toLowerCase()} ${contentKind.toLowerCase()} on ${SITE_NAME}. Browse trending, newest and most viewed clips in this niche.`;
+  const canonical = abs(`/explore/${tab}/${tagSlug}`);
 
-  const schema = {
-    "@context": "https://schema.org",
-    "@type": "CollectionPage",
-    name: title,
+  return {
+    title,
     description,
-    url: canonical,
-    isPartOf: {
-      "@type": "WebSite",
-      name: "UpskirtCandy",
-      url: "https://upskirtcandy.com",
+    alternates: { canonical },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-image-preview": "large",
+        "max-video-preview": -1,
+        "max-snippet": -1,
+      },
+    },
+    openGraph: {
+      type: "website",
+      url: canonical,
+      siteName: SITE_NAME,
+      title,
+      description,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
     },
   };
+}
 
-  return (
-    <>
-      <Head>
-        <title>{title}</title>
-        <meta name="description" content={description} />
-        <link rel="canonical" href={canonical} />
-        <meta name="robots" content="index,follow" />
-        <meta property="og:title" content={title} />
-        <meta property="og:description" content={description} />
-        <meta property="og:url" content={canonical} />
-        <meta property="og:site_name" content="UpskirtCandy" />
-        <meta property="og:type" content="website" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={title} />
-        <meta name="twitter:description" content={description} />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-        />
-      </Head>
-
-      <div className="relative min-h-screen bg-black text-white overflow-hidden">
-        <TagVideoFeed tagSlug={tagSlug} onScrollDirectionChange={onScrollDirectionChange} />
-      </div>
-    </>
-  );
+export default function ExploreNicheTagPage() {
+  // ✅ no props passed, your UI still uses useParams()
+  return <ExploreNicheTagClient />;
 }
