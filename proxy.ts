@@ -4,6 +4,10 @@ import { verifyAdminJwt } from "./lib/adminJwt";
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  
+  if (pathname === "/sitemap.xml" || pathname.startsWith("/sitemap/") || pathname === "/robots.txt") {
+  return NextResponse.next();
+}
 
   // Only care about /admin routes
   if (!pathname.startsWith("/admin")) {

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import ProfileMediaPage from "./ProfileMediaPage";
 import { getProfileSeoByUsername } from "@/lib/actions/seo";
+import { notFound } from "next/navigation";
+
 
 const SITE_NAME = "Upskirt Candy";
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://upskirtcandy.com").replace(/\/$/, "");
@@ -98,7 +100,15 @@ function ProfileFallback() {
   );
 }
 
-export default function ProfilePage() {
+export default async function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
+
+  const RESERVED = new Set(["sitemap.xml", "robots.txt", "favicon.ico"]);
+
+
+  const { username } = await params
+    const u = username.toLowerCase();
+  if (RESERVED.has(u)) notFound();
+
   // Keep your UI exactly the same: username is read in the client via useParams()
   return (
     <Suspense fallback={<ProfileFallback />}>
