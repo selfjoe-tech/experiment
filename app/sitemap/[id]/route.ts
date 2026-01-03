@@ -9,7 +9,7 @@ const CHUNK_SIZE = 45_000;
 
 const TAGS_TABLE = "tags";
 const TAGS_SLUG_COL = "slug";
-const TAGS_UPDATED_COL = "updated_at";
+const TAGS_UPDATED_COL = "created_at";
 
 function abs(path: string) {
   return `${BASE}${path.startsWith("/") ? path : `/${path}`}`;
