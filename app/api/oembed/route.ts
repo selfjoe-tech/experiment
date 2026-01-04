@@ -93,7 +93,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const siteUrl = "https://www.upskirtcandy.com"; // keep consistent with your canonical domain
+    const siteUrl = "https://upskirtcandy.com"; // keep consistent with your canonical domain
     const width = 720;
     const height = 1080;
 

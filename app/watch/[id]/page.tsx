@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import WatchClient from "./watch-client";
 import { getWatchOgMeta } from "@/lib/server/watchOgMeta";
 
-const SITE_URL = ("https://www.upskirtcandy.com").replace(
+const SITE_URL = ("https://upskirtcandy.com").replace(
   /\/$/,
   ""
 );
