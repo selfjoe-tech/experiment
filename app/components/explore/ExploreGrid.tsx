@@ -78,6 +78,8 @@ type Props = {
   fetcher?: typeof getItemsForTab;
 };
 
+
+
 export default function ExploreGrid({ onVideoClick, tab, sortBy, fetcher }: Props) {
   const [items, setItems] = useState<ExploreItem[]>([]);
   const [page, setPage] = useState(0);

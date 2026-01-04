@@ -16,6 +16,8 @@ import {
   X,
   ShieldCheck,
   DollarSign,
+  Pencil,
+  Heart,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -228,8 +230,8 @@ export default function ProfileMenuContent() {
             <ChevronRight className="h-4 w-4 opacity-60" />
           </button>
 
-          <Row icon={Bookmark} label="Saved" href={`/saved`} />
-          <Row icon={Settings} label="Settings" href={`/settings`} />
+          <Row icon={Heart} label="Liked" href={`/liked`} />
+          <Row icon={Pencil} label="Edit Profile" href={`/edit-profile`} />
 
           <button
             type="button"

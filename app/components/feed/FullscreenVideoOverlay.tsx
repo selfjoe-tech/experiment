@@ -1,14 +1,13 @@
 "use client";
 
 import React, { UIEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChevronUp, ChevronDown } from "lucide-react";
 import VideoCard, { SponsoredVideoCard } from "./VideoCard";
 import type { Video } from "./types";
 import { registerView, registerAdView } from "@/lib/actions/mediaFeed";
 
 const PREFETCH_AHEAD = 2;
 
-// render window (this is the memory fix)
+// render window (scroll stays smooth, but only ACTIVE mounts a real card)
 const RENDER_BEHIND = 1;
 const RENDER_AHEAD = 2;
 
@@ -19,18 +18,68 @@ type Props = {
   videos?: Video[];
   initialVideoId?: string | null;
 
-  // ✅ IMPORTANT: when parent prunes/windowing (VideoFeed), pass its dropped count here
+  // when parent prunes/windowing (VideoFeed), pass dropped count here
   baseIndex?: number;
 
   onEndReached?: () => void;
   isLoadingMore?: boolean;
 
-  toggleMute: () => void;
-  isMuted: boolean;
+  // optional for pages that don't manage mute state
+  toggleMute?: () => void;
+  isMuted?: boolean;
+    initialIndex?: number | null; // ✅ ADD
+
+
+  /**
+   * URL mode:
+   * - "query": /saved?fs=1&v=123
+   * - "path":  /embed/123  (optional, you can customize builder below)
+   */
+  urlMode?: "query" | "path";
 };
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
+}
+
+function FullscreenSkeleton({ kind }: { kind: "video" | "ad" }) {
+  return (
+    <div className="w-full h-full flex items-center justify-center pointer-events-none">
+      <div className="w-full max-w-[560px] h-[100dvh] px-4 py-6 flex flex-col">
+        {/* main media block */}
+        <div className="flex-1 rounded-2xl bg-white/10 animate-pulse" />
+
+        {/* bottom info block */}
+        <div className="mt-4 space-y-3">
+          <div className="h-4 w-40 rounded bg-white/10 animate-pulse" />
+          <div className="h-4 w-72 rounded bg-white/10 animate-pulse" />
+          <div className="h-4 w-56 rounded bg-white/10 animate-pulse" />
+          {kind === "ad" && <div className="h-10 w-36 rounded-xl bg-white/10 animate-pulse" />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function buildNextHref(opts: {
+  baseHref: string;
+  urlMode: "query" | "path";
+  videoId: string;
+}) {
+  const { baseHref, urlMode, videoId } = opts;
+
+  if (urlMode === "path") {
+    // Customize this if your canonical fullscreen route is different
+    // Example: return `${new URL(baseHref).origin}/embed/${videoId}`;
+    const u = new URL(baseHref);
+    return `${u.origin}/embed/${videoId}`;
+  }
+
+  // default "query" mode: keep same path, just attach fs + v
+  const u = new URL(baseHref);
+  u.searchParams.set("fs", "1");
+  u.searchParams.set("v", String(videoId));
+  return u.toString();
 }
 
 export default function FullscreenVideoOverlay({
@@ -43,6 +92,8 @@ export default function FullscreenVideoOverlay({
   isLoadingMore,
   toggleMute,
   isMuted,
+  initialIndex,
+  urlMode = "query",
 }: Props) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -51,18 +102,45 @@ export default function FullscreenVideoOverlay({
 
   const viewedKeysConfirmRef = useRef<Set<string>>(new Set());
 
-  // lock body scroll
+  // fallback mute state if the page doesn't provide one
+  const [internalMuted, setInternalMuted] = useState(true);
+  const programmaticScrollRef = useRef(false);
+
+  const effectiveMuted = typeof isMuted === "boolean" ? isMuted : internalMuted;
+  const effectiveToggleMute =
+    toggleMute ??
+    (() => {
+      setInternalMuted((m) => !m);
+    });
+
+  // Remember the URL before fullscreen, then "mount/unmount" active video URL while scrolling
+  const restoreHrefRef = useRef<string | null>(null);
+
+  // lock body scroll + capture base href once per open
   useEffect(() => {
     if (!open) return;
-    const prev = document.body.style.overflow;
+
+    const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+
+    // capture current href so we can restore on close
+    restoreHrefRef.current = window.location.href;
+
     return () => {
-      document.body.style.overflow = prev;
+      document.body.style.overflow = prevOverflow;
+
+      // restore original URL on close/unmount
+      if (restoreHrefRef.current) {
+        window.history.replaceState(window.history.state, "", restoreHrefRef.current);
+      }
+      restoreHrefRef.current = null;
     };
   }, [open]);
 
   // measure page height (needed for correct index math + spacers)
   const [pageH, setPageH] = useState(0);
+  const snapH = pageH ? `${pageH}px` : "100vh";
+
   useLayoutEffect(() => {
     if (!open) return;
     const el = scrollRef.current;
@@ -83,8 +161,11 @@ export default function FullscreenVideoOverlay({
 
   // reset on close
   const didInitialScrollRef = useRef(false);
+  const lastPrefetchGlobalLastRef = useRef<number>(-1);
+
   useEffect(() => {
     if (open) return;
+
     didInitialScrollRef.current = false;
     viewedKeysConfirmRef.current.clear();
     setActiveIndex(0);
@@ -93,6 +174,7 @@ export default function FullscreenVideoOverlay({
   }, [open]);
 
   // initial scroll (only once)
+    // initial scroll (only once)
   useEffect(() => {
     if (!open) return;
     if (!scrollRef.current) return;
@@ -101,21 +183,51 @@ export default function FullscreenVideoOverlay({
     if (didInitialScrollRef.current) return;
 
     const idx =
-      initialVideoId != null
+      typeof initialIndex === "number"
+        ? initialIndex
+        : initialVideoId != null
         ? videos.findIndex((v) => v.id === initialVideoId)
         : 0;
 
-    const targetIdx = idx >= 0 ? idx : 0;
+    const targetIdx = clamp(
+      idx >= 0 ? idx : 0,
+      0,
+      Math.max(0, videos.length - 1)
+    );
 
     requestAnimationFrame(() => {
       const el = scrollRef.current;
       if (!el) return;
+
+      programmaticScrollRef.current = true;
+
       el.scrollTop = targetIdx * pageH;
       setActiveIndex(targetIdx);
       activeIndexRef.current = targetIdx;
       didInitialScrollRef.current = true;
+
+      requestAnimationFrame(() => {
+        programmaticScrollRef.current = false;
+      });
     });
-  }, [open, pageH, videos.length, initialVideoId]);
+  }, [open, pageH, videos.length, initialVideoId, initialIndex]);
+
+
+  // URL "mount": update URL to the active video without creating history spam
+  useEffect(() => {
+    if (!open) return;
+    const baseHref = restoreHrefRef.current;
+    const v = videos[activeIndex];
+    if (!baseHref || !v) return;
+
+    const nextHref = buildNextHref({
+      baseHref,
+      urlMode,
+      videoId: String(v.id),
+    });
+
+    window.history.replaceState(window.history.state, "", nextHref);
+  }, [open, activeIndex, videos.length, urlMode]);
 
   // register view when active changes (avoid depending on full `videos` array identity)
   useEffect(() => {
@@ -144,9 +256,7 @@ export default function FullscreenVideoOverlay({
     }
 
     const mediaId =
-      typeof (v as any).mediaId === "number"
-        ? (v as any).mediaId
-        : Number(v.id);
+      typeof (v as any).mediaId === "number" ? (v as any).mediaId : Number(v.id);
 
     if (!Number.isNaN(mediaId)) {
       registerView(mediaId).catch((err) =>
@@ -155,9 +265,7 @@ export default function FullscreenVideoOverlay({
     }
   }, [open, activeIndex, videos.length]);
 
-  // Prefetch gating like VideoFeed: gate by GLOBAL last index, not list length
-  const lastPrefetchGlobalLastRef = useRef<number>(-1);
-
+  // Prefetch gating: gate by GLOBAL last index, not list length
   useEffect(() => {
     if (!open) return;
     if (!onEndReached) return;
@@ -178,18 +286,21 @@ export default function FullscreenVideoOverlay({
 
   if (!open) return null;
 
-  const handleScroll = (e: UIEvent<HTMLDivElement>) => {
-    const el = e.currentTarget;
-    const h = pageH || el.clientHeight || window.innerHeight || 1;
-    const idx = Math.round(el.scrollTop / h);
+ const handleScroll = (e: UIEvent<HTMLDivElement>) => {
+  if (programmaticScrollRef.current) return;
 
-    if (idx >= 0 && idx < videos.length && idx !== activeIndexRef.current) {
-      activeIndexRef.current = idx;
-      setActiveIndex(idx);
-    }
-  };
+  const el = e.currentTarget;
+  const h = pageH || el.clientHeight || window.innerHeight || 1;
 
-  // ✅ VIRTUALIZED WINDOW (memory fix)
+  const idx = Math.round(el.scrollTop / h);
+
+  if (idx >= 0 && idx < videos.length && idx !== activeIndexRef.current) {
+    activeIndexRef.current = idx;
+    setActiveIndex(idx);
+  }
+};
+
+  // Virtualized window for DOM size, but ONLY active index mounts the real card
   const start = videos.length
     ? clamp(activeIndex - RENDER_BEHIND, 0, videos.length - 1)
     : 0;
@@ -200,16 +311,6 @@ export default function FullscreenVideoOverlay({
   const windowItems = videos.slice(start, end + 1);
   const topSpacerH = pageH > 0 ? start * pageH : 0;
   const bottomSpacerH = pageH > 0 ? (videos.length - 1 - end) * pageH : 0;
-
-  const scrollOneStep = (direction: "up" | "down") => {
-    const container = scrollRef.current;
-    if (!container) return;
-    const amount = (pageH || window.innerHeight || 1) * 0.9;
-    container.scrollTo({
-      top: container.scrollTop + (direction === "down" ? amount : -amount),
-      behavior: "smooth",
-    });
-  };
 
   return (
     <div className="fixed inset-0 z-[90] bg-black/70 backdrop-blur-xl h-full flex flex-col">
@@ -229,43 +330,54 @@ export default function FullscreenVideoOverlay({
           const isAd = !!anyVideo._isAd;
           const visitUrl: string | undefined = anyVideo._adLandingUrl ?? undefined;
 
-          const dist = Math.abs(absIdx - activeIndex);
-          const loadLevel: "active" | "near" | "off" =
-            dist === 0 ? "active" : dist === 1 ? "near" : "off";
+          const isActive = absIdx === activeIndex;
 
+          // ✅ This is the core workaround:
+          // - only the active index mounts VideoCard/SponsoredVideoCard
+          // - everyone else is a skeleton (no <video>, no heavy hooks, no URL stuff inside cards)
           if (isAd) {
             return (
               <section
-                data-fullscreen-idx={absIdx}
-                key={absIdx}
-                className="snap-center snap-always flex items-center justify-center h-screen lg:h-[100dvh] w-full"
-              >
-                <SponsoredVideoCard
-                  video={video}
-                  isMuted={isMuted}
-                  toggleMute={toggleMute}
-                  visitUrl={visitUrl || "#"}
-                  loadLevel={loadLevel}
-                />
+  data-fullscreen-idx={absIdx}
+  key={absIdx}
+  style={{ height: snapH }}               // ✅
+  className="snap-center snap-always flex items-center justify-center w-full"
+>
+                {isActive ? (
+                  <SponsoredVideoCard
+                    video={video}
+                    isMuted={effectiveMuted}
+                    toggleMute={effectiveToggleMute}
+                    visitUrl={visitUrl || "#"}
+                    loadLevel="active"
+                  />
+                ) : (
+                  <FullscreenSkeleton kind="ad" />
+                )}
               </section>
             );
           }
 
           return (
             <section
-              data-fullscreen-idx={absIdx}
-              key={absIdx}
-              className="snap-center snap-always flex items-center justify-center h-screen lg:h-[100dvh] w-full"
-            >
-              <VideoCard
-                video={video}
-                showFullscreenButton={false}
-                toggleMute={toggleMute}
-                isMuted={isMuted}
-                onClose={onClose}
-                open={open}
-                loadLevel={loadLevel}
-              />
+    data-fullscreen-idx={absIdx}
+    key={absIdx}
+    style={{ height: snapH }}               // ✅
+    className="snap-center snap-always flex items-center justify-center w-full"
+  >
+              {isActive ? (
+                <VideoCard
+                  video={video}
+                  showFullscreenButton={false}
+                  toggleMute={effectiveToggleMute}
+                  isMuted={effectiveMuted}
+                  onClose={onClose}
+                  open={open}
+                  loadLevel="active"
+                />
+              ) : (
+                <FullscreenSkeleton kind="video" />
+              )}
             </section>
           );
         })}
@@ -276,16 +388,304 @@ export default function FullscreenVideoOverlay({
         )}
 
         {isLoadingMore && (
-          <div className="py-6 text-center text-sm text-neutral-400">
-            Loading more…
-          </div>
+          <div className="py-6 text-center text-sm text-neutral-400">Loading more…</div>
         )}
       </div>
-
-      
     </div>
   );
 }
+
+
+
+
+// "use client";
+
+// import React, { UIEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
+// import { ChevronUp, ChevronDown } from "lucide-react";
+// import VideoCard, { SponsoredVideoCard } from "./VideoCard";
+// import type { Video } from "./types";
+// import { registerView, registerAdView } from "@/lib/actions/mediaFeed";
+
+// const PREFETCH_AHEAD = 2;
+
+// // render window (this is the memory fix)
+// const RENDER_BEHIND = 1;
+// const RENDER_AHEAD = 2;
+
+// type Props = {
+//   open: boolean;
+//   onClose: () => void;
+
+//   videos?: Video[];
+//   initialVideoId?: string | null;
+
+//   // ✅ IMPORTANT: when parent prunes/windowing (VideoFeed), pass its dropped count here
+//   baseIndex?: number;
+
+//   onEndReached?: () => void;
+//   isLoadingMore?: boolean;
+
+//   toggleMute: () => void;
+//   isMuted: boolean;
+// };
+
+// function clamp(n: number, min: number, max: number) {
+//   return Math.max(min, Math.min(max, n));
+// }
+
+// export default function FullscreenVideoOverlay({
+//   open,
+//   onClose,
+//   videos = [],
+//   initialVideoId,
+//   baseIndex = 0,
+//   onEndReached,
+//   isLoadingMore,
+//   toggleMute,
+//   isMuted,
+// }: Props) {
+//   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+//   const [activeIndex, setActiveIndex] = useState(0);
+//   const activeIndexRef = useRef(0);
+
+//   const viewedKeysConfirmRef = useRef<Set<string>>(new Set());
+
+//   // lock body scroll
+//   useEffect(() => {
+//     if (!open) return;
+//     const prev = document.body.style.overflow;
+//     document.body.style.overflow = "hidden";
+//     return () => {
+//       document.body.style.overflow = prev;
+//     };
+//   }, [open]);
+
+//   // measure page height (needed for correct index math + spacers)
+//   const [pageH, setPageH] = useState(0);
+//   useLayoutEffect(() => {
+//     if (!open) return;
+//     const el = scrollRef.current;
+//     if (!el) return;
+
+//     const update = () => setPageH(el.clientHeight || window.innerHeight || 0);
+//     update();
+
+//     const ro = new ResizeObserver(update);
+//     ro.observe(el);
+//     window.addEventListener("resize", update);
+
+//     return () => {
+//       ro.disconnect();
+//       window.removeEventListener("resize", update);
+//     };
+//   }, [open]);
+
+//   // reset on close
+//   const didInitialScrollRef = useRef(false);
+//   useEffect(() => {
+//     if (open) return;
+//     didInitialScrollRef.current = false;
+//     viewedKeysConfirmRef.current.clear();
+//     setActiveIndex(0);
+//     activeIndexRef.current = 0;
+//     lastPrefetchGlobalLastRef.current = -1;
+//   }, [open]);
+
+//   // initial scroll (only once)
+//   useEffect(() => {
+//     if (!open) return;
+//     if (!scrollRef.current) return;
+//     if (!pageH) return;
+//     if (videos.length === 0) return;
+//     if (didInitialScrollRef.current) return;
+
+//     const idx =
+//       initialVideoId != null
+//         ? videos.findIndex((v) => v.id === initialVideoId)
+//         : 0;
+
+//     const targetIdx = idx >= 0 ? idx : 0;
+
+//     requestAnimationFrame(() => {
+//       const el = scrollRef.current;
+//       if (!el) return;
+//       el.scrollTop = targetIdx * pageH;
+//       setActiveIndex(targetIdx);
+//       activeIndexRef.current = targetIdx;
+//       didInitialScrollRef.current = true;
+//     });
+//   }, [open, pageH, videos.length, initialVideoId]);
+
+//   // register view when active changes (avoid depending on full `videos` array identity)
+//   useEffect(() => {
+//     if (!open) return;
+//     const v = videos[activeIndex];
+//     if (!v) return;
+
+//     const anyV = v as any;
+//     const isAd = !!anyV._isAd;
+
+//     const key = isAd
+//       ? `ad-${String(anyV._adId ?? v.id)}`
+//       : `media-${String(v.mediaId ?? v.id)}`;
+
+//     if (viewedKeysConfirmRef.current.has(key)) return;
+//     viewedKeysConfirmRef.current.add(key);
+
+//     if (isAd) {
+//       const adId = anyV._adId != null ? String(anyV._adId) : null;
+//       if (adId) {
+//         registerAdView(adId).catch((err) =>
+//           console.error("registerAdView (fullscreen) error", err)
+//         );
+//       }
+//       return;
+//     }
+
+//     const mediaId =
+//       typeof (v as any).mediaId === "number"
+//         ? (v as any).mediaId
+//         : Number(v.id);
+
+//     if (!Number.isNaN(mediaId)) {
+//       registerView(mediaId).catch((err) =>
+//         console.error("registerView (fullscreen) error", err)
+//       );
+//     }
+//   }, [open, activeIndex, videos.length]);
+
+//   // Prefetch gating like VideoFeed: gate by GLOBAL last index, not list length
+//   const lastPrefetchGlobalLastRef = useRef<number>(-1);
+
+//   useEffect(() => {
+//     if (!open) return;
+//     if (!onEndReached) return;
+//     if (isLoadingMore) return;
+//     if (videos.length === 0) return;
+
+//     const globalActive = baseIndex + activeIndex;
+//     const globalLast = baseIndex + videos.length - 1;
+
+//     if (globalActive < globalLast - PREFETCH_AHEAD) return;
+
+//     // only once per globalLast index
+//     if (lastPrefetchGlobalLastRef.current === globalLast) return;
+//     lastPrefetchGlobalLastRef.current = globalLast;
+
+//     onEndReached();
+//   }, [open, activeIndex, videos.length, baseIndex, onEndReached, isLoadingMore]);
+
+//   if (!open) return null;
+
+//   const handleScroll = (e: UIEvent<HTMLDivElement>) => {
+//     const el = e.currentTarget;
+//     const h = pageH || el.clientHeight || window.innerHeight || 1;
+//     const idx = Math.round(el.scrollTop / h);
+
+//     if (idx >= 0 && idx < videos.length && idx !== activeIndexRef.current) {
+//       activeIndexRef.current = idx;
+//       setActiveIndex(idx);
+//     }
+//   };
+
+//   // ✅ VIRTUALIZED WINDOW (memory fix)
+//   const start = videos.length
+//     ? clamp(activeIndex - RENDER_BEHIND, 0, videos.length - 1)
+//     : 0;
+//   const end = videos.length
+//     ? clamp(activeIndex + RENDER_AHEAD, 0, videos.length - 1)
+//     : 0;
+
+//   const windowItems = videos.slice(start, end + 1);
+//   const topSpacerH = pageH > 0 ? start * pageH : 0;
+//   const bottomSpacerH = pageH > 0 ? (videos.length - 1 - end) * pageH : 0;
+
+//   const scrollOneStep = (direction: "up" | "down") => {
+//     const container = scrollRef.current;
+//     if (!container) return;
+//     const amount = (pageH || window.innerHeight || 1) * 0.9;
+//     container.scrollTo({
+//       top: container.scrollTop + (direction === "down" ? amount : -amount),
+//       behavior: "smooth",
+//     });
+//   };
+
+//   return (
+//     <div className="fixed inset-0 z-[90] bg-black/70 backdrop-blur-xl h-full flex flex-col">
+//       <div
+//         ref={scrollRef}
+//         onScroll={handleScroll}
+//         className="flex-1 snap-y h-screen snap-mandatory overflow-y-scroll overscroll-y-contain"
+//       >
+//         {/* top spacer (NO SNAP) */}
+//         {topSpacerH > 0 && (
+//           <div aria-hidden style={{ height: topSpacerH }} className="snap-none" />
+//         )}
+
+//         {windowItems.map((video, i) => {
+//           const absIdx = start + i;
+//           const anyVideo = video as any;
+//           const isAd = !!anyVideo._isAd;
+//           const visitUrl: string | undefined = anyVideo._adLandingUrl ?? undefined;
+
+//           const dist = Math.abs(absIdx - activeIndex);
+//           const loadLevel: "active" | "near" | "off" =
+//             dist === 0 ? "active" : dist === 1 ? "near" : "off";
+
+//           if (isAd) {
+//             return (
+//               <section
+//                 data-fullscreen-idx={absIdx}
+//                 key={absIdx}
+//                 className="snap-center snap-always flex items-center justify-center h-screen lg:h-[100dvh] w-full"
+//               >
+//                 <SponsoredVideoCard
+//                   video={video}
+//                   isMuted={isMuted}
+//                   toggleMute={toggleMute}
+//                   visitUrl={visitUrl || "#"}
+//                   loadLevel={loadLevel}
+//                 />
+//               </section>
+//             );
+//           }
+
+//           return (
+//             <section
+//               data-fullscreen-idx={absIdx}
+//               key={absIdx}
+//               className="snap-center snap-always flex items-center justify-center h-screen lg:h-[100dvh] w-full"
+//             >
+//               <VideoCard
+//                 video={video}
+//                 showFullscreenButton={false}
+//                 toggleMute={toggleMute}
+//                 isMuted={isMuted}
+//                 onClose={onClose}
+//                 open={open}
+//                 loadLevel={loadLevel}
+//               />
+//             </section>
+//           );
+//         })}
+
+//         {/* bottom spacer (NO SNAP) */}
+//         {bottomSpacerH > 0 && (
+//           <div aria-hidden style={{ height: bottomSpacerH }} className="snap-none" />
+//         )}
+
+//         {isLoadingMore && (
+//           <div className="py-6 text-center text-sm text-neutral-400">
+//             Loading more…
+//           </div>
+//         )}
+//       </div>
+
+      
+//     </div>
+//   );
+// }
 
 
 // "use client";

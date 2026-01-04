@@ -94,7 +94,6 @@ export async function GET(req: Request, context: { params?: { id?: string } }) {
   if (n === 0) {
     const urls = [
       { loc: abs("/"), lastmod: nowIso },
-      { loc: abs("/explore"), lastmod: nowIso },
       { loc: abs("/explore/gifs"), lastmod: nowIso },
       { loc: abs("/explore/images"), lastmod: nowIso },
       { loc: abs("/explore/niches"), lastmod: nowIso },
@@ -102,8 +101,6 @@ export async function GET(req: Request, context: { params?: { id?: string } }) {
       { loc: abs("/ads"), lastmod: nowIso },
       { loc: abs("/auth/login"), lastmod: nowIso },
       { loc: abs("/auth/signup"), lastmod: nowIso },
-      { loc: abs("/saved"), lastmod: nowIso },
-      { loc: abs("/settings"), lastmod: nowIso },
     ];
 
     return xmlResponse(buildUrlset(urls), debugHeaders);

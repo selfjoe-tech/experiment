@@ -25,11 +25,12 @@ export const revalidate = 300;
 export async function generateMetadata({
   params,
 }: {
-  params: { username: string };
+  params: Promise<{ username: string }>;
 }): Promise<Metadata> {
-  const raw = params?.username ?? "";
-  const username = decodeURIComponent(raw).trim();
-  const canonical = abs(profilePath(username));
+  const { username } = await params
+  const raw = username ?? "";
+  const name = decodeURIComponent(raw).trim();
+  const canonical = abs(profilePath(name));
 
   const prof = await getProfileSeoByUsername(username);
 

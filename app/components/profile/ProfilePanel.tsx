@@ -12,6 +12,9 @@ import {
   X,
   ShieldCheck,
   DollarSign,
+  Pencil,
+  Heart,
+  PencilIcon,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -160,8 +163,8 @@ export function ProfilePanel({
     // ✅ Earn row (special handling, not a normal router.push row)
     // We'll render it separately so it can open a modal for non-verified users.
 
-    { label: "Saved", icon: Bookmark, link: `/saved` },
-    { label: "Settings", icon: Settings, link: `/settings` },
+    { label: "Liked", icon: Heart, link: `/liked` },
+    { label: "Edit Profile", icon: PencilIcon, link: `/edit-profile` },
   ];
 
   const logOut = { label: "Log out", icon: LogOut };
@@ -226,7 +229,7 @@ export function ProfilePanel({
       </div>
 
       {/* list */}
-      <div className="px-2 pb-2 space-y-2 overflow-y-auto">
+      <div className="px-2 pb-2 h-60 space-y-2 overflow-y-auto">
         {/* standard rows up to Manage */}
         {rows.slice(0, 2).map((r) => (
           <button

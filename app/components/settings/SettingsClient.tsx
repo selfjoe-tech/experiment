@@ -31,7 +31,7 @@ import {
   FileUploadTrigger,
 } from "@/components/ui/file-upload";
 
-import VerifiedLinksEditor from "@/app/settings/VerifiedLinksEditor";
+import VerifiedLinksEditor from "@/app/edit-profile/VerifiedLinksEditor";
 
 import {
   updateProfileBasicsAction,

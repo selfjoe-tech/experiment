@@ -88,12 +88,51 @@ useEffect(() => {
     },
   };
 
+  function exploreItemToVideo(i: any): Video {
+  return {
+    id: String(i.id),
+    mediaId: Number(i.id),
+    src: i.src,
+    type: "video",
+    views: i.views ?? 0,
+    likes: i.likes ?? 0,
+    description: i.description ?? "",
+    hashtags: i.hashtags ?? [],
+    ownerId: i.ownerId,
+    username: i.username ?? "unknown",
+    avatar: i.avatar ?? "/avatar-placeholder.png",
+    likedByMe: i.likedByMe ?? false,
+    verified: i.verified
+  };
+}
+const [initialOverlayIndex, setInitialOverlayIndex] = useState<number | null>(null);
+
+
   // ===== existing logic (unchanged) =====
-  const handleVideoClick = (video: Video, _index: number, _items: any[]) => {
-  setOverlayVideos([video]);
-  setActiveVideoId(video.id);
+  const handleVideoClick = (video: any, _index?: number, currentItems?: any[]) => {
+  const items = currentItems ?? [video];
+
+  const batch: Video[] = items
+    .filter((x) => x.type === "gif" || x.type === "video")
+    .map(exploreItemToVideo);
+
+  overlaySessionRef.current += 1;
+
+  overlaySeenRef.current.clear();
+  for (const v of batch) overlaySeenRef.current.add(String(v.id));
+
+  overlayPageRef.current = Math.ceil(batch.length / OVERLAY_LIMIT);
+  setInitialOverlayIndex(typeof _index === "number" ? _index : null); 
+
+
+  isLoadingMoreRef.current = false;
+  setIsLoadingMore(false);
+
+  setOverlayVideos(batch);
+  setActiveVideoId(String(video.id));
   setOverlayOpen(true);
 };
+
 
   const fetchMore = async () => {
   if (tab !== "gifs") return;
@@ -104,41 +143,52 @@ useEffect(() => {
   setIsLoadingMore(true);
 
   try {
-    const batch = await getItemsForTab({
-      tab,
-      sortBy,
-      limit: OVERLAY_LIMIT,
-      page: overlayPageRef.current,
-    });
+    const MAX_DUP_PAGES = 6;
 
-    if (overlaySessionRef.current !== session) return;
+    for (let tries = 0; tries < MAX_DUP_PAGES; tries++) {
+      const pageToFetch = overlayPageRef.current;
 
-    const media = (batch as ExploreItem[]).filter(
-      (x: any) => x.type === "gif" || x.type === "video"
-    ) as any[];
+      const batch = await getItemsForTab({
+        tab,
+        sortBy,
+        limit: OVERLAY_LIMIT,
+        page: pageToFetch,
+      });
 
-    if (media.length === 0) return;
+      if (overlaySessionRef.current !== session) return;
 
-    setOverlayVideos((prev) => {
-      const next = [...prev];
+      const media = batch.filter((x: any) => x.type === "gif" || x.type === "video") as any[];
+      if (media.length === 0) return; // no more
+
+      const toAdd: Video[] = [];
       for (const m of media) {
-        const key = String((m as any).id ?? (m as any).mediaId);
+        const v = exploreItemToVideo(m);
+        const key = String(v.id);
         if (!overlaySeenRef.current.has(key)) {
           overlaySeenRef.current.add(key);
-          next.push(m as any);
+          toAdd.push(v);
         }
       }
-      return next;
-    });
 
-    overlayPageRef.current += 1;
+      // we consumed this page either way
+      overlayPageRef.current += 1;
+
+      // if we found new items, append and stop
+      if (toAdd.length > 0) {
+        setOverlayVideos((prev) => [...prev, ...toAdd]);
+        return;
+      }
+
+      // otherwise: duplicates only, loop and try next page
+    }
   } catch (err) {
-    console.error("Explore overlay fetchMore error", err);
+    console.error("Profile overlay fetchMore error", err);
   } finally {
     setIsLoadingMore(false);
     isLoadingMoreRef.current = false;
   }
 };
+
 
 
   useEffect(() => {
@@ -232,6 +282,8 @@ useEffect(() => {
             isLoadingMore={isLoadingMore}
             toggleMute={toggleMute}
             isMuted={isMuted}
+            onEndReached={fetchMore}  
+            initialIndex={initialOverlayIndex}
           />
 
           

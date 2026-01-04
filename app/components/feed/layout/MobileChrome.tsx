@@ -245,7 +245,7 @@ function MobileTopBar({
                 <Search className="mr-2 text-white/70" size={20} />
                 <input
                   className="bg-transparent outline-none text-sm flex-1 placeholder:text-white/50"
-                  placeholder="Search naughty naughty stuff..."
+                  placeholder="Search naughty stuff..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   autoFocus
