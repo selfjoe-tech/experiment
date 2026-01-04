@@ -1,16 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  async redirects() {
-    return [
-      {
-        source: "/:path*",
-        has: [{ type: "host", value: "upskirtcandy.com" }],
-        destination: "https://www.upskirtcandy.com/:path*",
-        permanent: true, // 308
-      },
-    ];
-  },
   
     matcher: ['/((?!api|_next/static|_next/image|sitemap\\.xml|sitemap/|robots\\.txt|favicon\\.ico).*)'],
 
