@@ -6,10 +6,9 @@ import type { Video } from "./types";
 import { registerView, registerAdView } from "@/lib/actions/mediaFeed";
 
 const PREFETCH_AHEAD = 2;
-
-// render window (scroll stays smooth, but only ACTIVE mounts a real card)
-const RENDER_BEHIND = 1;
-const RENDER_AHEAD = 2;
+const SNAP_SETTLE_MS = 90;     // debounce after scroll ends
+const SNAP_EPS_PX = 2;         // how close is "already snapped"
+const PROGRAMMATIC_GUARD_MS = 220;
 
 type Props = {
   open: boolean;
@@ -17,24 +16,16 @@ type Props = {
 
   videos?: Video[];
   initialVideoId?: string | null;
+  initialIndex?: number | null;
 
-  // when parent prunes/windowing (VideoFeed), pass dropped count here
   baseIndex?: number;
 
   onEndReached?: () => void;
   isLoadingMore?: boolean;
 
-  // optional for pages that don't manage mute state
   toggleMute?: () => void;
   isMuted?: boolean;
-    initialIndex?: number | null; // ✅ ADD
 
-
-  /**
-   * URL mode:
-   * - "query": /saved?fs=1&v=123
-   * - "path":  /embed/123  (optional, you can customize builder below)
-   */
   urlMode?: "query" | "path";
 };
 
@@ -42,44 +33,61 @@ function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
-function FullscreenSkeleton({ kind }: { kind: "video" | "ad" }) {
-  return (
-    <div className="w-full h-full flex items-center justify-center pointer-events-none">
-      <div className="w-full max-w-[560px] h-[100dvh] px-4 py-6 flex flex-col">
-        {/* main media block */}
-        <div className="flex-1 rounded-2xl bg-white/10 animate-pulse" />
-
-        {/* bottom info block */}
-        <div className="mt-4 space-y-3">
-          <div className="h-4 w-40 rounded bg-white/10 animate-pulse" />
-          <div className="h-4 w-72 rounded bg-white/10 animate-pulse" />
-          <div className="h-4 w-56 rounded bg-white/10 animate-pulse" />
-          {kind === "ad" && <div className="h-10 w-36 rounded-xl bg-white/10 animate-pulse" />}
-        </div>
-      </div>
-    </div>
-  );
+function FullscreenPlaceholder() {
+  // NO animation: animations across many sections make mobile jank.
+  return <div className="w-full h-full bg-neutral-900" />;
 }
 
-function buildNextHref(opts: {
-  baseHref: string;
-  urlMode: "query" | "path";
-  videoId: string;
-}) {
+function buildNextHref(opts: { baseHref: string; urlMode: "query" | "path"; videoId: string }) {
   const { baseHref, urlMode, videoId } = opts;
 
   if (urlMode === "path") {
-    // Customize this if your canonical fullscreen route is different
-    // Example: return `${new URL(baseHref).origin}/embed/${videoId}`;
     const u = new URL(baseHref);
     return `${u.origin}/embed/${videoId}`;
   }
 
-  // default "query" mode: keep same path, just attach fs + v
   const u = new URL(baseHref);
   u.searchParams.set("fs", "1");
   u.searchParams.set("v", String(videoId));
   return u.toString();
+}
+
+/**
+ * Stable viewport height on mobile:
+ * visualViewport.height is MUCH better than 100vh / innerHeight when URL bar moves.
+ */
+function useStableViewportHeight(open: boolean) {
+  const [vh, setVh] = useState(0);
+  const vhRef = useRef(0);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+
+    const vv = window.visualViewport;
+
+    const read = () => {
+      const next = Math.round((vv?.height ?? window.innerHeight) || 0);
+      if (!next) return;
+      if (vhRef.current !== next) {
+        vhRef.current = next;
+        setVh(next);
+      }
+    };
+
+    read();
+
+    vv?.addEventListener("resize", read);
+    vv?.addEventListener("scroll", read); // iOS URL bar can change height on scroll
+    window.addEventListener("resize", read);
+
+    return () => {
+      vv?.removeEventListener("resize", read);
+      vv?.removeEventListener("scroll", read);
+      window.removeEventListener("resize", read);
+    };
+  }, [open]);
+
+  return { vh, vhRef };
 }
 
 export default function FullscreenVideoOverlay({
@@ -87,25 +95,26 @@ export default function FullscreenVideoOverlay({
   onClose,
   videos = [],
   initialVideoId,
+  initialIndex,
   baseIndex = 0,
   onEndReached,
   isLoadingMore,
   toggleMute,
   isMuted,
-  initialIndex,
   urlMode = "query",
 }: Props) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  const { vh, vhRef } = useStableViewportHeight(open);
+  const snapH = vh > 0 ? `${vh}px` : "100dvh";
 
   const [activeIndex, setActiveIndex] = useState(0);
   const activeIndexRef = useRef(0);
 
   const viewedKeysConfirmRef = useRef<Set<string>>(new Set());
 
-  // fallback mute state if the page doesn't provide one
+  // fallback mute state if not provided
   const [internalMuted, setInternalMuted] = useState(true);
-  const programmaticScrollRef = useRef(false);
-
   const effectiveMuted = typeof isMuted === "boolean" ? isMuted : internalMuted;
   const effectiveToggleMute =
     toggleMute ??
@@ -113,23 +122,32 @@ export default function FullscreenVideoOverlay({
       setInternalMuted((m) => !m);
     });
 
-  // Remember the URL before fullscreen, then "mount/unmount" active video URL while scrolling
+  // URL restore
   const restoreHrefRef = useRef<string | null>(null);
 
-  // lock body scroll + capture base href once per open
+  // guard to ignore scroll events we caused
+  const programmaticScrollRef = useRef(false);
+  const programmaticTimerRef = useRef<number | null>(null);
+
+  // scroll throttling
+  const rafRef = useRef<number | null>(null);
+  const settleTimerRef = useRef<number | null>(null);
+
+  const didInitialScrollRef = useRef(false);
+  const lastPrefetchGlobalLastRef = useRef<number>(-1);
+
+  // lock body scroll + capture current URL
   useEffect(() => {
     if (!open) return;
 
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
-    // capture current href so we can restore on close
     restoreHrefRef.current = window.location.href;
 
     return () => {
       document.body.style.overflow = prevOverflow;
 
-      // restore original URL on close/unmount
       if (restoreHrefRef.current) {
         window.history.replaceState(window.history.state, "", restoreHrefRef.current);
       }
@@ -137,32 +155,7 @@ export default function FullscreenVideoOverlay({
     };
   }, [open]);
 
-  // measure page height (needed for correct index math + spacers)
-  const [pageH, setPageH] = useState(0);
-  const snapH = pageH ? `${pageH}px` : "100vh";
-
-  useLayoutEffect(() => {
-    if (!open) return;
-    const el = scrollRef.current;
-    if (!el) return;
-
-    const update = () => setPageH(el.clientHeight || window.innerHeight || 0);
-    update();
-
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    window.addEventListener("resize", update);
-
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", update);
-    };
-  }, [open]);
-
-  // reset on close
-  const didInitialScrollRef = useRef(false);
-  const lastPrefetchGlobalLastRef = useRef<number>(-1);
-
+  // cleanup timers/raf when closing
   useEffect(() => {
     if (open) return;
 
@@ -171,14 +164,48 @@ export default function FullscreenVideoOverlay({
     setActiveIndex(0);
     activeIndexRef.current = 0;
     lastPrefetchGlobalLastRef.current = -1;
+
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+
+    if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
+    settleTimerRef.current = null;
+
+    if (programmaticTimerRef.current) window.clearTimeout(programmaticTimerRef.current);
+    programmaticTimerRef.current = null;
+
+    programmaticScrollRef.current = false;
   }, [open]);
 
-  // initial scroll (only once)
-    // initial scroll (only once)
+  function computeIndex(scrollTop: number, h: number, len: number) {
+    if (len <= 0) return 0;
+    // center-based rounding is stable for snap-start sections
+    return clamp(Math.floor((scrollTop + h * 0.5) / h), 0, len - 1);
+  }
+
+  function snapToIndex(idx: number, behavior: ScrollBehavior = "auto") {
+    const el = scrollRef.current;
+    const h = vhRef.current || 0;
+    if (!el || !h) return;
+
+    const top = idx * h;
+    if (Math.abs(el.scrollTop - top) <= SNAP_EPS_PX) return;
+
+    programmaticScrollRef.current = true;
+    el.scrollTo({ top, behavior });
+
+    if (programmaticTimerRef.current) window.clearTimeout(programmaticTimerRef.current);
+    programmaticTimerRef.current = window.setTimeout(() => {
+      programmaticScrollRef.current = false;
+    }, PROGRAMMATIC_GUARD_MS);
+  }
+
+  // initial scroll (once per open)
   useEffect(() => {
     if (!open) return;
-    if (!scrollRef.current) return;
-    if (!pageH) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    if (!vhRef.current) return;
     if (videos.length === 0) return;
     if (didInitialScrollRef.current) return;
 
@@ -189,31 +216,17 @@ export default function FullscreenVideoOverlay({
         ? videos.findIndex((v) => v.id === initialVideoId)
         : 0;
 
-    const targetIdx = clamp(
-      idx >= 0 ? idx : 0,
-      0,
-      Math.max(0, videos.length - 1)
-    );
+    const targetIdx = clamp(idx >= 0 ? idx : 0, 0, Math.max(0, videos.length - 1));
 
-    requestAnimationFrame(() => {
-      const el = scrollRef.current;
-      if (!el) return;
+    // force exact alignment (no smooth) so it doesn't “land between items”
+    snapToIndex(targetIdx, "auto");
 
-      programmaticScrollRef.current = true;
+    setActiveIndex(targetIdx);
+    activeIndexRef.current = targetIdx;
+    didInitialScrollRef.current = true;
+  }, [open, videos.length, initialVideoId, initialIndex, vh]);
 
-      el.scrollTop = targetIdx * pageH;
-      setActiveIndex(targetIdx);
-      activeIndexRef.current = targetIdx;
-      didInitialScrollRef.current = true;
-
-      requestAnimationFrame(() => {
-        programmaticScrollRef.current = false;
-      });
-    });
-  }, [open, pageH, videos.length, initialVideoId, initialIndex]);
-
-
-  // URL "mount": update URL to the active video without creating history spam
+  // URL mount: replace URL for the active video
   useEffect(() => {
     if (!open) return;
     const baseHref = restoreHrefRef.current;
@@ -229,7 +242,7 @@ export default function FullscreenVideoOverlay({
     window.history.replaceState(window.history.state, "", nextHref);
   }, [open, activeIndex, videos.length, urlMode]);
 
-  // register view when active changes (avoid depending on full `videos` array identity)
+  // register view/ad-view
   useEffect(() => {
     if (!open) return;
     const v = videos[activeIndex];
@@ -247,25 +260,15 @@ export default function FullscreenVideoOverlay({
 
     if (isAd) {
       const adId = anyV._adId != null ? String(anyV._adId) : null;
-      if (adId) {
-        registerAdView(adId).catch((err) =>
-          console.error("registerAdView (fullscreen) error", err)
-        );
-      }
+      if (adId) registerAdView(adId).catch(() => {});
       return;
     }
 
-    const mediaId =
-      typeof (v as any).mediaId === "number" ? (v as any).mediaId : Number(v.id);
-
-    if (!Number.isNaN(mediaId)) {
-      registerView(mediaId).catch((err) =>
-        console.error("registerView (fullscreen) error", err)
-      );
-    }
+    const mediaId = typeof anyV.mediaId === "number" ? anyV.mediaId : Number(v.id);
+    if (!Number.isNaN(mediaId)) registerView(mediaId).catch(() => {});
   }, [open, activeIndex, videos.length]);
 
-  // Prefetch gating: gate by GLOBAL last index, not list length
+  // prefetch near end
   useEffect(() => {
     if (!open) return;
     if (!onEndReached) return;
@@ -277,73 +280,88 @@ export default function FullscreenVideoOverlay({
 
     if (globalActive < globalLast - PREFETCH_AHEAD) return;
 
-    // only once per globalLast index
     if (lastPrefetchGlobalLastRef.current === globalLast) return;
     lastPrefetchGlobalLastRef.current = globalLast;
 
     onEndReached();
   }, [open, activeIndex, videos.length, baseIndex, onEndReached, isLoadingMore]);
 
+  const handleScroll = (e: UIEvent<HTMLDivElement>) => {
+    if (programmaticScrollRef.current) return;
+
+    const el = e.currentTarget;
+    const h = vhRef.current || el.clientHeight || window.innerHeight || 1;
+
+    // RAF throttle state updates
+    if (rafRef.current == null) {
+      const top = el.scrollTop;
+
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        const idx = computeIndex(top, h, videos.length);
+
+        if (idx !== activeIndexRef.current) {
+          activeIndexRef.current = idx;
+          setActiveIndex(idx);
+        }
+      });
+    }
+
+    // Debounced "snap settle" to prevent “lazy” half positions on mobile
+    if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
+    settleTimerRef.current = window.setTimeout(() => {
+      const idx = computeIndex(el.scrollTop, h, videos.length);
+      snapToIndex(idx, "smooth");
+    }, SNAP_SETTLE_MS);
+  };
+
   if (!open) return null;
 
- const handleScroll = (e: UIEvent<HTMLDivElement>) => {
-  if (programmaticScrollRef.current) return;
-
-  const el = e.currentTarget;
-  const h = pageH || el.clientHeight || window.innerHeight || 1;
-
-  const idx = Math.round(el.scrollTop / h);
-
-  if (idx >= 0 && idx < videos.length && idx !== activeIndexRef.current) {
-    activeIndexRef.current = idx;
-    setActiveIndex(idx);
-  }
-};
-
-  // Virtualized window for DOM size, but ONLY active index mounts the real card
-  const start = videos.length
-    ? clamp(activeIndex - RENDER_BEHIND, 0, videos.length - 1)
-    : 0;
-  const end = videos.length
-    ? clamp(activeIndex + RENDER_AHEAD, 0, videos.length - 1)
-    : 0;
-
-  const windowItems = videos.slice(start, end + 1);
-  const topSpacerH = pageH > 0 ? start * pageH : 0;
-  const bottomSpacerH = pageH > 0 ? (videos.length - 1 - end) * pageH : 0;
-
   return (
-    <div className="fixed inset-0 z-[90] bg-black/70 backdrop-blur-xl h-full flex flex-col">
+    <div
+      className="
+        fixed inset-0 z-[90]
+        bg-black
+        lg:bg-black/70 lg:backdrop-blur-xl
+        h-full flex flex-col
+      "
+    >
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 snap-y h-screen snap-mandatory overflow-y-scroll overscroll-y-contain"
+        // IMPORTANT: height uses visualViewport value, not 100vh
+        style={{
+          height: snapH,
+          overscrollBehaviorY: "contain",
+          WebkitOverflowScrolling: "touch",
+        }}
+        className="
+          flex-1 overflow-y-scroll
+          snap-y snap-mandatory
+          touch-pan-y
+        "
       >
-        {/* top spacer (NO SNAP) */}
-        {topSpacerH > 0 && (
-          <div aria-hidden style={{ height: topSpacerH }} className="snap-none" />
-        )}
-
-        {windowItems.map((video, i) => {
-          const absIdx = start + i;
+        {videos.map((video, absIdx) => {
           const anyVideo = video as any;
           const isAd = !!anyVideo._isAd;
           const visitUrl: string | undefined = anyVideo._adLandingUrl ?? undefined;
 
           const isActive = absIdx === activeIndex;
+          const dist = Math.abs(absIdx - activeIndex);
 
-          // ✅ This is the core workaround:
-          // - only the active index mounts VideoCard/SponsoredVideoCard
-          // - everyone else is a skeleton (no <video>, no heavy hooks, no URL stuff inside cards)
-          if (isAd) {
-            return (
-              <section
-  data-fullscreen-idx={absIdx}
-  key={absIdx}
-  style={{ height: snapH }}               // ✅
-  className="snap-center snap-always flex items-center justify-center w-full"
->
-                {isActive ? (
+          return (
+            <section
+              key={`fs-${absIdx}-${String((video as any).id ?? absIdx)}`}
+              style={{
+                height: snapH,
+                scrollSnapAlign: "start",
+                // this helps prevent skipping multiple items (supported on modern browsers)
+                scrollSnapStop: "always",
+              }}
+              className="w-full flex items-center justify-center"
+            >
+              {isActive ? (
+                isAd ? (
                   <SponsoredVideoCard
                     video={video}
                     isMuted={effectiveMuted}
@@ -352,40 +370,27 @@ export default function FullscreenVideoOverlay({
                     loadLevel="active"
                   />
                 ) : (
-                  <FullscreenSkeleton kind="ad" />
-                )}
-              </section>
-            );
-          }
-
-          return (
-            <section
-    data-fullscreen-idx={absIdx}
-    key={absIdx}
-    style={{ height: snapH }}               // ✅
-    className="snap-center snap-always flex items-center justify-center w-full"
-  >
-              {isActive ? (
-                <VideoCard
-                  video={video}
-                  showFullscreenButton={false}
-                  toggleMute={effectiveToggleMute}
-                  isMuted={effectiveMuted}
-                  onClose={onClose}
-                  open={open}
-                  loadLevel="active"
-                />
+                  <VideoCard
+                    video={video}
+                    showFullscreenButton={false}
+                    toggleMute={effectiveToggleMute}
+                    isMuted={effectiveMuted}
+                    onClose={onClose}
+                    open={open}
+                    loadLevel="active"
+                    fullscreen 
+                  />
+                )
+              ) : dist <= 1 ? (
+                // near items: lightweight placeholder (still no pulse)
+                <FullscreenPlaceholder />
               ) : (
-                <FullscreenSkeleton kind="video" />
+                // far items: even cheaper
+                <div className="w-full h-full bg-black" />
               )}
             </section>
           );
         })}
-
-        {/* bottom spacer (NO SNAP) */}
-        {bottomSpacerH > 0 && (
-          <div aria-hidden style={{ height: bottomSpacerH }} className="snap-none" />
-        )}
 
         {isLoadingMore && (
           <div className="py-6 text-center text-sm text-neutral-400">Loading more…</div>
@@ -394,8 +399,6 @@ export default function FullscreenVideoOverlay({
     </div>
   );
 }
-
-
 
 
 // "use client";

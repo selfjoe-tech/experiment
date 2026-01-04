@@ -74,7 +74,10 @@ export default function VideoFeed({
   onTabChange,
   onScrollDirectionChange,
   initialVideo,
-}: Props) {
+}: Props) {const AD_EVERY = 3;          // show 1 ad after every 3 non-ad videos
+const MAX_AD_TRIES = 4;      // retry to avoid duplicates
+const sinceLastAdRef = useRef(0);
+
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const lastScrollTop = useRef(0);
   const [maximize, setMaximize] = useState(true)
@@ -197,6 +200,15 @@ useEffect(() => {
   // ✅ FIX: gate prefetch by GLOBAL last index, not window length
   const lastPrefetchGlobalLastRef = useRef<number>(-1);
 
+
+
+
+ 
+
+
+
+
+
   const loadMore = useCallback(async () => {
     if (loadingRef.current || !hasMoreRef.current) return;
 
@@ -231,19 +243,29 @@ useEffect(() => {
       }
 
       // maybe inject ONE ad
-      let combined: Video[] = batch;
-      const ad = await fetchRandomAdForFeed();
+      const combined: Video[] = [];
 
-      if (ad && (ad as any)._isAd) {
-        const adAny = ad as any;
-        const adId = adAny._adId != null ? String(adAny._adId) : "";
+for (const v of batch) {
+  combined.push(v);
 
-        if (adId && !seenAdIdsRef.current.has(adId)) {
-          seenAdIdsRef.current.add(adId);
-          const insertAt = Math.floor(Math.random() * (batch.length + 1));
-          combined = [...batch.slice(0, insertAt), ad, ...batch.slice(insertAt)];
-        }
-      }
+  const isAd = !!(v as any)?._isAd;
+  if (isAd) continue;
+
+  sinceLastAdRef.current += 1;
+
+  if (sinceLastAdRef.current >= AD_EVERY) {
+    const ad = await fetchRandomAdForFeed();
+
+    // only insert if it actually looks like an ad
+    if (ad && (ad as any)?._isAd) {
+      combined.push(ad);
+      sinceLastAdRef.current = 0;
+    } else {
+      // if ad fetch fails, try again soon (next real video)
+      sinceLastAdRef.current = AD_EVERY - 1;
+    }
+  }
+}
 
       const bumped = combined.map((v) => ({ ...v, views: (v.views ?? 0) + 1 }));
 
@@ -480,7 +502,7 @@ const sectionHeightClass = overlayOpen
                   toggleMute={toggleMute}
                   isMuted={isMuted}
                   loadLevel={loadLevel}
-                  maximize={maximize}
+                  maximize={!maximize}
                   changeMaxButton={() => setMaximize(prev => !prev)}
                 />
               )}

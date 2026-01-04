@@ -102,6 +102,7 @@ export default function VideoCard({
   loadLevel = "active",
   maximize,
   changeMaxButton,
+  fullscreen
 
 
 
@@ -584,9 +585,11 @@ useEffect(() => {
       ref={cardRef}
       className={`
         relative lg:h-[100vh]
-        ${maximize ? "h-[80vh]" : "h-[100vh]"}
+        ${fullscreen ? "h-full" : "lg:h-[100vh]"}
+        ${fullscreen ? "h-full" : maximize ? "h-[100vh]" : "h-[80vh]" }        
         flex items-center justify-center
         bg-neutral-900 shadow-5xl overflow-hidden
+
       `}
     >
       <div className="relative h-full flex items-center">
@@ -605,7 +608,7 @@ useEffect(() => {
             onPlay={handlePlay}
             onPause={handlePause}
             className={`
-              h-[100vh] w-full
+              ${fullscreen ? "h-full" : "h-[100vh]"} w-full
               ${isVertical ? "h-full w-auto" : "w-full h-full"}
               object-contain
               transition-opacity duration-300
@@ -673,7 +676,7 @@ useEffect(() => {
               label="Full screen"
               className=""
             >
-              {maximize ? <Maximize2 className="h-7 w-7" /> : <Minimize2/>}
+              {!maximize ? <Maximize2 className="h-7 w-7" /> : <Minimize2/>}
             </IconCircleButton>
           </div>))
           }

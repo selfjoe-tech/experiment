@@ -318,68 +318,77 @@ export default function TagVideoFeed({ tagSlug, onScrollDirectionChange }: Props
   const noVideos = !loading && initialLoaded && videos.length === 0;
 
   // ✅ match your preferred VideoFeed overlay UI (full bleed)
-  const mainClass = overlayOpen
-    ? "relative z-[80] h-[100dvh] w-full overflow-y-scroll overscroll-y-contain snap-y snap-mandatory shadow-2xl backdrop-blur"
-    : "relative h-screen snap-y snap-mandatory overflow-y-scroll overscroll-y-contain lg:pt-70 lg:pb-70 lg:pl-[17rem] lg:pr-[21rem]";
+const mainClass = overlayOpen
+  ? "relative z-[80] h-[100dvh] w-full overflow-y-scroll overscroll-y-contain snap-y snap-mandatory shadow-2xl backdrop-blur"
+  : "relative h-screen snap-y snap-mandatory overflow-y-scroll overscroll-y-contain lg:pt-70 lg:pb-70 lg:pl-[17rem] lg:pr-[21rem]";
 
-  const sectionHeightClass = overlayOpen ? "h-full" : "h-screen w-full lg:h-[100dvh]";
+const sectionHeightClass = overlayOpen
+  ? "h-full w-full" // each snap item equals the container height
+  : "h-[100dvh]";
+
 
   return (
-    <>
-      {/* Pink blur veil + click-outside close */}
-      {overlayOpen && (
-        <div className="fixed inset-0 z-[70]">
-          <button
-            type="button"
-            aria-label="Close fullscreen"
-            onClick={closeOverlay}
-            className="absolute inset-0 bg-black/60 backdrop-blur-xl"
-          />
-          <div className="absolute inset-0 bg-pink-500/15" />
+  <>
+    {/* Overlay background */}
+    
 
-          <button
-            type="button"
-            onClick={closeOverlay}
-            aria-label="Close"
-            className="fixed top-4 left-4 z-[90] rounded-full bg-black/60 border border-white/15 p-2 text-white hover:bg-white/10"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-      )}
+    {/* This wrapper becomes the overlay "frame" but keeps the SAME main element mounted */}
+    <div
+      className={
+        overlayOpen
+          ? "fixed inset-0 z-[80] grid place-items-center"
+          : "relative"
+      }
+    >
+      <main ref={scrollRef} onScroll={handleScroll} className={mainClass}>
+        {feedError && (
+          <div className="sticky top-0 z-20 bg-red-900/90 text-red-100 text-xs px-4 py-2 text-center">
+            {feedError}
+          </div>
+        )}
 
-      <div className={overlayOpen ? "fixed inset-0 z-[80] grid place-items-center" : "relative"}>
-        <main ref={scrollRef} onScroll={handleScroll} className={mainClass}>
-          {feedError && (
-            <div className="sticky top-0 z-20 bg-red-900/90 text-red-100 text-xs px-4 py-2 text-center">
-              {feedError}
-            </div>
-          )}
+        {noVideos && (
+          <div className="flex h-full items-center justify-center text-white/70">
+            {"No internet :("}
+          </div>
+        )}
 
-          {noVideos && (
-            <div className="flex h-full items-center justify-center text-white/70">
-              No videos for this niche yet.
-            </div>
-          )}
+        {/* Spacer keeps scroll stable when we prune */}
+        {dropped > 0 && cardH > 0 && (
+          <div aria-hidden style={{ height: dropped * cardH }} className="snap-none" />
+        )}
 
-          {/* spacer keeps scroll stable when we prune */}
-          {dropped > 0 && cardH > 0 && (
-            <div aria-hidden style={{ height: dropped * cardH }} className="snap-none" />
-          )}
+        {videos.map((video, index) => {
+          const anyVideo = video as any;
+          const isAd = !!anyVideo._isAd;
+          const visitUrl: string | undefined = anyVideo._adLandingUrl ?? undefined;
 
-          {videos.map((video, index) => {
-            const dist = Math.abs(index - currentIndex);
-            const loadLevel: "active" | "near" | "off" =
-              dist === 0 ? "active" : dist === 1 ? "near" : "off";
+          const dist = Math.abs(index - currentIndex);
+          const loadLevel: "active" | "near" | "off" =
+            dist === 0 ? "active" : dist === 1 ? "near" : "off";
 
-            const key = `media-${video.mediaId ?? video.id}`;
-            const absIndex = dropped + index;
+          const key = isAd
+            ? `ad-${anyVideo._adId ?? video.id}`
+            : `media-${video.mediaId ?? video.id}`;
 
-            return (
-              <section
-                key={key}
-                className={`snap-center snap-always flex items-center justify-center w-full ${sectionHeightClass}`}
-              >
+          const absIndex = dropped + index;
+
+          return (
+            <section
+              key={key}
+              className={`snap-center snap-always flex items-center justify-center w-full ${sectionHeightClass}`}
+            >
+              {isAd ? (
+                <SponsoredVideoCard
+                  video={video}
+                  isMuted={isMuted}
+                  toggleMute={toggleMute}
+                  visitUrl={visitUrl || "/ads"}
+                  loadLevel={loadLevel}
+                  maximize={maximize}
+                  changeMaxButton={() => setMaximize(prev => !prev)}
+                />
+              ) : (
                 <VideoCard
                   video={video}
                   onRequestFullscreen={() => openOverlayAtIndex(absIndex)}
@@ -389,22 +398,23 @@ export default function TagVideoFeed({ tagSlug, onScrollDirectionChange }: Props
                   maximize={maximize}
                   changeMaxButton={() => setMaximize(prev => !prev)}
                 />
-              </section>
-            );
-          })}
-        </main>
-      </div>
+              )}
+            </section>
+          );
+        })}
+      </main>
+    </div>
 
-      {/* Loader OUTSIDE snap list */}
-      {loading && (
-        <div className="pointer-events-none fixed bottom-6 left-1/2 -translate-x-1/2 z-[95]">
-          <div className="rounded-full bg-black/70 border border-white/15 px-4 py-2 text-xs text-white/80 backdrop-blur">
-            Loading…
-          </div>
+    {/* Loader stays global */}
+    {loading && (
+      <div className="pointer-events-none fixed bottom-6 left-1/2 -translate-x-1/2 z-[95]">
+        <div className="rounded-full bg-black/70 border border-white/15 px-4 py-2 text-xs text-white/80 backdrop-blur">
+          Loading…
         </div>
-      )}
-    </>
-  );
+      </div>
+    )}
+  </>
+);
 }
 
 
