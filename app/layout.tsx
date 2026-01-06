@@ -104,12 +104,6 @@ export async function generateMetadata(): Promise<Metadata> {
       images: [DEFAULT_OG_IMAGE],
     },
 
-    icons: {
-      icon: "/favicon.ico",
-      shortcut: "/favicon.ico",
-      apple: "/favicon.ico",
-    },
-
     applicationName: SITE_NAME,
     creator: SITE_NAME,
   };
@@ -124,6 +118,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        <link type="icon" href="/favicon.png"/>
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <SiteJsonLd />
         {children}
