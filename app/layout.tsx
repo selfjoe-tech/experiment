@@ -119,7 +119,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
-        <link type="icon" href="/favicon.png"/>
+        <link rel="icon" href="/favicon.png"/>
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <SiteJsonLd />
