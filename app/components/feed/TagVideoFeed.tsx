@@ -324,7 +324,7 @@ const mainClass = overlayOpen
 
 const sectionHeightClass = overlayOpen
   ? "h-full w-full" // each snap item equals the container height
-  : "h-[100dvh]";
+  : "h-screen w-full lg:h-[100dvh]";
 
 
   return (

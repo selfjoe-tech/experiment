@@ -570,6 +570,31 @@ useEffect(() => {
   
 }
 
+ function formatAbbrev(input: number): string {
+  if (!Number.isFinite(input)) return "0";
+
+  const sign = input < 0 ? "-" : "";
+  const n = Math.abs(input);
+
+  const units = [
+    { v: 1_000_000_000, s: "B" },
+    { v: 1_000_000, s: "M" },
+    { v: 1_000, s: "K" },
+  ] as const;
+
+  for (const u of units) {
+    if (n >= u.v) {
+      const raw = n / u.v;
+      // one decimal, but drop trailing ".0"
+      const str = raw.toFixed(1).replace(/\.0$/, "");
+      return `${sign}${str}${u.s}`;
+    }
+  }
+
+  // < 1000: keep as integer (or you can toFixed(1) if you really want decimals)
+  return `${sign}${Math.round(n)}`;
+}
+
   useEffect(() => {
   if (!showLikeAuthTooltip) return;
 
@@ -648,7 +673,7 @@ useEffect(() => {
 
       {/* right-side actions */}
       <div className="absolute right-1 bottom-15 z-30 flex flex-col items-center gap-4">
-        <StatBubble label={video.views.toLocaleString()} classname={isSponsored && "mb-20"}>
+        <StatBubble label={formatAbbrev(video.views || 0)} classname={isSponsored && "mb-20"}>
           <Eye className="h-7 w-7" />
         </StatBubble>
 
@@ -710,7 +735,7 @@ useEffect(() => {
             </IconCircleButton>
 
             <span className="text-[11px]">
-              {likes?.toLocaleString() || 0}
+              {formatAbbrev(likes || 0)}
             </span>
 
 
@@ -749,7 +774,7 @@ useEffect(() => {
             <MessageCircle className="h-7 w-7" />
           </IconCircleButton>
           <span className="text-[11px]">
-            {totalComments.toLocaleString()}
+            {formatAbbrev(totalComments || 0)}
           </span>
         </div>
       )}
