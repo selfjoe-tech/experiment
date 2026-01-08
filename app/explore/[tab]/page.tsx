@@ -28,7 +28,7 @@ export default function ExploreTabPage({ initialVideos = [] }: Props) {
       ? rawTab
       : "gifs";
 
-  const [sortBy, setSortBy] = useState<SortKey>("trending");
+  const [sortBy, setSortBy] = useState<SortKey>("newest");
   const [overlayVideos, setOverlayVideos] = useState<Video[]>(initialVideos);
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);

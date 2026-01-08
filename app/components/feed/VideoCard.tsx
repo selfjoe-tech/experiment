@@ -87,9 +87,46 @@ type Props = {
 type LoadLevel = "active" | "near" | "off";
 
 
+function VideoCardPlaceholder({
+  fullscreen,
+  maximize,
+}: {
+  fullscreen?: boolean;
+  maximize: boolean;
+}) {
+  return (
+    <div
+      className={`
+        relative bg-neutral-900 overflow-hidden
+        ${fullscreen ? "h-full" : maximize ? "h-[100vh]" : "h-[80vh]"}
+        w-full flex items-center justify-center
+      `}
+    >
+      <div className="h-full w-full bg-black" />
+    </div>
+  );
+}
+
+export default function VideoCard(props: Props) {
+  const level: LoadLevel = props.loadLevel ?? "off";
+
+  // ✅ If it's off, don't mount any of the expensive hooks/UI at all
+  if (level === "off") {
+    return (
+      <VideoCardPlaceholder
+        fullscreen={(props as any).fullscreen}
+        maximize={props.maximize}
+      />
+    );
+  }
+
+  return <VideoCardActive {...props} loadLevel={level} />;
+}
 
 
-export default function VideoCard({
+
+
+export function VideoCardActive({
   video,
   onRequestFullscreen,
   showFullscreenButton = true,
@@ -99,12 +136,10 @@ export default function VideoCard({
   visitUrl,
   open,
   onClose,
-  loadLevel = "active",
+  loadLevel,
   maximize,
   changeMaxButton,
   fullscreen
-
-
 
 }: Props) {
   const isSponsored = variant === "sponsored";
@@ -144,10 +179,11 @@ const mediaIdNum = !isSponsored
 
   // OTHER UI
   const [expandedDesc, setExpandedDesc] = useState(false);
-    const [shouldLoad, setShouldLoad] = useState(loadLevel !== "off");     // keep this name so your file stays sane
-
-const allowSrc = loadLevel !== "off";           // only current + neighbor get a src
-const shouldAutoPlay = loadLevel === "active";  const [metadataLoaded, setMetadataLoaded] = useState(false);
+  const level: LoadLevel = loadLevel ?? "off";
+  const shouldLoad = level !== "off";
+  const shouldMountVideo = level === "active";
+  const allowSrc = loadLevel !== "off";           // only current + neighbor get a src
+  const shouldAutoPlay = loadLevel === "active";  const [metadataLoaded, setMetadataLoaded] = useState(false);
   const [likeBurstVisible, setLikeBurstVisible] = useState(false);
   const likeBurstTimeoutRef = useRef<number | null>(null);
   const [isVertical, setIsVertical] = useState<boolean | null>(null);
@@ -605,6 +641,7 @@ useEffect(() => {
   return () => window.clearTimeout(t);
 }, [showLikeAuthTooltip]);
 
+
   return (
     <div
       ref={cardRef}
@@ -623,7 +660,10 @@ useEffect(() => {
           <div className="absolute inset-0 bg-neutral-800 animate-pulse" />
         )}
 
-          <video
+          {shouldMountVideo ? 
+            (
+
+              <video
             ref={videoRef}
             src={allowSrc ? video.src : undefined}
             preload={shouldAutoPlay ? "auto" : allowSrc ? "metadata" : "none"}
@@ -642,6 +682,16 @@ useEffect(() => {
             loop
             playsInline
         />
+            )
+
+          :
+          
+        (
+                <div className="h-full w-full bg-black" />
+
+        )
+        }
+          
 
       </div>
 

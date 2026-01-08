@@ -16,7 +16,6 @@ export default function ExploreLayout({ children }: { children: React.ReactNode 
 
   return (
     <div className="relative min-h-screen bg-black text-white">
-      <DesktopShell navHidden={navHidden} />
       <MobileChrome
         activeTab={activeTab}
         onTabChange={setActiveTab}

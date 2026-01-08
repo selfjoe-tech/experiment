@@ -152,59 +152,80 @@ export async function fetchTrendingVideosBatch(opts: {
   const preferences = await getEffectivePreferences();
 
   // Bigger pool helps mixing work well
-  const OVERFETCH_MULTIPLIER = 10;
+  const OVERFETCH_MULTIPLIER = 12;
   const overfetchLimit = Math.max(limit * OVERFETCH_MULTIPLIER, limit);
 
-  let query = supabase
-    .from("media")
-    .select(
-      `
-      id,
-      storage_path,
-      title,
-      description,
-      like_count,
-      view_count,
-      created_at,
-      tags,
-      audience,
-      owner:profiles!media_owner_id_fkey (
+  // "Fresh this week" definition
+  const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+  const cutoffIso = new Date(Date.now() - WEEK_MS).toISOString();
+
+  const baseQuery = () => {
+    let q = supabase
+      .from("media")
+      .select(
+        `
         id,
-        username,
-        avatar_url,
-        verified
+        storage_path,
+        title,
+        description,
+        like_count,
+        view_count,
+        created_at,
+        tags,
+        audience,
+        owner:profiles!media_owner_id_fkey (
+          id,
+          username,
+          avatar_url,
+          verified
+        )
+      `
       )
-    `
-    )
-    .eq("media_type", "video");
+      .eq("media_type", "video");
 
-  // apply audience preferences
-  if (preferences.length === 1) {
-    query = query.eq("audience", preferences[0]);
-  } else {
-    query = query.in("audience", preferences);
+    // apply audience preferences
+    if (preferences.length === 1) q = q.eq("audience", preferences[0]);
+    else q = q.in("audience", preferences);
+
+    // Avoid repeating media we've already shown this session
+    if (excludeIds.length > 0) {
+      q = q.not("id", "in", `(${excludeIds.join(",")})`);
+    }
+
+    return q;
+  };
+
+  // Fetch two pools so "fresh this week" doesn't get drowned out by high-views ordering
+  const [hvRes, freshRes] = await Promise.all([
+    baseQuery()
+      .order("view_count", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(overfetchLimit),
+    baseQuery()
+      .gte("created_at", cutoffIso)
+      .order("created_at", { ascending: false })
+      .limit(overfetchLimit),
+  ]);
+
+  if (hvRes.error) {
+    console.error("fetchTrendingVideosBatch(high-views) error", hvRes.error);
+    throw new Error(hvRes.error.message || "Failed to fetch videos");
+  }
+  if (freshRes.error) {
+    console.error("fetchTrendingVideosBatch(fresh) error", freshRes.error);
+    throw new Error(freshRes.error.message || "Failed to fetch videos");
   }
 
-  // Avoid repeating media we've already shown this session
-  if (excludeIds.length > 0) {
-    query = query.not("id", "in", `(${excludeIds.join(",")})`);
-  }
+  const hvRows = (hvRes.data ?? []) as any[];
+  const freshRows = (freshRes.data ?? []) as any[];
 
-  // Make sure high-view stuff is actually in the pool
-  query = query
-    .order("view_count", { ascending: false })
-    .order("created_at", { ascending: false });
+  // Merge + de-dupe
+  const byId = new Map<number, any>();
+  for (const r of hvRows) byId.set(Number(r.id), r);
+  for (const r of freshRows) byId.set(Number(r.id), r);
+  const rows = Array.from(byId.values());
 
-  const { data, error } = await query.limit(overfetchLimit);
-
-  if (error) {
-    console.error("fetchTrendingVideosBatch error", error);
-    throw new Error(error.message || "Failed to fetch videos");
-  }
-
-  if (!data || data.length === 0) return [];
-
-  const rows = data as any[];
+  if (rows.length === 0) return [];
 
   // --- helpers ---
   const shuffleInPlace = <T,>(arr: T[]) => {
@@ -228,52 +249,77 @@ export async function fetchTrendingVideosBatch(opts: {
     return { picked, remaining: [...leftoverWindow, ...rest] };
   };
 
-  // --- buckets ---
-  // random bucket: views==0 OR likes==0 (you requested ratio not applied + random)
-  const randomBucket: any[] = [];
+  // Smoothed like-rate so tiny samples don’t dominate
+  const engagementScore = (likes: number, views: number) => {
+    const priorRate = 0.03; // baseline like-rate prior (tweak if you want)
+    const k = 200; // prior strength (bigger = more smoothing)
+    return (likes + priorRate * k) / (views + k);
+  };
 
-  // ratio eligible: views>0 AND likes>0 (ratio applies)
-  const ratioRanked: { row: any; score: number }[] = [];
+  // --- buckets ---
+  const randomBucket: any[] = [];
+  const engagementRanked: { row: any; score: number }[] = [];
+  const freshBucket: any[] = [];
+
+  const now = Date.now();
 
   for (const row of rows) {
     const views = Number(row.view_count ?? 0);
     const likes = Number(row.like_count ?? 0);
 
+    const createdMs = Date.parse(row.created_at ?? "");
+    const isFresh = Number.isFinite(createdMs) && now - createdMs <= WEEK_MS;
+    if (isFresh) freshBucket.push(row);
+
+    // Keep your original rule: views==0 OR likes==0 => random bucket
     if (views <= 0 || likes <= 0) {
       randomBucket.push(row);
       continue;
     }
 
-    const ratio = views / likes; // view_count : like_count
-    const score = Math.abs(ratio - 1); // closer to 1 is better
-    ratioRanked.push({ row, score });
+    engagementRanked.push({ row, score: engagementScore(likes, views) });
   }
 
-  // Ratio ranking: closest to 1 first
-  ratioRanked.sort((a, b) => a.score - b.score);
+  // Engagement ranking: higher is better
+  engagementRanked.sort((a, b) => b.score - a.score);
+  const engagementRows = engagementRanked.map((x) => x.row);
 
-  // High-views ranking: ONLY from ratio-eligible rows (likes>0 && views>0)
-  // so we don't violate your rule that likes==0 should be random.
-  const highViewsRanked = [...ratioRanked]
-    .sort((a, b) => Number(b.row.view_count ?? 0) - Number(a.row.view_count ?? 0))
-    .map((x) => x.row);
+  // High views ranking: from all rows
+  const highViewsRows = [...rows].sort(
+    (a, b) => Number(b.view_count ?? 0) - Number(a.view_count ?? 0)
+  );
 
-  const ratioRows = ratioRanked.map((x) => x.row);
+  // Fresh ranking: newest first, tie-break on engagement
+  const freshRowsRanked = [...freshBucket].sort((a, b) => {
+    const da = Date.parse(a.created_at ?? "");
+    const db = Date.parse(b.created_at ?? "");
+    if (Number.isFinite(db) && Number.isFinite(da) && db !== da) return db - da;
 
-  // --- mix policy (tweak these) ---
-  const RATIO_SHARE = 0.6;
-  const HIGHVIEWS_SHARE = 0.3;
-  const RANDOM_SHARE = 0.1;
+    const va = Number(a.view_count ?? 0);
+    const la = Number(a.like_count ?? 0);
+    const vb = Number(b.view_count ?? 0);
+    const lb = Number(b.like_count ?? 0);
+    return engagementScore(lb, vb) - engagementScore(la, va);
+  });
 
-  let ratioCount = Math.round(limit * RATIO_SHARE);
-  let highCount = Math.round(limit * HIGHVIEWS_SHARE);
-  let randCount = Math.max(0, limit - ratioCount - highCount);
+  // --- mix policy ---
+  // You asked for 25/25/25/25; with tiny limits (like 3) that can’t be exact per-batch.
+  // This mix is discovery-friendly; tweak freely:
+  const FRESH_SHARE = 0.30;
+  const ENG_SHARE = 0.30;
+  const VIEWS_SHARE = 0.25;
+  const RAND_SHARE = 0.15;
 
-  // ensure totals add up
-  const total = ratioCount + highCount + randCount;
-  if (total !== limit) ratioCount += limit - total;
+  let freshCount = Math.round(limit * FRESH_SHARE);
+  let engCount = Math.round(limit * ENG_SHARE);
+  let viewsCount = Math.round(limit * VIEWS_SHARE);
+  let randCount = Math.max(0, limit - freshCount - engCount - viewsCount);
 
-  // We only want ONE of each row
+  // fix rounding drift
+  const drift = limit - (freshCount + engCount + viewsCount + randCount);
+  if (drift !== 0) engCount += drift;
+
+  // unique picks
   const picked: any[] = [];
   const pickedIds = new Set<number>();
 
@@ -286,52 +332,43 @@ export async function fetchTrendingVideosBatch(opts: {
     return true;
   };
 
-  // Pick from ranked pools with randomness inside a "top window"
-  // Windows control how “stable” vs “random” it feels.
-  const ratioWindow = Math.min(ratioRows.length, Math.max(limit * 6, 40));
-  const highWindow = Math.min(highViewsRanked.length, Math.max(limit * 6, 40));
+  // Windows: randomness inside the “top” of each ranked list
+  const win = Math.min(rows.length, Math.max(limit * 8, 50));
 
-  // 1) Ratio-first picks (random within the best window)
-  let ratioRemaining = ratioRows;
+  let freshRemaining = freshRowsRanked;
+  let engRemaining = engagementRows;
+  let viewsRemaining = highViewsRows;
+
+  // 1) Fresh
   {
-    const { picked: rPicked, remaining } = pickFromTopWindow(ratioRemaining, ratioCount, ratioWindow);
-    ratioRemaining = remaining;
-    for (const r of rPicked) pushUnique(r);
+    const { picked: fPicked, remaining } = pickFromTopWindow(freshRemaining, freshCount, win);
+    freshRemaining = remaining;
+    for (const r of fPicked) pushUnique(r);
   }
 
-  // 2) Inject high-view picks (random within top high-view window)
-  let highRemaining = highViewsRanked;
+  // 2) Engagement
   {
-    const { picked: hPicked, remaining } = pickFromTopWindow(highRemaining, highCount, highWindow);
-    highRemaining = remaining;
-    for (const r of hPicked) pushUnique(r);
+    const { picked: ePicked, remaining } = pickFromTopWindow(engRemaining, engCount, win);
+    engRemaining = remaining;
+    for (const r of ePicked) pushUnique(r);
   }
 
-  // 3) Random bucket picks (shuffle then take)
+  // 3) High views
+  {
+    const { picked: vPicked, remaining } = pickFromTopWindow(viewsRemaining, viewsCount, win);
+    viewsRemaining = remaining;
+    for (const r of vPicked) pushUnique(r);
+  }
+
+  // 4) Random bucket
   shuffleInPlace(randomBucket);
   for (const r of randomBucket) {
     if (picked.length >= limit) break;
     pushUnique(r);
   }
 
-  // 4) Fill if we still don't have enough (fallback order: ratio -> high -> random)
+  // Fill if short
   if (picked.length < limit) {
-    // remaining ratio
-    shuffleInPlace(ratioRemaining); // extra randomness once quota is satisfied
-    for (const r of ratioRemaining) {
-      if (picked.length >= limit) break;
-      pushUnique(r);
-    }
-  }
-  if (picked.length < limit) {
-    shuffleInPlace(highRemaining);
-    for (const r of highRemaining) {
-      if (picked.length >= limit) break;
-      pushUnique(r);
-    }
-  }
-  if (picked.length < limit) {
-    // if somehow still short (rare), just take from original rows
     const tail = rows.filter((r) => !pickedIds.has(Number(r.id)));
     shuffleInPlace(tail);
     for (const r of tail) {
@@ -340,8 +377,10 @@ export async function fetchTrendingVideosBatch(opts: {
     }
   }
 
-  // Map to your existing Video shape (unchanged)
-  return picked.slice(0, limit).map((row) => {
+  const finalRows = picked.slice(0, limit);
+
+  // Map to your Video shape (unchanged)
+  return finalRows.map((row) => {
     const publicUrl = buildPublicUrl(row.storage_path);
     const tags: string[] = row.tags ?? [];
 
@@ -357,7 +396,7 @@ export async function fetchTrendingVideosBatch(opts: {
       views: row.view_count ?? 0,
       hashtags: tags,
       verified: row.owner?.verified,
-      ownerId: row.owner.id,
+      ownerId: row.owner?.id,
     } satisfies Video;
   });
 }

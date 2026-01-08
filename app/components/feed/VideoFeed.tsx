@@ -5,7 +5,6 @@ import React, {
   useCallback,
   useEffect,
   useLayoutEffect,
-  useReducer,
   useRef,
   useState,
 } from "react";
@@ -18,49 +17,10 @@ import {
   fetchRandomAdForFeed,
   registerAdView,
 } from "@/lib/actions/mediaFeed";
-
-import { X } from "lucide-react";
-
+import { Loader2, LucideLoader } from "lucide-react";
 
 const BATCH_SIZE = 3;
 const PREFETCH_AHEAD = 2;
-
-// windowing
-const MAX_WINDOW = 9;    // how many cards to keep mounted
-const KEEP_BEHIND = 1;   // keep at least 1 behind current index
-
-
-
-type FeedState = { items: Video[]; dropped: number };
-type Action =
-  | { type: "reset"; seed?: Video[] }
-  | { type: "append"; items: Video[]; currentIndex: number };
-
-function reducer(state: FeedState, action: Action): FeedState {
-  switch (action.type) {
-    case "reset":
-      return { items: action.seed ?? [], dropped: 0 };
-
-    case "append": {
-      const merged = [...state.items, ...action.items];
-
-      const excess = Math.max(0, merged.length - MAX_WINDOW);
-      const maxPrunable = Math.max(0, action.currentIndex - KEEP_BEHIND);
-      const prune = Math.min(excess, maxPrunable);
-
-      if (prune <= 0) return { ...state, items: merged };
-
-      return { items: merged.slice(prune), dropped: state.dropped + prune };
-    }
-
-    default:
-      return state;
-  }
-}
-
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
-}
 
 type Props = {
   activeTab: FeedTab;
@@ -69,22 +29,26 @@ type Props = {
   initialVideo?: Video | null;
 };
 
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
 export default function VideoFeed({
   activeTab,
   onTabChange,
   onScrollDirectionChange,
   initialVideo,
-}: Props) {const AD_EVERY = 3;          // show 1 ad after every 3 non-ad videos
-const MAX_AD_TRIES = 4;      // retry to avoid duplicates
-const sinceLastAdRef = useRef(0);
+}: Props) {
+  // ads
+  const AD_EVERY = 3;
+  const MAX_AD_TRIES = 4;
+  const sinceLastAdRef = useRef(0);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const lastScrollTop = useRef(0);
-  const [maximize, setMaximize] = useState(true)
 
-
-  const [state, dispatch] = useReducer(reducer, { items: [], dropped: 0 });
-  const { items: videos, dropped } = state;
+  const [maximize, setMaximize] = useState(true);
+  const [videos, setVideos] = useState<Video[]>([]);
 
   const [isMuted, setIsMuted] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -98,77 +62,77 @@ const sinceLastAdRef = useRef(0);
     hasMoreRef.current = hasMore;
   }, [hasMore]);
 
+  // exclude + ad de-dupe
   const seenIdsRef = useRef<Set<number>>(new Set());
   const seenAdIdsRef = useRef<Set<string>>(new Set());
   const forYouBatchCountRef = useRef(0);
+
+  // view tracking (so scrolling back doesn’t spam views)
+  const viewedMediaIdsRef = useRef<Set<number>>(new Set());
+  const viewedAdIdsRef = useRef<Set<string>>(new Set());
+
+  // card height
   const [cardH, setCardH] = useState(0);
 
+  // overlay
   const [overlayOpen, setOverlayOpen] = useState(false);
 
-// when switching layouts, keep the *same snap index* even though height changes
-const pendingScrollAbsIndexRef = useRef<number | null>(null);
+  const pendingScrollAbsIndexRef = useRef<number | null>(null);
 
-const requestScrollToAbsIndex = useCallback((absIndex: number) => {
-  pendingScrollAbsIndexRef.current = absIndex;
-}, []);
+  const requestScrollToAbsIndex = useCallback((absIndex: number) => {
+    pendingScrollAbsIndexRef.current = absIndex;
+  }, []);
 
-const openOverlayAtIndex = useCallback(
-  (absIndex: number) => {
+  const openOverlayAtIndex = useCallback(
+    (absIndex: number) => {
+      requestScrollToAbsIndex(absIndex);
+      setOverlayOpen((prev) => !prev);
+    },
+    [requestScrollToAbsIndex]
+  );
+
+  const closeOverlay = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) {
+      setOverlayOpen(false);
+      return;
+    }
+    const h = cardH || el.clientHeight || window.innerHeight || 1;
+    const absIndex = Math.round(el.scrollTop / h);
     requestScrollToAbsIndex(absIndex);
-    setOverlayOpen(prev => !prev);
-  },
-  [requestScrollToAbsIndex]
-);
-
-const closeOverlay = useCallback(() => {
-  const el = scrollRef.current;
-  if (!el) {
     setOverlayOpen(false);
-    return;
-  }
+  }, [cardH, requestScrollToAbsIndex]);
 
-  const h = cardH || el.clientHeight || window.innerHeight || 1;
-  const absIndex = Math.round(el.scrollTop / h);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (pendingScrollAbsIndexRef.current == null) return;
+    if (!cardH) return;
 
-  requestScrollToAbsIndex(absIndex);
-  setOverlayOpen(false);
-}, [cardH, requestScrollToAbsIndex]);
+    el.scrollTop = pendingScrollAbsIndexRef.current * cardH;
+    pendingScrollAbsIndexRef.current = null;
+  }, [overlayOpen, cardH]);
 
-// after overlay opens/closes, height changes -> re-align scrollTop to keep the same snapped item
-useLayoutEffect(() => {
-  const el = scrollRef.current;
-  if (!el) return;
-  if (pendingScrollAbsIndexRef.current == null) return;
-  if (!cardH) return;
+  useEffect(() => {
+    if (!overlayOpen) return;
 
-  el.scrollTop = pendingScrollAbsIndexRef.current * cardH;
-  pendingScrollAbsIndexRef.current = null;
-}, [overlayOpen, cardH]);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeOverlay();
+    };
 
-// esc closes overlay + prevent page scrolling behind it
-useEffect(() => {
-  if (!overlayOpen) return;
+    window.addEventListener("keydown", onKey);
 
-  const onKey = (e: KeyboardEvent) => {
-    if (e.key === "Escape") closeOverlay();
-  };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
 
-  window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [overlayOpen, closeOverlay]);
 
-  const prevOverflow = document.body.style.overflow;
-  document.body.style.overflow = "hidden";
-
-  return () => {
-    window.removeEventListener("keydown", onKey);
-    document.body.style.overflow = prevOverflow;
-  };
-}, [overlayOpen, closeOverlay]);
-
-  
   const toggleMute = () => setIsMuted((p) => !p);
 
-  // card height for spacer math
-  
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -186,7 +150,7 @@ useEffect(() => {
     };
   }, []);
 
-  // current index in window (used for pruning + "loadLevel")
+  // current snapped index
   const [currentIndex, setCurrentIndex] = useState(0);
   const currentIndexRef = useRef(0);
 
@@ -196,18 +160,7 @@ useEffect(() => {
   }, [videos.length]);
 
   const rafTickingRef = useRef(false);
-
-  // ✅ FIX: gate prefetch by GLOBAL last index, not window length
-  const lastPrefetchGlobalLastRef = useRef<number>(-1);
-
-
-
-
- 
-
-
-
-
+  const lastPrefetchLenRef = useRef<number>(0);
 
   const loadMore = useCallback(async () => {
     if (loadingRef.current || !hasMoreRef.current) return;
@@ -217,15 +170,12 @@ useEffect(() => {
     setFeedError(null);
 
     try {
-      // (Optional safety cap) Keep exclude list from getting insanely large:
-      // const excludeIds = Array.from(seenIdsRef.current).slice(-600);
       const excludeIds = Array.from(seenIdsRef.current);
 
       let batch: Video[] = [];
 
       if (activeTab === "forYou") {
         const count = forYouBatchCountRef.current;
-
         batch =
           count > 0 && count % 4 === 0
             ? await fetchTrendingVideosBatch({ limit: BATCH_SIZE, excludeIds })
@@ -242,53 +192,51 @@ useEffect(() => {
         return;
       }
 
-      // maybe inject ONE ad
+      // inject ads (with de-dupe)
       const combined: Video[] = [];
 
-for (const v of batch) {
-  combined.push(v);
+      for (const v of batch) {
+        combined.push(v);
 
-  const isAd = !!(v as any)?._isAd;
-  if (isAd) continue;
+        const isAd = !!(v as any)?._isAd;
+        if (isAd) continue;
 
-  sinceLastAdRef.current += 1;
+        sinceLastAdRef.current += 1;
 
-  if (sinceLastAdRef.current >= AD_EVERY) {
-    const ad = await fetchRandomAdForFeed();
+        if (sinceLastAdRef.current >= AD_EVERY) {
+          let pickedAd: Video | null = null;
 
-    // only insert if it actually looks like an ad
-    if (ad && (ad as any)?._isAd) {
-      combined.push(ad);
-      sinceLastAdRef.current = 0;
-    } else {
-      // if ad fetch fails, try again soon (next real video)
-      sinceLastAdRef.current = AD_EVERY - 1;
-    }
-  }
-}
+          for (let tries = 0; tries < MAX_AD_TRIES; tries++) {
+            const candidate = await fetchRandomAdForFeed();
+            const anyC = candidate as any;
+            if (!candidate || !anyC?._isAd) continue;
 
-      const bumped = combined.map((v) => ({ ...v, views: (v.views ?? 0) + 1 }));
+            const adId = anyC?._adId != null ? String(anyC._adId) : null;
+            if (!adId) continue;
+            if (seenAdIdsRef.current.has(adId)) continue;
 
-      dispatch({
-        type: "append",
-        items: bumped,
-        currentIndex: currentIndexRef.current,
-      });
+            seenAdIdsRef.current.add(adId);
+            pickedAd = candidate;
+            break;
+          }
 
-      // register views
-      bumped.forEach((v) => {
+          if (pickedAd) {
+            combined.push(pickedAd);
+            sinceLastAdRef.current = 0;
+          } else {
+            sinceLastAdRef.current = AD_EVERY - 1;
+          }
+        }
+      }
+
+      // update exclude set (so we don’t refetch session duplicates)
+      for (const v of combined) {
         const anyV = v as any;
+        if (anyV?._isAd) continue;
+        if (typeof v.mediaId === "number") seenIdsRef.current.add(v.mediaId);
+      }
 
-        if (anyV._isAd) {
-          if (anyV._adId != null) registerAdView(String(anyV._adId));
-          return;
-        }
-
-        if (typeof v.mediaId === "number") {
-          seenIdsRef.current.add(v.mediaId);
-          registerView(v.mediaId);
-        }
-      });
+      setVideos((prev) => [...prev, ...combined]);
     } catch (err: any) {
       console.error("loadMore feed error", err);
       setFeedError(err?.message ?? "Failed to load videos.");
@@ -317,62 +265,64 @@ for (const v of batch) {
 
       const h = cardH || el.clientHeight || window.innerHeight || 1;
 
-      // absolute index in the *full* feed
       const absoluteIndex = Math.round(el.scrollTop / h);
-
-      // index within current window (after dropped)
-      const idxInWindow = clamp(
-        absoluteIndex - dropped,
+      const idx = clamp(
+        absoluteIndex,
         0,
         Math.max(0, videosLenRef.current - 1)
       );
 
-      if (idxInWindow !== currentIndexRef.current) {
-        currentIndexRef.current = idxInWindow;
-        setCurrentIndex(idxInWindow);
+      if (idx !== currentIndexRef.current) {
+        currentIndexRef.current = idx;
+        setCurrentIndex(idx);
       }
 
-      // ✅ FIX: Prefetch based on GLOBAL last index so it still runs when window length is constant
+      // Prefetch when close to end
       const len = videosLenRef.current;
       if (!loadingRef.current && hasMoreRef.current && len > 0) {
-        const globalLastIndex = dropped + len - 1; // includes dropped
-        const shouldPrefetch = absoluteIndex >= globalLastIndex - PREFETCH_AHEAD;
+        const shouldPrefetch = absoluteIndex >= len - 1 - PREFETCH_AHEAD;
 
-        if (
-          shouldPrefetch &&
-          lastPrefetchGlobalLastRef.current !== globalLastIndex
-        ) {
-          lastPrefetchGlobalLastRef.current = globalLastIndex;
+        // prevent spamming loadMore while snapping near the end
+        if (shouldPrefetch && lastPrefetchLenRef.current !== len) {
+          lastPrefetchLenRef.current = len;
           loadMore();
         }
       }
     });
   };
 
-  // ✅ BONUS: keep currentIndex correct after pruning / appending
+  // Register view when something becomes ACTIVE (not when fetched)
   useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
+    const v = videos[currentIndex];
+    if (!v) return;
 
-    const h = cardH || el.clientHeight || window.innerHeight || 1;
-    const absoluteIndex = Math.round(el.scrollTop / h);
-    const idxInWindow = clamp(
-      absoluteIndex - dropped,
-      0,
-      Math.max(0, videos.length - 1)
-    );
+    const anyV = v as any;
 
-    currentIndexRef.current = idxInWindow;
-    setCurrentIndex(idxInWindow);
-  }, [dropped, videos.length, cardH]);
+    if (anyV?._isAd) {
+      const adId = anyV?._adId != null ? String(anyV._adId) : null;
+      if (!adId) return;
+      if (viewedAdIdsRef.current.has(adId)) return;
+
+      viewedAdIdsRef.current.add(adId);
+      registerAdView(adId);
+      return;
+    }
+
+    const mediaId = v.mediaId;
+    if (typeof mediaId !== "number") return;
+    if (viewedMediaIdsRef.current.has(mediaId)) return;
+
+    viewedMediaIdsRef.current.add(mediaId);
+    registerView(mediaId);
+  }, [currentIndex, videos]);
 
   const isWatchMode = !!initialVideo;
 
-  // HOME reset
+  // reset on tab change (home feed)
   useEffect(() => {
     if (isWatchMode) return;
 
-    dispatch({ type: "reset", seed: [] });
+    setVideos([]);
     setHasMore(true);
     hasMoreRef.current = true;
     setInitialLoaded(false);
@@ -380,24 +330,27 @@ for (const v of batch) {
 
     seenIdsRef.current.clear();
     seenAdIdsRef.current.clear();
+    viewedMediaIdsRef.current.clear();
+    viewedAdIdsRef.current.clear();
+
     forYouBatchCountRef.current = 0;
+    sinceLastAdRef.current = 0;
 
     lastScrollTop.current = 0;
     currentIndexRef.current = 0;
     setCurrentIndex(0);
-    lastPrefetchGlobalLastRef.current = -1;
+    lastPrefetchLenRef.current = 0;
 
-    // reset scroll position
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
 
     loadMore();
   }, [activeTab, isWatchMode, loadMore]);
 
-  // WATCH seed
+  // seed watch mode
   useEffect(() => {
     if (!isWatchMode || !initialVideo) return;
 
-    dispatch({ type: "reset", seed: [initialVideo] });
+    setVideos([initialVideo]);
     setHasMore(true);
     hasMoreRef.current = true;
     setInitialLoaded(false);
@@ -405,18 +358,17 @@ for (const v of batch) {
 
     seenIdsRef.current.clear();
     seenAdIdsRef.current.clear();
+    viewedMediaIdsRef.current.clear();
+    viewedAdIdsRef.current.clear();
 
-    if (
-      typeof initialVideo.mediaId === "number" &&
-      !Number.isNaN(initialVideo.mediaId)
-    ) {
+    if (typeof initialVideo.mediaId === "number" && !Number.isNaN(initialVideo.mediaId)) {
       seenIdsRef.current.add(initialVideo.mediaId);
     }
 
     lastScrollTop.current = 0;
     currentIndexRef.current = 0;
     setCurrentIndex(0);
-    lastPrefetchGlobalLastRef.current = -1;
+    lastPrefetchLenRef.current = 0;
 
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
 
@@ -426,106 +378,84 @@ for (const v of batch) {
   const noVideos = !loading && initialLoaded && videos.length === 0;
 
   const mainClass = overlayOpen
-  ? "relative z-[80] h-[100dvh] w-full overflow-y-scroll overscroll-y-contain snap-y snap-mandatory shadow-2xl backdrop-blur"
-  : "relative h-screen snap-y snap-mandatory overflow-y-scroll overscroll-y-contain lg:pt-70 lg:pb-70 lg:pl-[17rem] lg:pr-[21rem]";
+    ? "relative z-[80] h-[100dvh] w-full overflow-y-scroll overscroll-y-contain snap-y snap-mandatory shadow-2xl backdrop-blur"
+    : "relative h-screen snap-y snap-mandatory overflow-y-scroll overscroll-y-contain lg:pt-70 lg:pb-70 lg:pl-[17rem] lg:pr-[21rem]";
 
-const sectionHeightClass = overlayOpen
-  ? "h-full" // each snap item equals the container height
-  : "h-screen w-full lg:h-[100dvh]";
-
+  const sectionHeightClass = overlayOpen ? "h-full" : "h-screen w-full lg:h-[100dvh]";
 
   return (
-  <>
-    {/* Overlay background */}
-    
+    <>
+      <div className={overlayOpen ? "fixed inset-0 z-[80] grid place-items-center" : "relative"}>
+        <main ref={scrollRef} onScroll={handleScroll} className={mainClass}>
+          {feedError && (
+            <div className="sticky top-0 z-20 bg-red-900/90 text-red-100 text-xs px-4 py-2 text-center">
+              {feedError}
+            </div>
+          )}
 
-    {/* This wrapper becomes the overlay "frame" but keeps the SAME main element mounted */}
-    <div
-      className={
-        overlayOpen
-          ? "fixed inset-0 z-[80] grid place-items-center"
-          : "relative"
-      }
-    >
-      <main ref={scrollRef} onScroll={handleScroll} className={mainClass}>
-        {feedError && (
-          <div className="sticky top-0 z-20 bg-red-900/90 text-red-100 text-xs px-4 py-2 text-center">
-            {feedError}
-          </div>
-        )}
+          {noVideos && (
+            <div className="flex h-full items-center justify-center text-white/70">
+              {"No internet :("}
+            </div>
+          )}
 
-        {noVideos && (
-          <div className="flex h-full items-center justify-center text-white/70">
-            {"No internet :("}
-          </div>
-        )}
+          {videos.map((video, index) => {
+            const anyVideo = video as any;
+            const isAd = !!anyVideo._isAd;
+            const visitUrl: string | undefined = anyVideo._adLandingUrl ?? undefined;
 
-        {/* Spacer keeps scroll stable when we prune */}
-        {dropped > 0 && cardH > 0 && (
-          <div aria-hidden style={{ height: dropped * cardH }} className="snap-none" />
-        )}
+            // ✅ Only one active => only one video mounts (your VideoCard uses this)
+            const loadLevel: "active" | "near" | "off" =
+              index === currentIndex ? "active" : "off";
 
-        {videos.map((video, index) => {
-          const anyVideo = video as any;
-          const isAd = !!anyVideo._isAd;
-          const visitUrl: string | undefined = anyVideo._adLandingUrl ?? undefined;
+            const key = isAd
+              ? `ad-${anyVideo._adId ?? video.id}`
+              : `media-${video.mediaId ?? video.id}`;
 
-          const dist = Math.abs(index - currentIndex);
-          const loadLevel: "active" | "near" | "off" =
-            dist === 0 ? "active" : dist === 1 ? "near" : "off";
+            const absIndex = index;
 
-          const key = isAd
-            ? `ad-${anyVideo._adId ?? video.id}`
-            : `media-${video.mediaId ?? video.id}`;
-
-          const absIndex = dropped + index;
-
-          return (
-            <section
-              key={key}
-              className={`snap-center snap-always flex items-center justify-center w-full ${sectionHeightClass}`}
-            >
-              {isAd ? (
-                <SponsoredVideoCard
-                  video={video}
-                  isMuted={isMuted}
-                  toggleMute={toggleMute}
-                  visitUrl={visitUrl || "/ads"}
-                  loadLevel={loadLevel}
-                  maximize={maximize}
-                  changeMaxButton={() => setMaximize(prev => !prev)}
-                />
-              ) : (
-                <VideoCard
-                  video={video}
-                  onRequestFullscreen={() => openOverlayAtIndex(absIndex)}
-                  toggleMute={toggleMute}
-                  isMuted={isMuted}
-                  loadLevel={loadLevel}
-                  maximize={!maximize}
-                  changeMaxButton={() => setMaximize(prev => !prev)}
-                />
-              )}
-            </section>
-          );
-        })}
-      </main>
-    </div>
-
-    {/* Loader stays global */}
-    {loading && (
-      <div className="pointer-events-none fixed bottom-6 left-1/2 -translate-x-1/2 z-[95]">
-        <div className="rounded-full bg-black/70 border border-white/15 px-4 py-2 text-xs text-white/80 backdrop-blur">
-          Loading…
-        </div>
+            return (
+              <section
+                key={key}
+                className={`snap-center snap-always flex items-center justify-center w-full ${sectionHeightClass}`}
+              >
+                {isAd ? (
+                  <SponsoredVideoCard
+                    video={video}
+                    isMuted={isMuted}
+                    toggleMute={toggleMute}
+                    visitUrl={visitUrl || "/ads"}
+                    loadLevel={loadLevel}
+                    maximize={maximize}
+                    changeMaxButton={() => setMaximize((prev) => !prev)}
+                  />
+                ) : (
+                  <VideoCard
+                    video={video}
+                    onRequestFullscreen={() => openOverlayAtIndex(absIndex)}
+                    toggleMute={toggleMute}
+                    isMuted={isMuted}
+                    loadLevel={loadLevel}
+                    maximize={!maximize}
+                    changeMaxButton={() => setMaximize((prev) => !prev)}
+                  />
+                )}
+              </section>
+            );
+          })}
+        </main>
       </div>
-    )}
-  </>
-);
 
+      {loading && (
+        <div className="pointer-events-none fixed bottom-15 left-1/2 -translate-x-1/2 z-[95]">
+          <div className="rounded-full bg-black/70 border border-white/15 px-4 py-2 text-xs text-white/80 backdrop-blur">
+            <LucideLoader />
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
-
-
 
 // // app/components/feed/VideoFeed.tsx
 // // app/components/feed/VideoFeed.tsx

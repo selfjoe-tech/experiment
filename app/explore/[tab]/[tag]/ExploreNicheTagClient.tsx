@@ -4,6 +4,7 @@ import React, { useCallback, useState } from "react";
 import { useParams } from "next/navigation";
 import TagVideoFeed from "@/app/components/feed/TagVideoFeed";
 import type { FeedTab } from "@/app/components/feed/types";
+import DesktopShell from "@/app/components/feed/layout/DesktopShell";
 
 function slugToTitle(slug: string): string {
   const decoded = decodeURIComponent(slug);
@@ -38,8 +39,14 @@ export default function ExploreNicheTagClient() {
 
   return (
     <div className="relative min-h-screen bg-black text-white overflow-hidden">
+      <DesktopShell navHidden={desktopNavHidden} />
+      
         
-      <TagVideoFeed tagSlug={tagSlug} onScrollDirectionChange={onScrollDirectionChange} />
+      <TagVideoFeed tagSlug={tagSlug} 
+      
+      onScrollDirectionChange={onScrollDirectionChange} 
+      
+      />
     </div>
   );
 }
