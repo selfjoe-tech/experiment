@@ -1,3 +1,5 @@
+"use client";
+
 // lib/actions/media.ts
 "use client";
 
