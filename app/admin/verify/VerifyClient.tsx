@@ -3,7 +3,6 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { buildPublicUrl } from "@/lib/actions/mediaFeed";
 import { approveVerification, rejectVerification } from "./actions";
 import type { VerifyRequestRow, StatusFilter } from "./page";
 
@@ -264,9 +263,9 @@ export default function VerifyClient({
 
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1 bg-black/50 rounded-xl p-2 flex items-center justify-center">
-                {activeRequest.selfie_path ? (
+                 {activeRequest.selfie_url ? (
                   <img
-                    src={buildPublicUrl(activeRequest.selfie_path)}
+                    src={activeRequest.selfie_url}
                     alt="Verification selfie"
                     className="max-h-[60vh] max-w-full rounded-lg object-contain"
                   />
