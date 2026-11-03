@@ -13,7 +13,7 @@ function abs(path: string) {
 export async function generateMetadata(): Promise<Metadata> {
   const title = `Advertise on ${SITE_NAME}`;
   const description =
-    "Run premium banner and in-feed sponsored ads on Goon Gram. Preview placements and contact sales@goongram.com to get started.";
+    "Run premium banner and in-feed sponsored ads on Goon Gram. Preview placements and contact contact@goongram.com to get started.";
   const canonical = abs("/ads");
 
   return {

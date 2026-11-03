@@ -12,7 +12,7 @@ export default function Head() {
 
   const title = `Advertise on ${SITE_NAME} | In-feed video, image, and banner ads`;
   const description =
-    "Promote your brand with in-feed video, image, and banner ads on Goon Gram. Sponsored posts appear in the feed with views, likes, and clicks tracked. Contact sales@goongram.com to get started.";
+    "Promote your brand with in-feed video, image, and banner ads on Goon Gram. Sponsored posts appear in the feed with views, likes, and clicks tracked. Contact contact@goongram.com to get started.";
 
   const image = DEFAULT_OG_IMAGE;
 
@@ -47,12 +47,12 @@ export default function Head() {
       availableChannel: {
         "@type": "ServiceChannel",
         name: "Email",
-        serviceUrl: "mailto:sales@goongram.com",
+        serviceUrl: "mailto:contact@goongram.com",
       },
     },
     potentialAction: {
       "@type": "ContactAction",
-      target: "mailto:sales@goongram.com",
+      target: "mailto:contact@goongram.com",
       name: `Contact ${SITE_NAME} ad sales`,
     },
   };

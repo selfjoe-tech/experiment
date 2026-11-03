@@ -360,7 +360,7 @@ export default function AdsUploadPage({ params }: PageProps) {
             <p className="text-xs text-white/60">
               Need help?{" "}
               <a
-                href="mailto:sales@goongram.com"
+                href="mailto:contact@goongram.com"
                 className="underline text-pink-400"
               >
                 Contact sales

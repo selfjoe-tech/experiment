@@ -225,7 +225,7 @@ export default function AdsPage() {
               </span>
             </h1>
             <a
-              href="mailto:sales@goongram.com"
+              href="mailto:contact@goongram.com"
               className="inline-flex items-center gap-2 rounded-full bg-white text-black px-5 py-2.5 text-sm font-semibold hover:bg-pink-500 hover:text-white"
             >
               <Mail className="h-4 w-4" />
