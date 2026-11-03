@@ -1,3 +1,5 @@
+"use client";
+
 // lib/actions/social.ts
 import { createClient } from "@/lib/supabase/client";
 
