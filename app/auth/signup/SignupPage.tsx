@@ -25,6 +25,7 @@ export function SignupForm() {
   const [showConfirm, setShowConfirm] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<AuthFieldErrors>({});
 
   const [isPending, startTransition] = useTransition();
@@ -36,13 +37,19 @@ export function SignupForm() {
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
+    setNotice(null);
     setFieldErrors({});
 
     const formData = new FormData(e.currentTarget);
 
     startTransition(async () => {
       const result = await signupAction(formData);
-      if (result.success) {
+      if (result.success && result.requiresEmailConfirmation) {
+        setNotice(
+          result.message ??
+            "Check your email to confirm your account before signing in."
+        );
+      } else if (result.success) {
         router.push("/preferences");
         router.refresh();
       } else {
@@ -229,6 +236,10 @@ if (!username) {
 
         {error && (
           <p className="text-xs text-red-400 text-center">{error}</p>
+        )}
+
+        {notice && (
+          <p className="text-xs text-emerald-400 text-center">{notice}</p>
         )}
 
         <Button
