@@ -28,91 +28,38 @@ type Preference = (typeof ALLOWED_PREFERENCES)[number];
 
 
 export async function fetchRandomAdForFeed(): Promise<Video | null> {
-  const nowIso = new Date().toISOString();
-
-  // 1) Find all *active* ad buyers
-  const { data: buyers, error: buyersError } = await supabase
-    .from("ad_buyers")
-    .select("user_id")
-    .gt("expires_at", nowIso);
-
-  if (buyersError) {
-    console.error("fetchRandomAdForFeed ad_buyers error", buyersError);
-    return null;
-  }
-
-  const activeUserIds = Array.from(
-    new Set((buyers ?? []).map((b) => b.user_id).filter(Boolean))
-  );
-
-  if (activeUserIds.length === 0) {
-    // no active buyers → no ads
-    return null;
-  }
-
-  // 2) Fetch video ads owned by those active buyers
-  const { data, error } = await supabase
-    .from("ads")
-    .select(
-      `
-      id,
-      storage_path,
-      landing_url,
-      owner_id,
-      like_count,
-      view_count,
-      owner:profiles!ads_owner_id_fkey (
-        id,
-        username,
-        avatar_url,
-        verified
-      )
-    `
-    )
-    .eq("media_type", "video")
-    .in("owner_id", activeUserIds)
-    .limit(50);
+  const { data, error } = await supabase.rpc("get_active_ads_for_feed", {
+    p_media_type: "video",
+    p_limit: 10,
+  });
 
   if (error) {
-    console.error("fetchRandomAdForFeed ads error", error);
+    console.error("fetchRandomAdForFeed RPC error", error);
     return null;
   }
 
-  if (!data || data.length === 0) return null;
+  const picked = data?.[0];
+  if (!picked?.storage_path) return null;
 
-  const rows = data as any[];
-
-  // shuffle a bit and pick one
-  for (let i = rows.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [rows[i], rows[j]] = [rows[j], rows[i]];
-  }
-
-  const picked = rows[0];
-  if (!picked) return null;
-
-  const src = picked.storage_path ? buildPublicUrl(picked.storage_path) : "";
+  const src = buildPublicUrl(picked.storage_path);
   if (!src) return null;
 
-  const adVideo: Video = {
+  return {
     id: picked.id,
-    mediaId: picked.id, // this is ads.id, not media.id
+    mediaId: picked.id,
     src,
     title: "",
     description: "",
-    username: picked.owner?.username ?? "Sponsored",
-    avatar: picked.owner?.avatar_url ?? "/avatar-placeholder.png",
+    username: picked.owner_username ?? "Sponsored",
+    avatar: picked.owner_avatar_url ?? "/avatar-placeholder.png",
     likes: picked.like_count ?? 0,
     views: picked.view_count ?? 0,
     hashtags: [],
-    verified: picked.owner?.verified ?? false,
-
+    verified: Boolean(picked.owner_verified),
     _isAd: true,
     _adLandingUrl: picked.landing_url ?? null,
     _adId: picked.id,
   };
-
-  return adVideo;
 }
 
 export function normalizePreferences(raw: string[] | null | undefined): Preference[] {
