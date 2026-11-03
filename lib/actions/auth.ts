@@ -169,7 +169,7 @@ export async function signupAction(formData: FormData): Promise<AuthResult> {
     password,
     options: {
       data: { username },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/auth/callback?next=/preferences`,
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://goongram.com"}/auth/callback?next=/preferences`,
     },
   });
 
@@ -222,7 +222,7 @@ async function resolveLoginEmail(identifier: string): Promise<string | null> {
   const { data, error } = await admin
     .from("profiles")
     .select("email")
-    .eq("username", normalizeUsername(identifier))
+    .ilike("username", normalizeUsername(identifier))
     .maybeSingle();
 
   if (error) {
