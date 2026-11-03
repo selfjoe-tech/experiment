@@ -18,7 +18,7 @@ export type VerifyStatus = "pending" | "accepted" | "rejected";
 export type StatusFilter = "all" | VerifyStatus;
 
 export type VerifyRequestRow = {
-  id: string;
+  id: number;
   creator_id: string;
   status: VerifyStatus;
   selfie_path: string | null;
@@ -65,6 +65,7 @@ export default async function AdminVerifyPage({
       creator_id,
       status,
       selfie_path,
+      storage_path,
       links,
       created_at,
       profiles:creator_id (
