@@ -23,6 +23,7 @@ export type VerificationRow = {
   storage_path: string;
   status: VerificationStatus;
   notes: string | null;
+  review_notes?: string | null;
   created_at: string;
   reviewed_at: string | null;
 };
@@ -146,6 +147,7 @@ export async function getVerificationStateForCurrentUser(): Promise<Verification
     storage_path: row.storage_path ?? row.selfie_path ?? "",
     status: row.status as VerificationStatus,
     notes: row.notes ?? row.review_notes ?? null,
+    review_notes: row.review_notes ?? row.notes ?? null,
     created_at: row.created_at,
     reviewed_at: row.reviewed_at,
   };
