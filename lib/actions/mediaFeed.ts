@@ -1,9 +1,17 @@
 // lib/actions/mediaFeed.ts
 "use client";
 
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/client";
+
+const supabase = createClient();
+
+async function getCurrentUserId(): Promise<string | null> {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) return null;
+  return data.user.id;
+}
 import type { Video } from "@/app/components/feed/types";
-import { getUserIdFromCookies, getUserPreferencesFromCookies } from "./auth";
+import { getUserPreferencesFromCookies } from "./auth";
 
 const MEDIA_BUCKET = "media";
 
@@ -428,7 +436,7 @@ export async function registerView(mediaId: number): Promise<void> {
 export async function toggleMediaLike(
   mediaId: number
 ): Promise<{ liked: boolean; likeCount: number | null }> {
-  const userId = await getUserIdFromCookies();
+  const userId = await getCurrentUserId();
 
   // Does a like already exist?
   const { data: existing, error: existingError } = await supabase
@@ -731,7 +739,7 @@ export async function fetchImageById(
 
   const tags: string[] = data.tags ?? [];
 
-  const userId = await getUserIdFromCookies();
+  const userId = await getCurrentUserId();
 
   let likedByMe: boolean | undefined = undefined;
   if (userId) {
@@ -800,7 +808,7 @@ export async function fetchForYouVideosBatch({
   limit,
   excludeIds = [],
 }: ForYouParams): Promise<Video[]> {
-  const userId = await getUserIdFromCookies();
+  const userId = await getCurrentUserId();
   const preferences = await getEffectivePreferences();
 
   // If not logged in, just behave like trending (still filtered by preferences)
