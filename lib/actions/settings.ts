@@ -1,18 +1,13 @@
-  "use server";
+"use server";
 
-import bcrypt from "bcryptjs";
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { supabase } from "@/lib/supabaseClient";
-import { getUserIdFromCookies, getUserProfileFromCookies, getVerified, setAuthCookies } from "./auth";
-// make sure setAuthCookies & getUserIdFromCookies & getUserProfileFromCookies are already here
+import { createClient } from "@/lib/supabase/server";
 
-
-// SETTINGS TYPES
 export type SettingsProfile = {
   username: string | null;
   avatarUrl: string | null;
   bio: string | null;
+  verified: boolean;
 };
 
 export type SettingsFieldErrors = {
@@ -24,283 +19,268 @@ export type SettingsFieldErrors = {
   verified: boolean;
 };
 
-// Get data for /settings page
+async function getAuthenticatedClient() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !user) return null;
+  return { supabase, user };
+}
+
 export async function getSettingsProfile(): Promise<SettingsProfile | null> {
+  const auth = await getAuthenticatedClient();
+  if (!auth) return null;
 
-
-  const userId = await getUserIdFromCookies();
-  if (!userId) return null;
-
-  const { username, avatarUrl } = await getUserProfileFromCookies();
-  const verified = getVerified(username);
-
-  const { data, error } = await supabase
+  const { data, error } = await auth.supabase
     .from("profiles")
-    .select("bio")
-    .eq("id", userId)
+    .select("username, avatar_url, bio, verified")
+    .eq("id", auth.user.id)
     .maybeSingle();
 
-  if (error) {
-    console.error("getSettingsProfile error", error);
+  if (error || !data) {
+    if (error) console.error("getSettingsProfile error", error);
+    return null;
   }
 
   return {
-    username,
-    avatarUrl,
-    bio: data?.bio ?? null,
-    verified
+    username: data.username,
+    avatarUrl: data.avatar_url,
+    bio: data.bio,
+    verified: Boolean(data.verified),
   };
 }
 
-// Update username + bio
 export async function updateProfileBasicsAction(
   formData: FormData
-): Promise<{ success: boolean; fieldErrors?: SettingsFieldErrors; message?: string }> {
-  "use server";
-
-  const userId = await getUserIdFromCookies();
-  if (!userId) {
+): Promise<{
+  success: boolean;
+  fieldErrors?: SettingsFieldErrors;
+  message?: string;
+}> {
+  const auth = await getAuthenticatedClient();
+  if (!auth) {
     return { success: false, message: "You must be logged in." };
   }
 
-  const rawUsername = (formData.get("username") ?? "").toString().trim();
-  const bio = (formData.get("bio") ?? "").toString().trim();
-
-  const fieldErrors: SettingsFieldErrors = {};
-
-  if (!rawUsername) {
-    fieldErrors.username = "Username is required.";
-  }
-
+  const rawUsername = String(formData.get("username") ?? "").trim();
+  const bio = String(formData.get("bio") ?? "").trim();
   const username = rawUsername.toLowerCase();
-  const usernameRegex = /^[a-z0-9._]+$/;
 
-  if (rawUsername && !usernameRegex.test(username)) {
+  const fieldErrors: SettingsFieldErrors = { verified: false };
+
+  if (!username) fieldErrors.username = "Username is required.";
+  if (rawUsername && !/^[a-z0-9._]{1,30}$/.test(username)) {
     fieldErrors.username =
-      "Only lowercase letters, numbers, '.' and '_' are allowed.";
+      "Use 1–30 lowercase letters, numbers, '.' and '_'.";
   }
 
-  if (Object.keys(fieldErrors).length > 0) {
+  if (bio.length > 500) {
+    fieldErrors.bio = "Bio must be 500 characters or fewer.";
+  }
+
+  if (fieldErrors.username || fieldErrors.bio) {
     return { success: false, fieldErrors };
   }
 
-  // Fetch current username
-  const { data: current, error: currentError } = await supabase
+  const { data: current, error: currentError } = await auth.supabase
     .from("profiles")
     .select("username")
-    .eq("id", userId)
+    .eq("id", auth.user.id)
     .single();
 
   if (currentError || !current) {
-    console.error("updateProfileBasicsAction fetch current error", currentError);
-    return { success: false, message: "Could not load current profile." };
+    console.error("updateProfileBasicsAction current profile error", currentError);
+    return { success: false, message: "Could not load your profile." };
   }
 
-  // If username changed, ensure it's unique
   if (current.username !== username) {
-    const { data: existing, error: existingError } = await supabase
+    const { data: existing, error: existingError } = await auth.supabase
       .from("profiles")
       .select("id")
       .eq("username", username)
       .maybeSingle();
 
     if (existingError) {
-      console.error("updateProfileBasicsAction uniqueness error", existingError);
+      console.error("updateProfileBasicsAction username lookup error", existingError);
       return { success: false, message: "Failed to validate username." };
     }
 
-    if (existing && existing.id !== userId) {
+    if (existing && existing.id !== auth.user.id) {
       return {
         success: false,
-        fieldErrors: { username: "This username is already taken." },
+        fieldErrors: {
+          verified: false,
+          username: "This username is already taken.",
+        },
       };
     }
   }
 
-  const { error: updateError } = await supabase
+  const { error: updateError } = await auth.supabase
     .from("profiles")
-    .update({
-      username,
-      bio,
-    })
-    .eq("id", userId);
+    .update({ username, bio })
+    .eq("id", auth.user.id);
 
   if (updateError) {
     console.error("updateProfileBasicsAction update error", updateError);
-    return { success: false, message: "Failed to update profile." };
+    return { success: false, message: "Failed to update your profile." };
   }
 
-  // Keep cookies in sync
-  const store = await cookies();
-  const avatarPath = store.get("avatar")?.value ?? "";
-  await setAuthCookies(userId, username, avatarPath);
-
   revalidatePath("/");
+  revalidatePath("/settings");
   return { success: true };
 }
 
-// Update avatar (upload + update profile + cookies)
 export async function updateAvatarAction(
   formData: FormData
 ): Promise<{ success: boolean; message?: string; avatarUrl?: string }> {
-  "use server";
-
-  const userId = await getUserIdFromCookies();
-  if (!userId) {
+  const auth = await getAuthenticatedClient();
+  if (!auth) {
     return { success: false, message: "You must be logged in." };
   }
 
-  const file = formData.get("avatar") as File | null;
-  if (!file || file.size === 0) {
+  const file = formData.get("avatar");
+  if (!(file instanceof File) || file.size === 0) {
     return { success: false, message: "Please choose an image file." };
   }
 
-  const ext = file.name.split(".").pop() || "jpg";
-  const path = `avatars/${userId}/${crypto.randomUUID()}.${ext}`;
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/avif"];
+  if (!allowedTypes.includes(file.type)) {
+    return { success: false, message: "Choose a JPG, PNG, WEBP or AVIF image." };
+  }
 
-  const { error: uploadError } = await supabase.storage
-    .from("media") // adjust if you use a different bucket for avatars
+  if (file.size > 5 * 1024 * 1024) {
+    return { success: false, message: "Avatar must be 5 MB or smaller." };
+  }
+
+  const extByType: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/avif": "avif",
+  };
+  const path = `avatars/${auth.user.id}/${crypto.randomUUID()}.${extByType[file.type]}`;
+
+  const { error: uploadError } = await auth.supabase.storage
+    .from("media")
     .upload(path, file, {
-      upsert: true,
-      contentType: file.type || "image/jpeg",
+      upsert: false,
+      contentType: file.type,
+      cacheControl: "3600",
     });
 
   if (uploadError) {
     console.error("updateAvatarAction upload error", uploadError);
-    return { success: false, message: "Failed to upload avatar." };
+    return {
+      success: false,
+      message: "Failed to upload your avatar. Please try again.",
+    };
   }
 
-  const { data: urlData } = supabase.storage.from("media").getPublicUrl(path);
-  const publicUrl = urlData.publicUrl;
+  const { data: urlData } = auth.supabase.storage
+    .from("media")
+    .getPublicUrl(path);
 
-  const { error: updateError } = await supabase
+  const { error: updateError } = await auth.supabase
     .from("profiles")
-    .update({
-      avatar_url: publicUrl,
-    })
-    .eq("id", userId);
+    .update({ avatar_url: urlData.publicUrl })
+    .eq("id", auth.user.id);
 
   if (updateError) {
     console.error("updateAvatarAction profile update error", updateError);
-    return { success: false, message: "Failed to save avatar." };
+    await auth.supabase.storage.from("media").remove([path]);
+    return { success: false, message: "Failed to save your avatar." };
   }
 
-  const store = await cookies();
-  store.set("avatar", path, {
-    httpOnly: false,
-    sameSite: "lax",
-    path: "/",
-  });
-
   revalidatePath("/");
-  return { success: true, avatarUrl: publicUrl };
+  revalidatePath("/settings");
+  return { success: true, avatarUrl: urlData.publicUrl };
 }
 
-// Change password
 export async function changePasswordAction(
   formData: FormData
-): Promise<{ success: boolean; fieldErrors?: SettingsFieldErrors; message?: string }> {
-  "use server";
-
-  const userId = await getUserIdFromCookies();
-  if (!userId) {
+): Promise<{
+  success: boolean;
+  fieldErrors?: SettingsFieldErrors;
+  message?: string;
+}> {
+  const auth = await getAuthenticatedClient();
+  if (!auth || !auth.user.email) {
     return { success: false, message: "You must be logged in." };
   }
 
-  const oldPassword = (formData.get("oldPassword") ?? "").toString();
-  const newPassword = (formData.get("newPassword") ?? "").toString();
-  const confirmPassword = (formData.get("confirmPassword") ?? "").toString();
+  const oldPassword = String(formData.get("oldPassword") ?? "");
+  const newPassword = String(formData.get("newPassword") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
-  const fieldErrors: SettingsFieldErrors = {};
+  const fieldErrors: SettingsFieldErrors = { verified: false };
 
-  if (!oldPassword) fieldErrors.oldPassword = "Please enter your current password.";
-  if (!newPassword) fieldErrors.newPassword = "Please enter a new password.";
-  if (newPassword && newPassword.length < 6) {
+  if (!oldPassword) {
+    fieldErrors.oldPassword = "Please enter your current password.";
+  }
+  if (!newPassword) {
+    fieldErrors.newPassword = "Please enter a new password.";
+  } else if (newPassword.length < 6) {
     fieldErrors.newPassword = "New password must be at least 6 characters.";
   }
   if (newPassword !== confirmPassword) {
     fieldErrors.confirmPassword = "Passwords do not match.";
   }
 
-  if (Object.keys(fieldErrors).length > 0) {
+  if (
+    fieldErrors.oldPassword ||
+    fieldErrors.newPassword ||
+    fieldErrors.confirmPassword
+  ) {
     return { success: false, fieldErrors };
   }
 
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("hash")
-    .eq("id", userId)
-    .single();
+  // Re-authenticate with the current password before changing credentials.
+  const { error: reauthError } = await auth.supabase.auth.signInWithPassword({
+    email: auth.user.email,
+    password: oldPassword,
+  });
 
-  if (error || !profile) {
-    console.error("changePasswordAction profile error", error);
-    return { success: false, message: "Could not load your account." };
-  }
-
-  const match = await bcrypt.compare(oldPassword, profile.hash);
-  if (!match) {
+  if (reauthError) {
     return {
       success: false,
-      fieldErrors: { oldPassword: "Current password is incorrect." },
+      fieldErrors: {
+        verified: false,
+        oldPassword: "Current password is incorrect.",
+      },
     };
   }
 
-  const newHash = await bcrypt.hash(newPassword, 10);
-
-  const { error: updateError } = await supabase
-    .from("profiles")
-    .update({ hash: newHash })
-    .eq("id", userId);
+  const { error: updateError } = await auth.supabase.auth.updateUser({
+    password: newPassword,
+  });
 
   if (updateError) {
     console.error("changePasswordAction update error", updateError);
-    return { success: false, message: "Failed to change password." };
+    return { success: false, message: "Failed to change your password." };
   }
 
   return { success: true };
 }
 
-// Delete account + uploads
-export async function deleteAccountAction(): Promise<{ success: boolean; message?: string }> {
-  "use server";
-
-  const userId = await getUserIdFromCookies();
-  if (!userId) {
+export async function deleteAccountAction(): Promise<{
+  success: boolean;
+  message?: string;
+}> {
+  // Account deletion needs a coordinated cleanup of media, verification
+  // objects, financial records and the Auth user. It is intentionally not
+  // performed through the old client-side profile deletion flow.
+  const auth = await getAuthenticatedClient();
+  if (!auth) {
     return { success: false, message: "You must be logged in." };
   }
 
-  try {
-    // Delete all media owned by user
-    const { error: mediaError } = await supabase
-      .from("media")
-      .delete()
-      .eq("owner_id", userId);
-
-    if (mediaError) {
-      console.error("deleteAccountAction media error", mediaError);
-      return { success: false, message: "Failed to remove your uploads." };
-    }
-
-    // Delete profile
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .delete()
-      .eq("id", userId);
-
-    if (profileError) {
-      console.error("deleteAccountAction profile error", profileError);
-      return { success: false, message: "Failed to delete account." };
-    }
-
-    // Clear cookies
-    const store = await cookies();
-    ["userId", "isLoggedIn", "username", "avatar", "preferences"].forEach((k) =>
-      store.delete(k)
-    );
-
-    return { success: true };
-  } catch (err) {
-    console.error("deleteAccountAction thrown error", err);
-    return { success: false, message: "Unexpected error deleting account." };
-  }
+  return {
+    success: false,
+    message:
+      "Account deletion is temporarily unavailable while account migration is being completed. Contact support to request deletion.",
+  };
 }
