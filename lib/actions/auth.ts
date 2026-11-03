@@ -232,7 +232,7 @@ export async function verifySignupOtpAction(
   const { data, error } = await supabase.auth.verifyOtp({
     email,
     token,
-    type: "signup",
+    type: "email",
   });
 
   if (error || !data.session || !data.user) {
