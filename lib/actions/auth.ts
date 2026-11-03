@@ -169,7 +169,6 @@ export async function signupAction(formData: FormData): Promise<AuthResult> {
     password,
     options: {
       data: { username },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://goongram.com"}/auth/callback?next=/preferences`,
     },
   });
 
@@ -208,6 +207,88 @@ export async function signupAction(formData: FormData): Promise<AuthResult> {
   }
 
   return { success: true };
+}
+
+/**
+ * Supabase owns the signup OTP and verification token.
+ * The Send Email Auth Hook sends the OTP through Goon Gram's Nodemailer endpoint.
+ */
+export async function verifySignupOtpAction(
+  emailInput: string,
+  otpInput: string
+): Promise<{ success: boolean; message?: string }> {
+  const email = normalizeEmail(emailInput);
+  const token = otpInput.trim();
+
+  if (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)) {
+    return { success: false, message: "Enter a valid email address." };
+  }
+
+  if (!/^\\d{6}$/.test(token)) {
+    return { success: false, message: "Enter the six-digit verification code." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.verifyOtp({
+    email,
+    token,
+    type: "signup",
+  });
+
+  if (error || !data.session || !data.user) {
+    if (error) {
+      console.error("verifySignupOtpAction failed", error.message);
+    }
+    return {
+      success: false,
+      message: "That code is invalid or has expired. Request a new code and try again.",
+    };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Supabase's resend endpoint generates a fresh signup OTP and invokes the
+ * configured Send Email Auth Hook. Auth-side resend throttling remains active.
+ */
+export async function resendSignupOtpAction(
+  emailInput: string
+): Promise<{ success: boolean; message: string }> {
+  const email = normalizeEmail(emailInput);
+
+  if (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)) {
+    return {
+      success: false,
+      message: "The email address is invalid. Return to sign up and try again.",
+    };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email,
+  });
+
+  if (error) {
+    console.error("resendSignupOtpAction failed", error.message);
+    if (/rate limit|too many requests/i.test(error.message)) {
+      return {
+        success: false,
+        message: "Please wait before requesting another code.",
+      };
+    }
+
+    return {
+      success: false,
+      message: "We could not resend the code. Check the email address and try again.",
+    };
+  }
+
+  return {
+    success: true,
+    message: "A new verification code has been sent if the signup is still awaiting confirmation.",
+  };
 }
 
 /* ---------------- LOGIN ---------------- */

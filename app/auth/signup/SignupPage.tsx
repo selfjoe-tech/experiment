@@ -45,12 +45,10 @@ export function SignupForm() {
     startTransition(async () => {
       const result = await signupAction(formData);
       if (result.success && result.requiresEmailConfirmation) {
-        setNotice(
-          result.message ??
-            "Check your email to confirm your account before signing in."
-        );
+        router.push(`/auth/verify-email?email=${encodeURIComponent(email)}`);
+        router.refresh();
       } else if (result.success) {
-        router.push("/preferences");
+        router.replace("/");
         router.refresh();
       } else {
         setError(result.message ?? "Unable to sign up.");
