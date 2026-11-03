@@ -1,5 +1,6 @@
 // app/admin/reports/page.tsx
-import { supabase } from "@/lib/supabaseClient";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { requireAdmin } from "@/lib/server/requireAdmin";
 import ReportsClient from "./ReportsClient";
 
 const PAGE_SIZE = 20;
@@ -35,6 +36,8 @@ export default async function AdminReportsPage({
 }: {
   searchParams: SearchParams;
 }) {
+  await requireAdmin();
+  const supabase = getSupabaseAdmin();
   // --- pagination / filters ---
   const rawPage = getParam(searchParams, "page") ?? "1";
   const parsedPage = Number.parseInt(rawPage, 10);
