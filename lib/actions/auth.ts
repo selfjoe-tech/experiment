@@ -169,6 +169,7 @@ export async function signupAction(formData: FormData): Promise<AuthResult> {
     password,
     options: {
       data: { username },
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/auth/callback?next=/preferences`,
     },
   });
 
@@ -338,12 +339,7 @@ export async function requestPasswordResetAction(
   }
 
   const supabase = await createClient();
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${siteUrl}/auth/reset-password`,
-  });
+  const { error } = await supabase.auth.resetPasswordForEmail(email);
 
   if (error) {
     console.error("requestPasswordResetAction failed", error.message);
