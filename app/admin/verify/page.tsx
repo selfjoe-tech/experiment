@@ -22,6 +22,7 @@ export type VerifyRequestRow = {
   creator_id: string;
   status: VerifyStatus;
   selfie_path: string | null;
+  selfie_url: string | null;
   links: any; // string | json | null from supabase
   created_at: string;
   profiles: {
@@ -82,7 +83,32 @@ export default async function AdminVerifyPage({
     query = query.eq("creator_id", userIdSearch);
   }
 
-  const { data: requests = [], count, error } = await query;
+  const { data: rawRequests = [], count, error } = await query;
+
+  const requests: VerifyRequestRow[] = await Promise.all(
+    rawRequests.map(async (request) => {
+      const path = request.storage_path ?? request.selfie_path ?? null;
+      let selfieUrl: string | null = null;
+
+      if (path) {
+        const { data: privateUrl, error: privateError } = await supabase.storage
+          .from("verification")
+          .createSignedUrl(path, 60 * 10);
+
+        if (!privateError && privateUrl?.signedUrl) {
+          selfieUrl = privateUrl.signedUrl;
+        } else {
+          // Older verification selfies were stored in the public media bucket.
+          const { data: publicUrl } = supabase.storage
+            .from("media")
+            .getPublicUrl(path);
+          selfieUrl = publicUrl.publicUrl ?? null;
+        }
+      }
+
+      return { ...request, selfie_url: selfieUrl } as VerifyRequestRow;
+    })
+  );
 
   const totalPages = count ? Math.max(1, Math.ceil(count / PAGE_SIZE)) : 1;
   const errorMessage = error?.message ?? null;
