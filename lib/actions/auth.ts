@@ -222,7 +222,7 @@ async function resolveLoginEmail(identifier: string): Promise<string | null> {
   const { data, error } = await admin
     .from("profiles")
     .select("email")
-    .ilike("username", normalizeUsername(identifier))
+    .eq("username", normalizeUsername(identifier))
     .maybeSingle();
 
   if (error) {
@@ -260,7 +260,7 @@ export async function loginAction(formData: FormData): Promise<AuthResult> {
     return {
       success: false,
       message: "Invalid credentials.",
-      fieldErrors: { identifier: "Account not found or invalid." },
+      fieldErrors: { identifier: "Incorrect username/email or password." },
     };
   }
 
