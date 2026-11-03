@@ -1,6 +1,13 @@
 // lib/actions/social.ts
-import { supabase } from "@/lib/supabaseClient";
-import { getUserIdByUsername, getUserIdFromCookies } from "./auth";
+import { createClient } from "@/lib/supabase/client";
+
+const supabase = createClient();
+
+async function getCurrentUserId(): Promise<string | null> {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) return null;
+  return data.user.id;
+}
 
 
 
@@ -11,9 +18,9 @@ import { getUserIdByUsername, getUserIdFromCookies } from "./auth";
 
 export async function checkIsFollowing(targetUserId: string): Promise<boolean> {
   try {
-    const currentId = await getUserIdFromCookies();
+    const currentId = await getCurrentUserId();
 
-    if (!targetUserId || currentId === targetUserId) {
+    if (!currentId || !targetUserId || currentId === targetUserId) {
       // can't follow yourself, treat as "not following"
       return false;
     }
@@ -97,7 +104,7 @@ export async function checkIsFollowing(targetUserId: string): Promise<boolean> {
 export async function toggleFollowUser(targetUserId: string): Promise<{
   following: boolean;
 }> {
-  const currentId = await getUserIdFromCookies();
+  const currentId = await getCurrentUserId();
 
   if (!currentId) {
     throw new Error("You must be logged in to follow users.");
@@ -171,7 +178,7 @@ export async function toggleFollowUser(targetUserId: string): Promise<{
 //     throw new Error("Missing media id.");
 //   }
 
-//   const userId = await getUserIdFromCookies();
+//   const userId = await getCurrentUserId();
 
 //   // Check if already liked
 //   const { data: existing, error: existingError } = await supabase
@@ -264,7 +271,7 @@ export async function toggleMediaLike(mediaId: number): Promise<{
     throw new Error("Missing media id.");
   }
 
-  const userId = await getUserIdFromCookies();
+  const userId = await getCurrentUserId();
   if (!userId) {
     throw new Error("You must be logged in to like media.");
   }
@@ -319,7 +326,7 @@ export async function toggleMediaLike(mediaId: number): Promise<{
 
 
 export async function getMyFollowCounts(): Promise<FollowCounts> {
-  const userId = await getUserIdFromCookies();
+  const userId = await getCurrentUserId();
   if (!userId) {
     return { followers: 0, following: 0, views: 0 };
   }
@@ -375,7 +382,8 @@ export async function checkHasLikedMedia(mediaId: number): Promise<boolean> {
   if (!mediaId) return false;
 
   try {
-    const userId = await getUserIdFromCookies();
+    const userId = await getCurrentUserId();
+    if (!userId) return false;
 
     const { data, error } = await supabase
       .from("media_likes")
@@ -401,7 +409,10 @@ export async function checkHasLikedMedia(mediaId: number): Promise<boolean> {
 export async function toggleAdLike(
   adId: number
 ): Promise<{ liked: boolean; likeCount: number | null }> {
-  const userId = await getUserIdFromCookies();
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    throw new Error("You must be logged in to like ads.");
+  }
 
   // Does a like already exist?
   const { data: existing, error: existingError } = await supabase
@@ -470,7 +481,8 @@ export async function checkHasLikedAd(adId: number): Promise<boolean> {
   if (!adId) return false;
 
   try {
-    const userId = await getUserIdFromCookies();
+    const userId = await getCurrentUserId();
+    if (!userId) return false;
 
     const { data, error } = await supabase
       .from("ad_likes")
@@ -499,6 +511,7 @@ export async function getUserProfileByUsername(username: string): Promise<{
   id: string | null;
   username: string | null;
   avatarUrl: string | null;
+  links?: Record<string, string>;
 }> {
   const { data, error } = await supabase
     .from("profiles")
@@ -531,10 +544,17 @@ export type FollowCounts = {
 export async function getFollowCountsByUsername(
   username: string
 ): Promise<FollowCounts> {
-  const userId = await getUserIdByUsername(username);
-  if (!userId) {
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("username", username)
+    .maybeSingle();
+
+  if (profileError || !profile?.id) {
     return { followers: 0, following: 0, views: 0 };
   }
+
+  const userId = profile.id;
 
   try {
     const [
