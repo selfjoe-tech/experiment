@@ -1,6 +1,6 @@
 "use server";
 
-import { supabase } from "@/lib/supabaseClient";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { signAdminJwt } from "@/lib/adminJwt";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
@@ -21,6 +21,7 @@ export async function loginAction(
     return { error: "Email and password are required." };
   }
 
+  const supabase = getSupabaseAdmin();
   const { data: admin, error: adminErr } = await supabase
     .from("admin_users")
     .select("id, password_hash")
