@@ -97,7 +97,6 @@ export async function submitVerificationRequest(formData: FormData) {
     links,
     selfie_path: filePath,
     storage_path: filePath,
-    status: "pending",
   });
 
   if (insertError) {
@@ -136,6 +135,7 @@ export async function getVerificationStateForCurrentUser(): Promise<Verification
 
   const row = data.find((item) => item.status === "pending") ??
     data.find((item) => item.status === "rejected") ??
+    data.find((item) => item.status === "accepted") ??
     data.find((item) => item.status === "approved");
 
   if (!row) return { status: "none" };
@@ -145,7 +145,10 @@ export async function getVerificationStateForCurrentUser(): Promise<Verification
     creator_id: row.creator_id,
     links: row.links ?? {},
     storage_path: row.storage_path ?? row.selfie_path ?? "",
-    status: row.status as VerificationStatus,
+    status:
+      row.status === "accepted"
+        ? "approved"
+        : (row.status as VerificationStatus),
     notes: row.notes ?? row.review_notes ?? null,
     review_notes: row.review_notes ?? row.notes ?? null,
     created_at: row.created_at,
