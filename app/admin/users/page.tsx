@@ -1,5 +1,6 @@
 // app/admin/users/page.tsx
-import { supabase } from "@/lib/supabaseClient";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { requireAdmin } from "@/lib/server/requireAdmin";
 import UsersClient from "./UsersClient";
 
 const PAGE_SIZE = 20;
@@ -19,6 +20,8 @@ export default async function AdminUsersPage({
 }: {
   searchParams: SearchParams;
 }) {
+  await requireAdmin();
+  const supabase = getSupabaseAdmin();
   const page = Math.max(1, Number(searchParams.page ?? "1"));
 
   const from = (page - 1) * PAGE_SIZE;
