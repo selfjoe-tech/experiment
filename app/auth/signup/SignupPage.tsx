@@ -44,10 +44,7 @@ export function SignupForm() {
 
     startTransition(async () => {
       const result = await signupAction(formData);
-      if (result.success && result.requiresEmailConfirmation) {
-        router.push(`/auth/verify-email?email=${encodeURIComponent(email)}`);
-        router.refresh();
-      } else if (result.success) {
+      if (result.success) {
         router.replace("/");
         router.refresh();
       } else {
