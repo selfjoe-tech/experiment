@@ -1,8 +1,8 @@
 "use client";
 
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/client";
 
-import { requireUserIdFromCookies } from "../server/requireUser";
+const supabase = createClient();
 
 export type AudienceType =
   | "straight"
@@ -40,23 +40,33 @@ export type InsertedMediaRow = {
 
 function getExt(file: File, fallback: string) {
   const extRaw = file.name.split(".").pop();
-  const ext = (extRaw && extRaw.toLowerCase()) || fallback;
-  return ext;
+  return (extRaw && extRaw.toLowerCase()) || fallback;
 }
 
-function makeStoragePath(kind: "video" | "image", ownerId: string, file: File) {
+function makeStoragePath(
+  kind: "video" | "image",
+  ownerId: string,
+  file: File
+) {
   const ext = getExt(file, kind === "video" ? "mp4" : "jpg");
-
-  const random =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : Math.random().toString(36).slice(2);
-
+  const random = crypto.randomUUID();
   const folder = kind === "video" ? "videos" : "images";
+
   return `${folder}/${ownerId}/${random}.${ext}`;
 }
 
+async function requireCurrentUserId(): Promise<string> {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
 
+  if (error || !user) {
+    throw new Error("You must be signed in to upload media.");
+  }
+
+  return user.id;
+}
 
 async function uploadToStorage(path: string, file: File): Promise<void> {
   const { error } = await supabase.storage.from("media").upload(path, file, {
@@ -114,17 +124,14 @@ export async function uploadTrimmedVideo(
   form: VideoUploadFormValues,
   opts?: { onUploadProgress?: (pct: number) => void; durationSeconds?: number }
 ): Promise<InsertedMediaRow> {
-  // NOTE: Supabase upload() does not provide upload progress.
-  // We’ll do a simple 0 -> 100 callback so your UI doesn't break.
+  // Supabase upload() does not expose byte-level upload progress.
   opts?.onUploadProgress?.(0);
 
-  const ownerId = await requireUserIdFromCookies();
+  const ownerId = await requireCurrentUserId();
   const storagePath = makeStoragePath("video", ownerId, clip.file);
 
-  // Upload bytes
   await uploadToStorage(storagePath, clip.file);
 
-  // Insert DB row
   const durationSeconds =
     typeof opts?.durationSeconds === "number"
       ? opts.durationSeconds
@@ -154,7 +161,7 @@ export async function uploadSingleImage(
 ): Promise<InsertedMediaRow> {
   opts?.onUploadProgress?.(0);
 
-  const ownerId = await requireUserIdFromCookies();
+  const ownerId = await requireCurrentUserId();
   const storagePath = makeStoragePath("image", ownerId, file);
 
   await uploadToStorage(storagePath, file);
@@ -184,8 +191,7 @@ export async function uploadImagesBatch(
     [];
   const failures: { index: number; error: string }[] = [];
 
-  // Reuse the same user id for the whole batch
-  const ownerId = await requireUserIdFromCookies();
+  const ownerId = await requireCurrentUserId();
 
   for (let i = 0; i < files.length; i++) {
     try {
@@ -205,8 +211,11 @@ export async function uploadImagesBatch(
       });
 
       successes.push({ index: i, id: row.id, storage_path: row.storage_path });
-    } catch (e: any) {
-      failures.push({ index: i, error: String(e?.message ?? e) });
+    } catch (error) {
+      failures.push({
+        index: i,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
