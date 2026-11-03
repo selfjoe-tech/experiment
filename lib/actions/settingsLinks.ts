@@ -1,43 +1,47 @@
-// lib/actions/settingsLinks.ts
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
 import { PROVIDER_KEYS, type ProviderKey } from "@/app/components/verify/providers";
-
-// ⚠️ Swap this import to match your project’s server Supabase client helper
-import { supabase } from "../supabaseClient";
-import { getUserIdFromCookies } from "./auth";
 
 function isValidHttpUrl(value: string) {
   try {
-    const u = new URL(value);
-    return u.protocol === "http:" || u.protocol === "https:";
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
   } catch {
     return false;
   }
 }
 
 export async function updateProfileLinks(input: Record<string, string>) {
-  const id = await getUserIdFromCookies();
-  console.log(id, "<<<<< id")
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
 
-  if (!id) throw new Error("Not signed in.");
+  if (authError || !user) {
+    throw new Error("Not signed in.");
+  }
 
-  // Pull verified + username from DB (server-side truth)
-  const { data: profile, error: pErr } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("id, username, verified")
-    .eq("id", id)
+    .eq("id", user.id)
     .single();
 
-  if (pErr || !profile) throw new Error("Profile not found.");
-  if (!profile.verified) throw new Error("Only verified creators can edit links.");
+  if (profileError || !profile) {
+    throw new Error("Profile not found.");
+  }
 
-  // Sanitize & whitelist keys
+  if (!profile.verified) {
+    throw new Error("Only verified creators can edit links.");
+  }
+
   const cleaned: Partial<Record<ProviderKey, string>> = {};
 
   for (const key of PROVIDER_KEYS) {
-    const raw = (input[key] ?? "").trim();
+    const raw = String(input[key] ?? "").trim();
     if (!raw) continue;
 
     if (!isValidHttpUrl(raw)) {
@@ -47,14 +51,16 @@ export async function updateProfileLinks(input: Record<string, string>) {
     cleaned[key] = raw;
   }
 
-  const { error: upErr } = await supabase
+  const { error: updateError } = await supabase
     .from("profiles")
     .update({ links: cleaned })
-    .eq("id", id);
+    .eq("id", user.id);
 
-  if (upErr) throw new Error("Failed to update links.");
+  if (updateError) {
+    console.error("updateProfileLinks update error", updateError);
+    throw new Error("Failed to update links.");
+  }
 
-  // Revalidate settings + profile page
   revalidatePath("/settings");
   if (profile.username) revalidatePath(`/${profile.username}`);
 
