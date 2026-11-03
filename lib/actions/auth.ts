@@ -202,7 +202,7 @@ export async function signupAction(formData: FormData): Promise<AuthResult> {
     return {
       success: true,
       requiresEmailConfirmation: true,
-      message: "Check your email for a confirmation link before signing in.",
+      message: "Check your email for a six-digit verification code before signing in.",
     };
   }
 
@@ -220,11 +220,11 @@ export async function verifySignupOtpAction(
   const email = normalizeEmail(emailInput);
   const token = otpInput.trim();
 
-  if (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)) {
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return { success: false, message: "Enter a valid email address." };
   }
 
-  if (!/^\\d{6}$/.test(token)) {
+  if (!/^\d{6}$/.test(token)) {
     return { success: false, message: "Enter the six-digit verification code." };
   }
 
@@ -257,7 +257,7 @@ export async function resendSignupOtpAction(
 ): Promise<{ success: boolean; message: string }> {
   const email = normalizeEmail(emailInput);
 
-  if (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)) {
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return {
       success: false,
       message: "The email address is invalid. Return to sign up and try again.",
