@@ -1,5 +1,6 @@
 // app/admin/verify/page.tsx
-import { supabase } from "@/lib/supabaseClient";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { requireAdmin } from "@/lib/server/requireAdmin";
 import VerifyClient from "./VerifyClient";
 
 const PAGE_SIZE = 20;
@@ -33,6 +34,8 @@ export default async function AdminVerifyPage({
 }: {
   searchParams: SearchParams;
 }) {
+  await requireAdmin();
+  const supabase = getSupabaseAdmin();
   const rawPage = getParam(searchParams, "page") ?? "1";
   const parsedPage = Number.parseInt(rawPage, 10);
   const page = Number.isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
