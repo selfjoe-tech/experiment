@@ -31,14 +31,10 @@ const nodemailer = require("nodemailer") as NodemailerModule;
 
 type AuthEmailUser = {
   email?: string;
-  new_email?: string;
 };
 
 type AuthEmailData = {
   token?: string;
-  token_new?: string;
-  token_hash?: string;
-  token_hash_new?: string;
   email_action_type?: string;
 };
 
@@ -47,45 +43,10 @@ export type SendEmailHookPayload = {
   email_data?: AuthEmailData;
 };
 
-const OTP_TEMPLATES: Record<
-  string,
-  { subject: string; heading: string; explanation: string }
-> = {
-  signup: {
-    subject: "Verify your Goon Gram account",
-    heading: "Verify your email address",
-    explanation: "Enter this code on Goon Gram to finish creating your account.",
-  },
-  recovery: {
-    subject: "Reset your Goon Gram password",
-    heading: "Password reset code",
-    explanation: "Enter this code on Goon Gram to continue resetting your password.",
-  },
-  magiclink: {
-    subject: "Your Goon Gram sign-in code",
-    heading: "Your sign-in code",
-    explanation: "Enter this code on Goon Gram to sign in to your account.",
-  },
-  invite: {
-    subject: "Your Goon Gram invitation",
-    heading: "You're invited to Goon Gram",
-    explanation: "Enter this code on Goon Gram to accept your invitation.",
-  },
-  email: {
-    subject: "Your Goon Gram verification code",
-    heading: "Verify your email address",
-    explanation: "Enter this code on Goon Gram to continue.",
-  },
-  reauthentication: {
-    subject: "Verify your Goon Gram account",
-    heading: "Confirm it's you",
-    explanation: "Enter this code on Goon Gram to confirm this account action.",
-  },
-  email_change: {
-    subject: "Confirm your Goon Gram email change",
-    heading: "Confirm your new email address",
-    explanation: "Enter this code on Goon Gram to confirm the email address change.",
-  },
+const RECOVERY_EMAIL_TEMPLATE = {
+  subject: "Reset your Goon Gram password",
+  heading: "Password reset code",
+  explanation: "Enter this code on Goon Gram to continue resetting your password.",
 };
 
 function escapeHtml(value: string) {
@@ -97,25 +58,19 @@ function escapeHtml(value: string) {
     .replace(/'/g, "&#039;");
 }
 
-function buildEmail(
-  actionType: string,
-  otp?: string
+function buildRecoveryEmail(
+  otp: string
 ): { subject: string; text: string; html: string } {
-  const template = OTP_TEMPLATES[actionType] ?? {
-    subject: "A Goon Gram account notification",
-    heading: "Account notification",
-    explanation: "There has been an update related to your Goon Gram account.",
-  };
+  if (!/^\d{6}$/.test(otp)) {
+    throw new Error("Supabase did not provide a valid six-digit recovery code.");
+  }
 
-  const safeOtp = otp && /^\d{4,12}$/.test(otp) ? otp : null;
-  const otpText = safeOtp ? `\n\n${safeOtp}\n\n` : "";
-  const otpHtml = safeOtp
-    ? `<div style="margin:28px 0;padding:20px 16px;background:#f3f3f3;border-radius:8px;text-align:center;">
-         <span style="font-size:30px;letter-spacing:8px;font-weight:700;color:#111111;">${escapeHtml(safeOtp)}</span>
-       </div>`
-    : "";
+  const template = RECOVERY_EMAIL_TEMPLATE;
+  const otpHtml = `<div style="margin:28px 0;padding:20px 16px;background:#f3f3f3;border-radius:8px;text-align:center;">
+         <span style="font-size:30px;letter-spacing:8px;font-weight:700;color:#111111;">${escapeHtml(otp)}</span>
+       </div>`;
 
-  const text = `Goon Gram\n\n${template.heading}\n\n${template.explanation}${otpText}\nThis message was sent because an account action was requested. If you did not request it, you can ignore this email.`;
+  const text = `Goon Gram\n\n${template.heading}\n\n${template.explanation}\n\n${otp}\n\nThis message was sent because a password reset was requested. If you did not request it, you can ignore this email.`;
 
   const html = `<!doctype html>
 <html lang="en">
@@ -125,7 +80,7 @@ function buildEmail(
       <h1 style="margin:0 0 14px;font-size:25px;line-height:1.25;">${template.heading}</h1>
       <p style="margin:0;color:#555555;font-size:15px;line-height:1.7;">${template.explanation}</p>
       ${otpHtml}
-      <p style="margin:24px 0 0;color:#777777;font-size:12px;line-height:1.6;">This message was sent because an account action was requested. If you did not request it, you can ignore this email. Do not share your verification code with anyone.</p>
+      <p style="margin:24px 0 0;color:#777777;font-size:12px;line-height:1.6;">This message was sent because a password reset was requested. If you did not request it, you can ignore this email. Do not share your verification code with anyone.</p>
       <p style="margin:30px 0 0;color:#999999;font-size:11px;">Goon Gram · Account Security</p>
     </div>
   </body>
@@ -134,7 +89,7 @@ function buildEmail(
   return { subject: template.subject, text, html };
 }
 
-async function sendMessage(to: string, actionType: string, otp?: string) {
+async function sendMessage(to: string, otp: string) {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) {
     throw new Error("The Auth email hook provided an invalid recipient.");
   }
@@ -163,7 +118,7 @@ async function sendMessage(to: string, actionType: string, otp?: string) {
     socketTimeout: 4_000,
   });
 
-  const message = buildEmail(actionType, otp);
+  const message = buildRecoveryEmail(otp);
   await transporter.sendMail({
     from,
     to,
@@ -233,37 +188,19 @@ export async function sendAuthHookEmail(payload: SendEmailHookPayload) {
     throw new Error("The Auth email hook payload is incomplete.");
   }
 
-  const actionType = emailData.email_action_type;
-
-  if (actionType === "email_change") {
-    const sends: Promise<void>[] = [];
-
-    // With secure email change enabled, Supabase supplies a code for both
-    // the current address and the new address.
-    if (user.email && emailData.token && emailData.token_hash_new) {
-      sends.push(sendMessage(user.email, actionType, emailData.token));
-    }
-
-    if (user.new_email) {
-      const newAddressOtp = emailData.token_new || emailData.token;
-      if (newAddressOtp && (emailData.token_hash || emailData.token_hash_new)) {
-        sends.push(sendMessage(user.new_email, actionType, newAddressOtp));
-      }
-    }
-
-    if (sends.length === 0) {
-      throw new Error("The email-change hook payload did not contain a recipient and code.");
-    }
-
-    await Promise.all(sends);
-    return;
+  if (emailData.email_action_type !== "recovery") {
+    throw new Error(
+      "This application only sends Auth email OTPs for password recovery."
+    );
   }
 
-  const recipient = user.email;
-  if (!recipient) {
-    throw new Error("The Auth email hook payload did not include an email address.");
+  if (!user.email) {
+    throw new Error("The password recovery hook did not include an email address.");
   }
 
-  const otp = emailData.token || emailData.token_new || undefined;
-  await sendMessage(recipient, actionType, otp);
+  if (!emailData.token) {
+    throw new Error("Supabase did not include a password recovery code.");
+  }
+
+  await sendMessage(user.email, emailData.token);
 }
