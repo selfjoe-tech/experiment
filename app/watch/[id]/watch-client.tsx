@@ -1,96 +1,79 @@
-// app/watch/[id]/watch-client.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
-import DesktopShell from "@/app/components/feed/layout/DesktopShell";
-import MobileChrome from "@/app/components/feed/layout/MobileChrome";
-import VideoFeed from "@/app/components/feed/VideoFeed";
+import React, { useMemo, useState } from "react";
+
 import type { FeedTab, Video } from "@/app/components/feed/types";
-import { fetchVideoById, registerView } from "@/lib/actions/mediaFeed";
-import Link from "next/link";
-import { getIsLoggedInFromCookies } from "@/lib/actions/auth";
-import { VideoCardSkeleton } from "@/app/components/skeletons/VideoCardSkeleton ";
 
-export default function WatchClient({ mediaId }: { mediaId: number }) {
-  const [activeTab, setActiveTab] = useState<FeedTab>("trending");
-  const [isMobileSearching, setIsMobileSearching] = useState(false);
+import WatchDesktopShell from "@/app/components/feed/layout/WatchDesktopShell";
+import WatchMobileChrome from "@/app/components/feed/layout/WatchMobileChrome";
+
+import { JuicyAd308x1044_1108082 } from "@/app/components/feed/layout/MobileChrome";
+
+import WatchVideoCard from "@/app/components/feed/WatchVideoCard";
+
+export default function WatchClient({
+  mediaId,
+}: {
+  mediaId: number;
+}) {
+  const [activeTab, setActiveTab] =
+    useState<FeedTab>("trending");
+
+  const [isMobileSearching, setIsMobileSearching] =
+    useState(false);
+
   const [searchQuery, setSearchQuery] = useState("");
-  const [desktopNavHidden, setDesktopNavHidden] = useState(false);
 
-  const [initialVideo, setInitialVideo] = useState<Video | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isMuted, setIsMuted] = useState(true);
 
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [authLoaded, setAuthLoaded] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      const LoggedInState = await getIsLoggedInFromCookies();
-      setIsLoggedIn(LoggedInState);
-      setAuthLoaded(true);
-    })();
-  }, []);
-
-  const showForYouGate = activeTab === "forYou" && authLoaded && !isLoggedIn;
-
-  useEffect(() => {
-    if (!mediaId || Number.isNaN(mediaId)) {
-      setError("Invalid video id.");
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const v = await fetchVideoById(mediaId);
-        if (!v) {
-          if (!cancelled) setError("Video not found.");
-          return;
-        }
-
-        const bumped: Video = { ...v, views: (v.views ?? 0) + 1 };
-        if (!cancelled) setInitialVideo(bumped);
-
-        registerView(mediaId).catch((err) =>
-          console.error("registerView (watch) error", err)
-        );
-      } catch (err: any) {
-        if (!cancelled) setError(err?.message ?? "Failed to load video.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [mediaId]);
-
-  if (loading) return <VideoCardSkeleton />;
-
-  if (error || !initialVideo) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center text-sm">
-        {error || "Video not found."}
-      </div>
-    );
-  }
+  /*
+   * ============================================================
+   * TEMPORARY VIDEO DATA
+   * ============================================================
+   *
+   * Your watch page currently only receives mediaId.
+   *
+   * Replace this later with the real Supabase video object.
+   */
+  const video = useMemo<Video>(
+    () =>
+      ({
+        id: mediaId,
+        mediaId,
+        src: "/demovid.mp4",
+        username: "demo_user",
+        ownerId: "",
+        avatar: "/avatar-placeholder.png",
+        verified: false,
+        description:
+          "This is a temporary video description.",
+        hashtags: [],
+        views: 0,
+        likes: 0,
+        likedByMe: false,
+      }) as Video,
+    [mediaId]
+  );
 
   return (
-    <div className="relative min-h-screen bg-black text-white overflow-hidden">
-      <DesktopShell navHidden={desktopNavHidden} />
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-black text-white">
+      {/* =========================================================
+          DESKTOP NAVIGATION
+          ========================================================= */}
 
-      <MobileChrome
+      <WatchDesktopShell navHidden={false} />
+
+      {/* =========================================================
+          MOBILE NAVIGATION
+          ========================================================= */}
+
+      <WatchMobileChrome
         activeTab={activeTab}
         onTabChange={setActiveTab}
         isSearching={isMobileSearching}
-        onSearchOpen={() => setIsMobileSearching(true)}
+        onSearchOpen={() =>
+          setIsMobileSearching(true)
+        }
         onSearchClose={() => {
           setIsMobileSearching(false);
           setSearchQuery("");
@@ -99,98 +82,190 @@ export default function WatchClient({ mediaId }: { mediaId: number }) {
         setSearchQuery={setSearchQuery}
       />
 
-      <div className="pointer-events-none fixed top-14 lg:top-5 lg:pr-20 left-1/2 z-30 -translate-x-1/2">
-        <div className="inline-flex gap-8 text-sm font-medium text-white pointer-events-auto">
-          {(["forYou", "trending"] as FeedTab[]).map((tabKey) => {
-            const label = tabKey === "forYou" ? "For you" : "Trending";
-            const active = activeTab === tabKey;
-            return (
-              <button
-                key={tabKey}
-                type="button"
-                onClick={() => setActiveTab(tabKey)}
-                className={`pb-1 transition-colors ${
-                  active ? "text-white" : "text-white/70 hover:text-white"
-                }`}
-              >
-                <span>{label}</span>
-                <span
-                  className={`block mt-1 rounded-full ${
-                    active ? "h-[3px] bg-white" : "h-[3px] bg-transparent"
-                  }`}
-                />
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {/* =========================================================
+          DESKTOP WATCH PAGE
+          ========================================================= */}
 
-      {showForYouGate ? (
-        <ForYouLoginGate />
-      ) : authLoaded ? (
-        <VideoFeed
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          onScrollDirectionChange={(direction) =>
-            setDesktopNavHidden(direction === "down")
-          }
-          initialVideo={initialVideo}
-        />
-      ) : (
-        <div className="flex h-screen items-center justify-center lg:pl-[17rem] lg:pr-[21rem]">
-          <span className="text-sm text-white/60">Loading…</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ForYouLoginGate() {
-  return (
-    <main className="relative h-screen lg:pl-[17rem] lg:pr-[21rem] lg:pt-16">
-      <div className="relative h-full flex items-center justify-center px-3 sm:px-4">
+      <main
+        className="
+          hidden
+          min-h-screen
+          w-full
+          overflow-x-hidden
+          lg:block
+          pl-64
+          pr-80
+          pt-16
+        "
+      >
         <div
-          className="flex flex-col items-center justify-center relative max-w-sm w-full h-full bg-black/80 border border-white/15 shadow-2xl overflow-hidden"
-          style={{
-            backgroundImage: "url('/images/unlock-2.png')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
+          className="
+            flex
+            min-h-[calc(100vh-4rem)]
+            w-full
+            items-center
+            justify-center
+            gap-8
+            px-6
+            py-8
+          "
         >
-          <div className="px-6 pt-8 pb-6 text-center">
-            <p className="text-sm text-white mb-6">
-              You must be logged in to view the{" "}
-              <span className="font-semibold">&ldquo;For You&rdquo;</span> feed.
-            </p>
+          {/* =====================================================
+              LEFT AD RAIL
+              ===================================================== */}
 
-            <Link href="/auth/login">
-              <button
-                type="button"
-                className="w-full rounded-full bg-[pink] text-black font-semibold py-3 text-sm hover:brightness-95 transition"
-              >
-                Log In
-              </button>
-            </Link>
-          </div>
+          {/*
+          <section
+            className="
+              hidden
+              xl:flex
+              w-[300px]
+              shrink-0
+              items-center
+              justify-center
+            "
+          >
+            Left ad
+          </section>
+          */}
 
-          <div className="h-px bg-white/10" />
+          {/* =====================================================
+              CENTER VIDEO CARD
+              ===================================================== */}
 
-          <div className="px-6 py-5 text-center space-y-3">
-            <p className="text-xs text-white/70 mb-1">
-              Don&apos;t have an account?
-            </p>
-            <Link href="/auth/signup">
-              <button
-                type="button"
-                className="w-full rounded-full border border-white text-sm font-semibold py-3 hover:bg-white/5 transition"
-              >
-                Sign Up
-              </button>
-            </Link>
-          </div>
+          <section
+            className="
+              flex
+              w-full
+              max-w-[520px]
+              shrink-0
+              justify-center
+            "
+          >
+            <div
+              className="
+                relative
+                w-full
+                aspect-[9/16]
+                overflow-hidden
+                rounded-2xl
+                border
+                border-white/10
+                bg-black
+              "
+            >
+              <WatchVideoCard
+                video={video}
+                isMuted={isMuted}
+                toggleMute={() =>
+                  setIsMuted(
+                    (previous) => !previous
+                  )
+                }
+              />
+            </div>
+          </section>
+
+          {/* =====================================================
+              RIGHT SIDE
+              ===================================================== */}
+
+          {/*
+           * WatchDesktopShell already owns the desktop
+           * right-side advertisement column.
+           */}
+
+          <div className="hidden xl:block w-0 shrink-0" />
         </div>
-      </div>
-    </main>
+      </main>
+
+      {/* =========================================================
+          MOBILE WATCH PAGE
+          ========================================================= */}
+
+      <main
+        className="
+          lg:hidden
+          min-h-screen
+          w-full
+          overflow-x-hidden
+          bg-black
+          px-3
+          pt-16
+          pb-20
+        "
+      >
+        <div className="flex w-full flex-col items-center gap-4">
+          {/* =====================================================
+              MOBILE VIDEO CARD
+              ===================================================== */}
+
+          <section className="w-full flex justify-center">
+            <div
+              className="
+                relative
+                w-full
+                max-w-[520px]
+                aspect-[9/16]
+                overflow-hidden
+                rounded-2xl
+                border
+                border-white/10
+                bg-black
+              "
+            >
+              <WatchVideoCard
+                video={video}
+                isMuted={isMuted}
+                toggleMute={() =>
+                  setIsMuted(
+                    (previous) => !previous
+                  )
+                }
+              />
+            </div>
+          </section>
+
+          {/* =====================================================
+              MOBILE SCROLLABLE AD CONTAINER
+              ===================================================== */}
+
+          <section className="w-full max-w-[520px]">
+            <div
+              className="
+                overflow-hidden
+                rounded-2xl
+                border
+                border-white/10
+                bg-black/90
+              "
+            >
+              <div className="border-b border-white/10 px-4 py-3">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-white/60">
+                  Sponsored
+                </h2>
+              </div>
+
+              <div
+                className="
+                  max-h-[400px]
+                  overflow-y-auto
+                  overscroll-contain
+                  px-3
+                  py-3
+                  scrollbar-thin
+                  scrollbar-thumb-white/20
+                  scrollbar-track-transparent
+                "
+              >
+                <div className="flex justify-center">
+                  <JuicyAd308x1044_1108082 />
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
   );
 }

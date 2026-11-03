@@ -19,7 +19,7 @@ function parseMediaIdFromResourceUrl(raw: string): number | null {
 
   // allow www + non-www
   const host = u.hostname.replace(/^www\./, "");
-  if (host !== "upskirtcandy.com") return null;
+  if (host !== "goongram.com") return null;
 
   const parts = u.pathname.split("/").filter(Boolean);
   // support /watch/:id (and optionally /embed/:id)
@@ -93,7 +93,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const siteUrl = "https://upskirtcandy.com"; // keep consistent with your canonical domain
+    const siteUrl = "https://goongram.com"; // keep consistent with your canonical domain
     const width = 720;
     const height = 1080;
 
@@ -105,10 +105,10 @@ export async function GET(req: Request) {
       {
         version: "1.0",
         type: "video",
-        provider_name: "Upskirt Candy",
+        provider_name: "Goon Gram",
         provider_url: siteUrl,
-        title: data.title ?? `UpskirtCandy video #${mediaId}`,
-        author_name: "Upskirt Candy",
+        title: data.title ?? `goongram video #${mediaId}`,
+        author_name: "Goon Gram",
         author_url: siteUrl,
         width,
         height,

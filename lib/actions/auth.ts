@@ -60,12 +60,12 @@ function normalizePreferences(raw: string[] | null | undefined): Preference[] {
 
 export async function sendOtpEmail(to: string, code: string) {
   const fromEmail = process.env.SMTP_FROM_EMAIL ?? process.env.SMTP_USER!;
-  const fromName = process.env.SMTP_FROM_NAME ?? "Upskirt Candy";
+  const fromName = process.env.SMTP_FROM_NAME ?? "Goon Gram";
 
   await smtpTransporter.sendMail({
     from: `"${fromName}" <${fromEmail}>`,
     to,
-    subject: "Reset your Upskirt Candy password",
+    subject: "Reset your Goon Gram password",
     text: `Your one-time code is: ${code}\n\nIt expires in 5 minutes.`,
     html: `
       <p>Here is your one-time code to reset your password:</p>

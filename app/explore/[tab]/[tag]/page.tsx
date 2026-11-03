@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import ExploreNicheTagClient from "./ExploreNicheTagClient";
 
-const SITE_NAME = "Upskirt Candy";
-const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://upskirtcandy.com").replace(/\/$/, "");
+const SITE_NAME = "Goon Gram";
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://goongram.com").replace(/\/$/, "");
 
 function abs(path: string) {
   return `${SITE_URL}${path.startsWith("/") ? path : `/${path}`}`;

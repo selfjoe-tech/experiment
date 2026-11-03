@@ -129,7 +129,7 @@ export default function DesktopShell({ navHidden}: Props) {
   // const avatarUrl = profile.avatarUrl; // if you want to show an avatar somewhere
 
   const uploadItem = isLoggedIn
-  ? { label: "Upload", icon: UploadIcon, href: "https://upload.upskirtcandy.com/upload" }
+  ? { label: "Upload", icon: UploadIcon, href: "https://upload.goongram.com/upload" }
   : { label: "Upload", icon: UploadIcon, onClick: () => setShowUploadAuthModal(true) };
 
 const items: {
@@ -218,7 +218,7 @@ const items: {
           <div>
             <h2 className="text-sm font-semibold">Sign/Login in to upload</h2>
             <p className="mt-1 text-xs text-white/70">
-              You need an UpskirtCandy account to upload content.
+              You need an goongram account to upload content.
               Log in to start posting.
             </p>
           </div>

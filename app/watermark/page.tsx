@@ -13,7 +13,7 @@ export default function WatermarkPage() {
   const [ready, setReady] = useState(false);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [outputUrl, setOutputUrl] = useState<string | null>(null);
-  const [siteName, setSiteName] = useState("UpskirtCandy");
+  const [siteName, setSiteName] = useState("goongram");
   const [username, setUsername] = useState("nano");
   const [position, setPosition] = useState<Position>("bottom-right");
   const [processing, setProcessing] = useState(false);

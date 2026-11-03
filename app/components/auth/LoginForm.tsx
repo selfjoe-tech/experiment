@@ -124,7 +124,7 @@ export function LoginForm({ onShowForgot }: { onShowForgot: () => void }) {
         </Button>
 
         <p className="text-center text-sm text-white/70">
-          New to Upskirt Candy?{" "}
+          New to Goon Gram?{" "}
           <Link
             href={`/auth/signup?redirect=${encodeURIComponent(redirect)}`}
             className="text-white underline underline-offset-4"

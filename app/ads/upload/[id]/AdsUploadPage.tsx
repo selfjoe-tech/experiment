@@ -292,7 +292,7 @@ export default function AdsUploadPage({ params }: PageProps) {
             description.trim().slice(0, 80) || "Sponsored video preview",
           description:
             description.trim() ||
-            "Turn every swipe into an opportunity with a full-screen UpskirtCandy ad.",
+            "Turn every swipe into an opportunity with a full-screen goongram ad.",
           username: "yourbrand",
           avatar: "/avatar-placeholder.png",
           likes: 0,
@@ -360,7 +360,7 @@ export default function AdsUploadPage({ params }: PageProps) {
             <p className="text-xs text-white/60">
               Need help?{" "}
               <a
-                href="mailto:sales@upskirtcandy.com"
+                href="mailto:sales@goongram.com"
                 className="underline text-pink-400"
               >
                 Contact sales
@@ -625,7 +625,7 @@ function SideColumnPreview({ imageUrl }: { imageUrl: string | null }) {
           {imageUrl && (
             <Image
               src={imageUrl}
-              alt="Side-column ad preview on Upskirt Candy - Porn videos"
+              alt="Side-column ad preview on Goon Gram - Porn videos"
               fill
               className="object-cover"
               sizes="320px"

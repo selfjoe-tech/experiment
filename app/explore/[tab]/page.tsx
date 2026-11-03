@@ -63,17 +63,17 @@ useEffect(() => {
 
   const tabLabel = tabLabelMap[tab];
 
-  const baseTitle = `Explore ${tabLabel} | UpskirtCandy`;
+  const baseTitle = `Explore ${tabLabel} | goongram`;
   const description =
     tab === "gifs"
-      ? "Explore trending and newest adult GIFs on UpskirtCandy from verified creators and niches."
+      ? "Explore trending and newest adult GIFs on goongram from verified creators and niches."
       : tab === "images"
-      ? "Browse high quality adult images and loops from UpskirtCandy creators, sorted by trending, newest and most viewed."
+      ? "Browse high quality adult images and loops from goongram creators, sorted by trending, newest and most viewed."
       : tab === "creators"
-      ? "Discover UpskirtCandy creators, follow your favourites and explore their GIFs and images."
-      : "Dive into UpskirtCandy niches, from specific kinks to themed collections, and explore GIFs & videos by category.";
+      ? "Discover goongram creators, follow your favourites and explore their GIFs and images."
+      : "Dive into goongram niches, from specific kinks to themed collections, and explore GIFs & videos by category.";
 
-  const canonical = `https://upskirtcandy.com/explore/${tab}`;
+  const canonical = `https://goongram.com/explore/${tab}`;
 
   const collectionSchema = {
     "@context": "https://schema.org",
@@ -83,8 +83,8 @@ useEffect(() => {
     url: canonical,
     isPartOf: {
       "@type": "WebSite",
-      name: "UpskirtCandy",
-      url: "https://upskirtcandy.com",
+      name: "goongram",
+      url: "https://goongram.com",
     },
   };
 
@@ -231,7 +231,7 @@ const [initialOverlayIndex, setInitialOverlayIndex] = useState<number | null>(nu
         <meta property="og:title" content={baseTitle} />
         <meta property="og:description" content={description} />
         <meta property="og:url" content={canonical} />
-        <meta property="og:site_name" content="UpskirtCandy" />
+        <meta property="og:site_name" content="goongram" />
         <meta property="og:type" content="website" />
 
         {/* Twitter */}

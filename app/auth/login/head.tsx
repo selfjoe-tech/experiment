@@ -1,9 +1,9 @@
 // app/auth/login/head.tsx
 import React from "react";
 
-const SITE_NAME = "Upskirt Candy";
+const SITE_NAME = "Goon Gram";
 const BASE_URL =
-  (process.env.NEXT_PUBLIC_SITE_URL || "https://upskirtcandy.com").replace(/\/$/, "");
+  (process.env.NEXT_PUBLIC_SITE_URL || "https://goongram.com").replace(/\/$/, "");
 const DEFAULT_OG_IMAGE =
   "https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png";
 
@@ -12,7 +12,7 @@ export default function Head() {
 
   const title = `Log in to ${SITE_NAME}`;
   const description =
-    "Log in to Upskirt Candy to upload content, manage your creator profile, and track views, likes, and ad performance.";
+    "Log in to Goon Gram to upload content, manage your creator profile, and track views, likes, and ad performance.";
 
   const image = DEFAULT_OG_IMAGE;
 

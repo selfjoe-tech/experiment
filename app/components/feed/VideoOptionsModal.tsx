@@ -121,7 +121,7 @@ export default function VideoOptionsModal({
 
   const iframeSnippet = `<iframe src="${embedUrl}" width="360" height="640" style="border:0;overflow:hidden" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>`;
 
-  const fallbackName = `upskirtcandy_${idStr}.mp4`;
+  const fallbackName = `goongram_${idStr}.mp4`;
   const downloadName = getSupabasePublicFilename(videoUrl, fallbackName);
 
   const copyText = async (text: string, kind: "embed" | "share") => {

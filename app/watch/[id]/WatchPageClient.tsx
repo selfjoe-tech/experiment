@@ -113,7 +113,7 @@ export default function WatchPage() {
     <div className="relative min-h-screen bg-black text-white overflow-hidden">
       {/* SEO/a11y: hidden H1 */}
       <h1 className="sr-only">
-        Watch adult video on Upskirt Candy
+        Watch adult video on Goon Gram
       </h1>
 
       {/* Desktop shell */}

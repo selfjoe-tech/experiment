@@ -176,7 +176,7 @@ export function ProfilePanel({
         <div className="relative h-10 w-10 rounded-full bg-white/10 overflow-hidden">
           <Image
             src={avatar || "/avatar-placeholder.png"}
-            alt={`${username}'s avatar on Upskirt Candy`}
+            alt={`${username}'s avatar on Goon Gram`}
             fill
             sizes="40px"
             className="object-cover"

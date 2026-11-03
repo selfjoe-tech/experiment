@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import WatchClient from "./watch-client";
 import { getWatchOgMeta } from "@/lib/server/watchOgMeta";
 
-const SITE_URL = ("https://upskirtcandy.com").replace(
+const SITE_URL = ("https://goongram.com").replace(
   /\/$/,
   ""
 );
@@ -23,15 +23,15 @@ export async function generateMetadata({
   if (!Number.isFinite(mediaId)) {
     const canonical = `${SITE_URL}/watch/${encodeURIComponent(String(id))}`;
     return {
-      title: "Watch video | UpskirtCandy",
-      description: "Watch videos on UpskirtCandy.",
+      title: "Watch video | goongram",
+      description: "Watch videos on goongram.",
       alternates: { canonical },
       openGraph: {
         type: "website",
         url: canonical,
-        title: "Watch video | UpskirtCandy",
-        description: "Watch videos on UpskirtCandy.",
-        siteName: "UpskirtCandy",
+        title: "Watch video | goongram",
+        description: "Watch videos on goongram.",
+        siteName: "goongram",
         images: [{ url: FALLBACK_OG_IMAGE, width: 1200, height: 630 }],
       },
       twitter: {
@@ -56,10 +56,10 @@ export async function generateMetadata({
   const ogImage = meta?.thumbnailUrl || meta?.poster || FALLBACK_OG_IMAGE;
 
   const baseTitle =
-    meta?.title?.trim() || meta?.description?.slice(0, 80) || "Watch video on UpskirtCandy";
+    meta?.title?.trim() || meta?.description?.slice(0, 80) || "Watch video on goongram";
 
-  const title = `${baseTitle} | UpskirtCandy`;
-  const description = meta?.description?.trim() || "Watch videos on UpskirtCandy.";
+  const title = `${baseTitle} | goongram`;
+  const description = meta?.description?.trim() || "Watch videos on goongram.";
 
   const videos = meta?.contentUrl
     ? [
@@ -88,7 +88,7 @@ export async function generateMetadata({
       url: canonical,
       title,
       description,
-      siteName: "Upskirt Candy",
+      siteName: "Goon Gram",
       images: [{ url: ogImage, width: 1200, height: 630 }],
       videos,
     },
@@ -243,14 +243,14 @@ export default async function WatchPage({
 //   const baseTitle: string =
 //     anyVideo.title ||
 //     anyVideo.description?.slice(0, 80) ||
-//     "Watch video on UpskirtCandy";
+//     "Watch video on goongram";
 
-//   const pageTitle = `${baseTitle} | UpskirtCandy`;
+//   const pageTitle = `${baseTitle} | goongram`;
 //   const description: string =
 //     anyVideo.description ||
-//     "Watch adult video from creators on UpskirtCandy.";
+//     "Watch adult video from creators on goongram.";
 
-//   const canonical = `https://upskirtcandy.com/watch/${encodeURIComponent(
+//   const canonical = `https://goongram.com/watch/${encodeURIComponent(
 //     String(mediaId)
 //   )}`;
 
@@ -269,7 +269,7 @@ export default async function WatchPage({
 
 //   const creatorUsername: string | undefined = anyVideo.username || undefined;
 //   const creatorUrl = creatorUsername
-//     ? `https://upskirtcandy.com/${encodeURIComponent(creatorUsername)}`
+//     ? `https://goongram.com/${encodeURIComponent(creatorUsername)}`
 //     : undefined;
 
 //   const viewCount = Number(anyVideo.views ?? 0);
@@ -287,8 +287,8 @@ export default async function WatchPage({
 //     ...(contentUrl && { contentUrl }),
 //     publisher: {
 //       "@type": "Organization",
-//       name: "UpskirtCandy",
-//       url: "https://upskirtcandy.com",
+//       name: "goongram",
+//       url: "https://goongram.com",
 //     },
 //     ...(creatorUsername && {
 //       creator: {
@@ -319,7 +319,7 @@ export default async function WatchPage({
 //           <link
 //             rel="alternate"
 //             type="application/json+oembed"
-//             href={`https://upskirtcandy.com/oembed?format=json&url=${encodeURIComponent(canonical)}`}
+//             href={`https://goongram.com/oembed?format=json&url=${encodeURIComponent(canonical)}`}
 //           />
 
 //           <meta property="og:type" content="video.other" />
@@ -338,7 +338,7 @@ export default async function WatchPage({
 //         <meta property="og:title" content={pageTitle} />
 //         <meta property="og:description" content={description} />
 //         <meta property="og:url" content={canonical} />
-//         <meta property="og:site_name" content="UpskirtCandy" />
+//         <meta property="og:site_name" content="goongram" />
 //         <meta property="og:type" content="video.other" />
 //         {thumbnail && <meta property="og:image" content={thumbnail} />}
 //         {contentUrl && <meta property="og:video" content={contentUrl} />}

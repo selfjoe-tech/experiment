@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import NextTopLoader from "nextjs-toploader";
+
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -12,11 +14,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const SITE_NAME = "Upskirt Candy";
-const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://upskirtcandy.com").replace(/\/$/, "");
+const SITE_NAME = "Goon Gram";
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://goongram.com").replace(/\/$/, "");
 const DEFAULT_TITLE = `${SITE_NAME} | Porn GIFs, Videos & Clips`;
 const DEFAULT_DESCRIPTION =
-  "Upskirt Candy is a short-form adult video and GIF platform. Discover trending creators, niches, and content in a continuous feed.";
+  "Goon Gram is a short-form adult video and GIF platform. Discover trending creators, niches, and content in a continuous feed.";
 const DEFAULT_OG_IMAGE =
   "https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png";
 
@@ -142,9 +144,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
-        <link rel="icon" href="/favicon.png"/>
+        <link rel="icon" href="/favicon.png" />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        <NextTopLoader
+          color="#ec4899"
+          height={3}
+          showSpinner={false}
+          crawl={true}
+          speed={200}
+        />
+
         <SiteJsonLd />
         {children}
       </body>

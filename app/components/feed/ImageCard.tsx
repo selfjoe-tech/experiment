@@ -369,7 +369,7 @@ export default function ImageCard({
         {src && (
           <Image
             src={src}
-            alt={`${description} - ${username} only Upskirt Candy - Porn videos`}
+            alt={`${description} - ${username} only Goon Gram - Porn videos`}
             width={1600} // just defines aspect ratio
             height={1600}
             sizes={

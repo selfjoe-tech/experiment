@@ -11,7 +11,7 @@ export function ShortLogo(
             src={"/icons/logo7.png"}
             height={50}
             width={50}
-            alt="Upskirt Candy heart shaped logo with a halo on top of it"
+            alt="Goon Gram heart shaped logo with a halo on top of it"
           />
         
       </div>

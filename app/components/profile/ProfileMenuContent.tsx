@@ -167,7 +167,7 @@ export default function ProfileMenuContent() {
           src={avatar || "/avatar-placeholder.png"}
           width={40}
           height={40}
-          alt={`${username}'s avatar on Upskirt Candy` || "Upskirt Candy avatar"}
+          alt={`${username}'s avatar on Goon Gram` || "Goon Gram avatar"}
         />
         <div className="min-w-0">
           <div className="font-semibold truncate flex items-center gap-2">

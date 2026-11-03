@@ -347,7 +347,7 @@ function MobileBottomNav({
         <NavLink href="/" label="Home" icon={Home} />
         <NavLink href="/explore/gifs" label="Explore" icon={Compass} />
         {isAuthed ? (
-          <NavLink href="https://upload.upskirtcandy.com/upload" icon={PlusCircleIcon} />
+          <NavLink href="https://upload.goongram.com/upload" icon={PlusCircleIcon} />
         ) : (
           <button
             type="button"
@@ -423,7 +423,7 @@ function MobileBottomNav({
             <h2 className="text-sm font-semibold">Sign in to upload</h2>
             <p className="mt-1 text-[11px] text-white/70">
               You need an account to upload content. Log in or sign up to start
-              posting on UpskirtCandy.
+              posting on goongram.
             </p>
           </div>
           <button

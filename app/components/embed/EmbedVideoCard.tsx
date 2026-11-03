@@ -208,7 +208,7 @@ export default function EmbedVideoCard({
             <div className="h-10 w-10 rounded-full bg-white/60 overflow-hidden">
               <Image
                 src={video.avatar}
-                alt={`${video.username}'s avatar on Upskirt Candy - Porn videos`}
+                alt={`${video.username}'s avatar on Goon Gram - Porn videos`}
                 width={40}
                 height={40}
                 className="h-full w-full object-cover"

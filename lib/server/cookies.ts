@@ -4,7 +4,7 @@ export async function getAuthCookieOptions() {
   // IMPORTANT:
   // - NEVER set `domain` on localhost
   // - only set domain in prod for subdomain sharing
-  const domain = isProd ? "upskirtcandy.com" : undefined;
+  const domain = isProd ? "goongram.com" : undefined;
 
   return {
     path: "/",

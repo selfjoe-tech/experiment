@@ -338,7 +338,7 @@ function isSafeExternalUrl(url: string) {
                   src={avatar || "/avatar-placeholder.png"}
                   height={20}
                   width={20}
-                  alt={`${username}' avatar on Upskirt Candy - Porn videos`} 
+                  alt={`${username}' avatar on Goon Gram - Porn videos`} 
                   className="h-full w-full object-cover"
                   loading="lazy"              
                   />

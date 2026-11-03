@@ -97,11 +97,9 @@ export default function HomePage() {
           onTabChange={setActiveTab}
           onScrollDirectionChange={(direction) => {
                 const hide = direction === "down";
-
             setDesktopNavHidden(hide);
             setMobileNavHidden(hide);} // ✅ mobile follows same rule
 
-            
           }
           
         />

@@ -35,11 +35,11 @@ export const ContactUs = () => {
               <div className="text-sm font-semibold text-white mb-2">For business</div>
 
               <a
-                href="mailto:sales@upskirtcandy.com"
+                href="mailto:sales@goongram.com"
                 className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white/90 hover:bg-white/10 transition"
               >
                 <Mail className="h-4 w-4 text-pink-500" />
-                <span className="truncate">sales@upskirtcandy.com</span>
+                <span className="truncate">sales@goongram.com</span>
               </a>
 
 
@@ -58,7 +58,7 @@ export const ContactUs = () => {
 
               <div className="mt-3 grid grid-cols-3 gap-2">
                 <a
-                  href="https://www.reddit.com/r/UpskirtCandy/"
+                  href="https://www.reddit.com/r/goongram/"
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white/90 hover:bg-white/10 transition"
@@ -68,7 +68,7 @@ export const ContactUs = () => {
                 </a>
 
                 <a
-                  href="https://x.com/upskirtcandy"
+                  href="https://x.com/goongram"
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white/90 hover:bg-white/10 transition"

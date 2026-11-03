@@ -4,9 +4,9 @@ import {
   getFollowCountsByUsername,
 } from "@/lib/actions/social";
 
-const SITE_NAME = "Upskirt Candy";
+const SITE_NAME = "Goon Gram";
 const BASE_URL =
-  (process.env.NEXT_PUBLIC_SITE_URL || "https://upskirtcandy.com").replace(/\/$/, "");
+  (process.env.NEXT_PUBLIC_SITE_URL || "https://goongram.com").replace(/\/$/, "");
 const DEFAULT_OG_IMAGE =
   "https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png";
 

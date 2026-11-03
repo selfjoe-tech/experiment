@@ -28,7 +28,7 @@ const demoAdVideo: Video = {
   src: "/demo-ad.mp4",
   title: "Your Brand. Full Screen.",
   description:
-    "Turn every swipe into an opportunity. Show your product in immersive, sound-on video directly in the UpskirtCandy feed.",
+    "Turn every swipe into an opportunity. Show your product in immersive, sound-on video directly in the goongram feed.",
   username: "yourbrand",
   avatar: "/avatar-placeholder.png",
   likes: 1240,
@@ -136,7 +136,7 @@ export default function AdsPage() {
           <div className="space-y-6">
             <LongLogo />
             <div className="inline-flex items-center gap-2 rounded-full border border-pink-500/40 bg-pink-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-pink-200">
-              UpskirtCandy Ads
+              goongram Ads
               <span className="h-1.5 w-1.5 rounded-full bg-pink-400 animate-pulse" />
             </div>
 
@@ -151,7 +151,7 @@ export default function AdsPage() {
             </div>
 
             <p className="text-sm sm:text-base text-white/70 max-w-xl">
-              Ads on UpskirtCandy are designed to feel like premium content,
+              Ads on goongram are designed to feel like premium content,
               not clutter. Your campaign appears between organic videos where
               users are already locked in.
             </p>
@@ -225,7 +225,7 @@ export default function AdsPage() {
               </span>
             </h1>
             <a
-              href="mailto:sales@upskirtcandy.com"
+              href="mailto:sales@goongram.com"
               className="inline-flex items-center gap-2 rounded-full bg-white text-black px-5 py-2.5 text-sm font-semibold hover:bg-pink-500 hover:text-white"
             >
               <Mail className="h-4 w-4" />
@@ -469,7 +469,7 @@ function SideColumnPreview({
           {imageUrl && (
             <Image
               src={imageUrl}
-              alt="Side-column ad preview on Upskirt Candy - Porn videos"
+              alt="Side-column ad preview on Goon Gram - Porn videos"
               fill
               className="object-cover"
               sizes="320px"

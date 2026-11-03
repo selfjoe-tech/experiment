@@ -1,9 +1,9 @@
 // app/ads/head.tsx
 import React from "react";
 
-const SITE_NAME = "Upskirt Candy";
+const SITE_NAME = "Goon Gram";
 const BASE_URL =
-  (process.env.NEXT_PUBLIC_SITE_URL || "https://upskirtcandy.com").replace(/\/$/, "");
+  (process.env.NEXT_PUBLIC_SITE_URL || "https://goongram.com").replace(/\/$/, "");
 const DEFAULT_OG_IMAGE =
   "https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png";
 
@@ -12,7 +12,7 @@ export default function Head() {
 
   const title = `Advertise on ${SITE_NAME} | In-feed video, image, and banner ads`;
   const description =
-    "Promote your brand with in-feed video, image, and banner ads on Upskirt Candy. Sponsored posts appear in the feed with views, likes, and clicks tracked. Contact sales@upskirtcandy.com to get started.";
+    "Promote your brand with in-feed video, image, and banner ads on Goon Gram. Sponsored posts appear in the feed with views, likes, and clicks tracked. Contact sales@goongram.com to get started.";
 
   const image = DEFAULT_OG_IMAGE;
 
@@ -34,7 +34,7 @@ export default function Head() {
       "@id": `${url}#ads-service`,
       name: `Advertising on ${SITE_NAME}`,
       description:
-        "Sponsored video, image, and banner placements inside the Upskirt Candy feed with view and click tracking.",
+        "Sponsored video, image, and banner placements inside the Goon Gram feed with view and click tracking.",
       provider: {
         "@type": "Organization",
         name: SITE_NAME,
@@ -47,12 +47,12 @@ export default function Head() {
       availableChannel: {
         "@type": "ServiceChannel",
         name: "Email",
-        serviceUrl: "mailto:sales@upskirtcandy.com",
+        serviceUrl: "mailto:sales@goongram.com",
       },
     },
     potentialAction: {
       "@type": "ContactAction",
-      target: "mailto:sales@upskirtcandy.com",
+      target: "mailto:sales@goongram.com",
       name: `Contact ${SITE_NAME} ad sales`,
     },
   };

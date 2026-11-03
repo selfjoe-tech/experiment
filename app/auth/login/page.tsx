@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import LoginPageClient from "./_components/LoginPageClient";
 
-const SITE_NAME = "Upskirt Candy";
-const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://upskirtcandy.com").replace(/\/$/, "");
+const SITE_NAME = "Goon Gram";
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://goongram.com").replace(/\/$/, "");
 
 function abs(path: string) {
   return `${SITE_URL}${path.startsWith("/") ? path : `/${path}`}`;
@@ -10,7 +10,7 @@ function abs(path: string) {
 
 export async function generateMetadata(): Promise<Metadata> {
   const title = `Login | ${SITE_NAME}`;
-  const description = "Log in to your Upskirt Candy account.";
+  const description = "Log in to your Goon Gram account.";
   const canonical = abs("/auth/login");
 
   return {

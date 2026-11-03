@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import AdsPageClient from "./_components/AdsPageClient";
 
-const SITE_NAME = "Upskirt Candy";
-const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://upskirtcandy.com").replace(/\/$/, "");
+const SITE_NAME = "Goon Gram";
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://goongram.com").replace(/\/$/, "");
 const DEFAULT_OG_IMAGE =
   "https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png";
 
@@ -13,7 +13,7 @@ function abs(path: string) {
 export async function generateMetadata(): Promise<Metadata> {
   const title = `Advertise on ${SITE_NAME}`;
   const description =
-    "Run premium banner and in-feed sponsored ads on Upskirt Candy. Preview placements and contact sales@upskirtcandy.com to get started.";
+    "Run premium banner and in-feed sponsored ads on Goon Gram. Preview placements and contact sales@goongram.com to get started.";
   const canonical = abs("/ads");
 
   return {
@@ -60,7 +60,7 @@ export default function AdsPage() {
     name: `Advertise on ${SITE_NAME}`,
     url: abs("/ads"),
     description:
-      "Advertising information and ad placement previews for Upskirt Candy.",
+      "Advertising information and ad placement previews for Goon Gram.",
     isPartOf: { "@type": "WebSite", name: SITE_NAME, url: SITE_URL },
   }).replace(/</g, "\\u003c"); // Next recommends sanitizing "<" in JSON-LD :contentReference[oaicite:2]{index=2}
 
