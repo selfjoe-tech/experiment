@@ -1,16 +1,21 @@
-// app/auth/actions.ts
 "use server";
 
-import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
-import { supabase } from "@/lib/supabaseClient";
-import nodemailer from "nodemailer";
-import { getAuthCookieOptions } from "../server/cookies";
-
-
-
+import { createClient } from "@/lib/supabase/server";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { getAuthCookieOptions } from "@/lib/server/cookies";
 
 const USERNAME_REGEX = /^[a-z0-9._]+$/;
+const ALLOWED_PREFERENCES = [
+  "straight",
+  "gay",
+  "bisexual",
+  "trans",
+  "lesbian",
+  "animated",
+] as const;
+
+type Preference = (typeof ALLOWED_PREFERENCES)[number];
 
 export type AuthFieldErrors = {
   username?: string;
@@ -24,6 +29,7 @@ export type AuthResult = {
   success: boolean;
   message?: string;
   fieldErrors?: AuthFieldErrors;
+  requiresEmailConfirmation?: boolean;
 };
 
 export type ForgotPasswordFieldErrors = {
@@ -33,282 +39,84 @@ export type ForgotPasswordFieldErrors = {
   confirmPassword?: string;
 };
 
-const ALLOWED_PREFERENCES = [
-  "straight",
-  "gay",
-  "bisexual",
-  "trans",
-  "lesbian",
-  "animated",
-] as const;
-
-type Preference = (typeof ALLOWED_PREFERENCES)[number];
-
-
-function normalizePreferences(raw: string[] | null | undefined): Preference[] {
-  if (!raw || !raw.length) return [];
-
-  const lower = raw
-    .map((p) => p.toLowerCase().trim())
-    .filter(Boolean);
-
-  const dedup = Array.from(new Set(lower));
-
-  return ALLOWED_PREFERENCES.filter((pref) => dedup.includes(pref));
-}
-
-
-export async function sendOtpEmail(to: string, code: string) {
-  const fromEmail = process.env.SMTP_FROM_EMAIL ?? process.env.SMTP_USER!;
-  const fromName = process.env.SMTP_FROM_NAME ?? "Goon Gram";
-
-  await smtpTransporter.sendMail({
-    from: `"${fromName}" <${fromEmail}>`,
-    to,
-    subject: "Reset your Goon Gram password",
-    text: `Your one-time code is: ${code}\n\nIt expires in 5 minutes.`,
-    html: `
-      <p>Here is your one-time code to reset your password:</p>
-      <p style="font-size: 20px; font-weight: bold;">${code}</p>
-      <p>This code expires in 5 minutes.</p>
-      <p>If you didn’t request this, you can ignore this email.</p>
-    `,
-  });
-}
-
-
-
-
-export async function requestPasswordResetAction(
-  formData: FormData
-): Promise<{ success: boolean; message?: string; fieldErrors?: ForgotPasswordFieldErrors }> {
-  const email = (formData.get("email") as string | null)?.trim().toLowerCase();
-
-  const fieldErrors: ForgotPasswordFieldErrors = {};
-  if (!email) {
-    fieldErrors.email = "Email is required.";
-    return { success: false, fieldErrors };
-  }
-
-  // 1) Check that email exists in profiles
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("email")
-    .eq("email", email)
-    .maybeSingle();
-
-  if (profileError) {
-    console.error("requestPasswordReset: profile lookup error", profileError);
-    return { success: false, message: "Something went wrong. Please try again." };
-  }
-
-  if (!profile) {
-    // You *could* return success here to avoid user enumeration.
-    fieldErrors.email = "No account found with that email.";
-    return { success: false, fieldErrors };
-  }
-
-
-  
-  // 2) Generate 6-digit OTP and hash it
-  const otp = String(Math.floor(100000 + Math.random() * 900000)); // 6-digit
-  const otpHash = await bcrypt.hash(otp, 10);
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 minutes
-
-  // 3) Clear existing tokens for this email
-  await supabase.from("password_reset_tokens").delete().eq("email", email);
-
-  // 4) Insert new token
-  const { error: insertError } = await supabase
-    .from("password_reset_tokens")
-    .insert({
-      email,
-      otp_hash: otpHash,
-      expires_at: expiresAt,
-    });
-
-  if (insertError) {
-    console.error("requestPasswordReset: insert token error", insertError);
-    return { success: false, message: "Could not create reset token." };
-  }
-
-  // 5) Send email
-  try {
-    await sendOtpEmail(email, otp);
-  } catch (err) {
-    console.error("requestPasswordReset: email error", err);
-    return {
-      success: false,
-      message: "Failed to send code. Please try again in a moment.",
-    };
-  }
-
-  return {
-    success: true,
-    message: "We sent a 6-digit code to your email.",
-  };
-}
-
-
-
-export async function resetPasswordWithOtpAction(
-  formData: FormData
-): Promise<{ success: boolean; message?: string; fieldErrors?: ForgotPasswordFieldErrors }> {
-  const email = (formData.get("email") as string | null)?.trim().toLowerCase();
-  const otp = (formData.get("otp") as string | null)?.trim();
-  const password = (formData.get("password") as string | null) ?? "";
-  const confirmPassword = (formData.get("confirmPassword") as string | null) ?? "";
-
-  const fieldErrors: ForgotPasswordFieldErrors = {};
-
-  if (!email) fieldErrors.email = "Email is required.";
-  if (!otp) fieldErrors.otp = "Code is required.";
-  if (!password) fieldErrors.password = "New password is required.";
-  if (password && password.length < 6)
-    fieldErrors.password = "Password must be at least 6 characters.";
-  if (password !== confirmPassword)
-    fieldErrors.confirmPassword = "Passwords do not match.";
-
-  if (Object.keys(fieldErrors).length > 0) {
-    return { success: false, fieldErrors };
-  }
-
-  // 1) Get latest token for this email
-  const { data: tokens, error: tokenError } = await supabase
-    .from("password_reset_tokens")
-    .select("id, otp_hash, expires_at")
-    .eq("email", email)
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  if (tokenError) {
-    console.error("resetPasswordWithOtp: token lookup error", tokenError);
-    return { success: false, message: "Something went wrong. Please try again." };
-  }
-
-  const token = tokens?.[0];
-  if (!token) {
-    fieldErrors.otp = "Invalid or expired code.";
-    return { success: false, fieldErrors };
-  }
-
-  // 2) Check expiry
-  const expiresAt = new Date(token.expires_at);
-  if (Date.now() > expiresAt.getTime()) {
-    // delete expired token
-    await supabase.from("password_reset_tokens").delete().eq("id", token.id);
-    fieldErrors.otp = "Code has expired. Please request a new one.";
-    return { success: false, fieldErrors };
-  }
-
-  // 3) Compare OTP
-  const match = await bcrypt.compare(otp, token.otp_hash);
-  if (!match) {
-    fieldErrors.otp = "Incorrect code.";
-    return { success: false, fieldErrors };
-  }
-
-  // 4) Hash new password and update profile.hash
-  const newHash = await bcrypt.hash(password, 10);
-  const { error: updateError } = await supabase
-    .from("profiles")
-    .update({ hash: newHash })
-    .eq("email", email);
-
-  if (updateError) {
-    console.error("resetPasswordWithOtp: profile update error", updateError);
-    return { success: false, message: "Failed to update password." };
-  }
-
-  // 5) Delete all tokens for this email
-  await supabase.from("password_reset_tokens").delete().eq("email", email);
-
-  return { success: true, message: "Your password has been reset. You can log in now." };
-}
-
-
-
-
-
-
-
-
-
-
-/* ---------- helpers ---------- */
-
 function normalizeUsername(raw: string) {
   return raw.trim().toLowerCase();
 }
+
 function normalizeEmail(raw: string) {
   return raw.trim().toLowerCase();
 }
 
-export async function setAuthCookies(
-  userId: string,
-  username: string,
-  avatar: string = "",
-  verified: boolean = false
-) {
-  const store = await cookies();
-  const base = await getAuthCookieOptions();
+function normalizePreferences(
+  raw: string[] | null | undefined
+): Preference[] {
+  if (!raw?.length) return [];
 
-  store.set("userId", userId, {
-    ...base,
-    httpOnly: true,
-  });
+  const lower = raw
+    .map((preference) => preference.toLowerCase().trim())
+    .filter(Boolean);
 
-  store.set("isLoggedIn", "true", {
-    ...base,
-    httpOnly: false,
-  });
-
-  store.set("username", username, {
-    ...base,
-    httpOnly: false,
-  });
-
-  store.set("verified", String(verified), {
-    ...base,
-    httpOnly: false,
-  });
-
-  if (avatar) {
-    store.set("avatar", avatar, {
-      ...base,
-      httpOnly: false,
-    });
-  }
+  const unique = new Set(lower);
+  return ALLOWED_PREFERENCES.filter((preference) => unique.has(preference));
 }
-/* ---------- SIGNUP ---------- */
+
+async function getCurrentUser() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error) {
+    console.error("getCurrentUser: Supabase Auth lookup failed", error.message);
+    return null;
+  }
+
+  return user;
+}
+
+/**
+ * Supabase Auth owns the session cookies now.
+ * This compatibility export intentionally does not create custom identity cookies.
+ * Existing settings code can stop calling it in a later cleanup pass.
+ */
+export async function setAuthCookies(
+  _userId: string,
+  _username: string,
+  _avatar = "",
+  _verified = false
+): Promise<void> {
+  // Intentionally empty. A verified Supabase Auth session is the only identity.
+}
+
+/* ---------------- SIGN UP ---------------- */
 
 export async function signupAction(formData: FormData): Promise<AuthResult> {
-  const rawUsername = String(formData.get("username") ?? "").trim();
-  const rawEmail = String(formData.get("email") ?? "").trim();
+  const username = normalizeUsername(
+    String(formData.get("username") ?? "")
+  );
+  const email = normalizeEmail(String(formData.get("email") ?? ""));
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
-  const username = normalizeUsername(rawUsername);
-  const email = normalizeEmail(rawEmail);
-
   const fieldErrors: AuthFieldErrors = {};
 
-  // username validation
   if (!username) {
     fieldErrors.username = "Username is required.";
-  } else if (!USERNAME_REGEX.test(username)) {
+  } else if (
+    username.length > 30 ||
+    !USERNAME_REGEX.test(username)
+  ) {
     fieldErrors.username =
-      "Use only lowercase letters, numbers, '.' and '_'."; // a-z0-9._ only
+      "Use 1–30 lowercase letters, numbers, '.' and '_'.";
   }
 
-  // email validation
   if (!email) {
     fieldErrors.email = "Email is required.";
   } else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     fieldErrors.email = "Enter a valid email address.";
   }
 
-  // password validation
   if (!password) {
     fieldErrors.password = "Password is required.";
   } else if (password.length < 6) {
@@ -329,14 +137,24 @@ export async function signupAction(formData: FormData): Promise<AuthResult> {
     };
   }
 
-  // check username uniqueness
-  const { data: byUsername } = await supabase
+  const supabase = await createClient();
+
+  // Availability is checked against the public username field only.
+  const { data: existingUsername, error: usernameError } = await supabase
     .from("profiles")
     .select("id")
     .eq("username", username)
     .maybeSingle();
 
-  if (byUsername) {
+  if (usernameError) {
+    console.error("signupAction username lookup failed", usernameError);
+    return {
+      success: false,
+      message: "Could not validate the username. Please try again.",
+    };
+  }
+
+  if (existingUsername) {
     return {
       success: false,
       message: "Username already in use.",
@@ -344,57 +162,83 @@ export async function signupAction(formData: FormData): Promise<AuthResult> {
     };
   }
 
-  // check email uniqueness
-  const { data: byEmail } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("email", email)
-    .maybeSingle();
+  // The auth.users trigger creates the corresponding public.profiles row.
+  // Never insert a password hash into public.profiles.
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: { username },
+    },
+  });
 
-  if (byEmail) {
+  if (error || !data.user) {
+    console.error("signupAction Supabase Auth error", error);
+    const message = error?.message ?? "Could not create your account.";
+
+    if (/already registered|already exists|already been registered/i.test(message)) {
+      return {
+        success: false,
+        message: "An account with this email may already exist.",
+        fieldErrors: { email: "This email address is already in use." },
+      };
+    }
+
+    if (/username|profile/i.test(message)) {
+      return {
+        success: false,
+        message: "That username may already be in use. Please choose another.",
+        fieldErrors: { username: "That username is already taken." },
+      };
+    }
+
     return {
       success: false,
-      message: "Email already in use.",
-      fieldErrors: { email: "An account with this email already exists." },
+      message: "Something went wrong creating your account. Please try again.",
     };
   }
 
-  // hash password
-  const hash = await bcrypt.hash(password, 10);
-
-  // create profile row
-  const { data: inserted, error } = await supabase
-    .from("profiles")
-    .insert({
-      username,
-      email,
-      hash,
-    })
-    .select("id")
-    .single();
-
-  if (error || !inserted) {
-    console.error("signupAction insert error", error);
+  if (!data.session) {
     return {
-      success: false,
-      message: "Something went wrong. Please try again.",
+      success: true,
+      requiresEmailConfirmation: true,
+      message: "Check your email for a confirmation link before signing in.",
     };
   }
-
-  await setAuthCookies(inserted.id, username);
 
   return { success: true };
 }
 
-/* ---------- LOGIN ---------- */
+/* ---------------- LOGIN ---------------- */
+
+async function resolveLoginEmail(identifier: string): Promise<string | null> {
+  if (identifier.includes("@")) return normalizeEmail(identifier);
+
+  // Email addresses must never be exposed through public profile reads.
+  // This narrow server-side lookup resolves username -> email; Supabase Auth
+  // still verifies the password and issues the user session.
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from("profiles")
+    .select("email")
+    .eq("username", normalizeUsername(identifier))
+    .maybeSingle();
+
+  if (error) {
+    console.error("resolveLoginEmail failed", error);
+    return null;
+  }
+
+  return data?.email ? normalizeEmail(data.email) : null;
+}
 
 export async function loginAction(formData: FormData): Promise<AuthResult> {
-  const rawIdentifier = String(formData.get("identifier") ?? "").trim();
+  const identifier = String(formData.get("identifier") ?? "").trim();
   const password = String(formData.get("password") ?? "");
 
   const fieldErrors: AuthFieldErrors = {};
 
-  if (!rawIdentifier) {
+  if (!identifier) {
     fieldErrors.identifier = "Enter your username or email.";
   }
   if (!password) {
@@ -409,17 +253,9 @@ export async function loginAction(formData: FormData): Promise<AuthResult> {
     };
   }
 
-  const identifier = rawIdentifier.toLowerCase();
-  const isEmail = identifier.includes("@");
+  const email = await resolveLoginEmail(identifier);
 
-  const { data: user, error } = await supabase
-    .from("profiles")
-    .select("id, username, email, hash, avatar_url, verified")
-    .eq(isEmail ? "email" : "username", identifier)
-    .maybeSingle();
-
-  if (error || !user || !user.hash) {
-    console.error("loginAction user lookup error", error);
+  if (!email) {
     return {
       success: false,
       message: "Invalid credentials.",
@@ -427,33 +263,40 @@ export async function loginAction(formData: FormData): Promise<AuthResult> {
     };
   }
 
-  const ok = await bcrypt.compare(password, user.hash);
-  if (!ok) {
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) {
+    console.error("loginAction Supabase Auth sign-in failed", error.message);
     return {
       success: false,
       message: "Invalid credentials.",
-      fieldErrors: { password: "Incorrect password." },
+      fieldErrors: { password: "Incorrect username/email or password." },
     };
   }
-
-  await setAuthCookies(user.id, user.username, user.avatar_url, user.verified);
 
   return { success: true };
 }
 
-
-
+/* ---------------- USERNAME AVAILABILITY ---------------- */
 
 export async function checkUsernameAvailability(
   raw: string
 ): Promise<{ available: boolean }> {
   const username = normalizeUsername(raw);
 
-  // invalid or empty usernames are never "available" for our purposes
-  if (!username || !USERNAME_REGEX.test(username)) {
+  if (
+    username.length < 1 ||
+    username.length > 30 ||
+    !USERNAME_REGEX.test(username)
+  ) {
     return { available: false };
   }
 
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("profiles")
     .select("id")
@@ -462,100 +305,222 @@ export async function checkUsernameAvailability(
 
   if (error) {
     console.error("checkUsernameAvailability error", error);
-    // safer to say "not available" on error
     return { available: false };
   }
 
-  // available = no row with that username
   return { available: !data };
 }
 
-export async function getIsLoggedInFromCookies(): Promise<boolean> {
-  const store = await cookies();
-  const flag = store.get("isLoggedIn")?.value;
-  return flag === "true";
+/* ---------------- PASSWORD RECOVERY ---------------- */
+
+/**
+ * Configure Supabase Dashboard > Authentication > Email Templates >
+ * Reset Password to include {{ .Token }} for the existing six-digit OTP form.
+ */
+export async function requestPasswordResetAction(
+  formData: FormData
+): Promise<{
+  success: boolean;
+  message?: string;
+  fieldErrors?: ForgotPasswordFieldErrors;
+}> {
+  const email = normalizeEmail(String(formData.get("email") ?? ""));
+  const fieldErrors: ForgotPasswordFieldErrors = {};
+
+  if (!email) {
+    fieldErrors.email = "Email is required.";
+    return { success: false, fieldErrors };
+  }
+
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    fieldErrors.email = "Enter a valid email address.";
+    return { success: false, fieldErrors };
+  }
+
+  const supabase = await createClient();
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${siteUrl}/auth/reset-password`,
+  });
+
+  if (error) {
+    console.error("requestPasswordResetAction failed", error.message);
+  }
+
+  // Do not reveal whether an email address belongs to an account.
+  return {
+    success: true,
+    message: "If an account exists for that email, a recovery code will be sent.",
+  };
 }
 
+export async function resetPasswordWithOtpAction(
+  formData: FormData
+): Promise<{
+  success: boolean;
+  message?: string;
+  fieldErrors?: ForgotPasswordFieldErrors;
+}> {
+  const email = normalizeEmail(String(formData.get("email") ?? ""));
+  const otp = String(formData.get("otp") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
+  const fieldErrors: ForgotPasswordFieldErrors = {};
 
+  if (!email) fieldErrors.email = "Email is required.";
+  if (!/^\d{6}$/.test(otp)) fieldErrors.otp = "Enter the six-digit code.";
+  if (!password) fieldErrors.password = "New password is required.";
+  if (password && password.length < 6) {
+    fieldErrors.password = "Password must be at least 6 characters.";
+  }
+  if (password !== confirmPassword) {
+    fieldErrors.confirmPassword = "Passwords do not match.";
+  }
 
+  if (Object.keys(fieldErrors).length > 0) {
+    return { success: false, fieldErrors };
+  }
+
+  const supabase = await createClient();
+
+  const { error: verifyError } = await supabase.auth.verifyOtp({
+    email,
+    token: otp,
+    type: "recovery",
+  });
+
+  if (verifyError) {
+    console.error("resetPasswordWithOtpAction OTP verification failed", verifyError);
+    return {
+      success: false,
+      fieldErrors: { otp: "Invalid or expired code. Request a new one." },
+    };
+  }
+
+  const { error: updateError } = await supabase.auth.updateUser({ password });
+
+  if (updateError) {
+    console.error("resetPasswordWithOtpAction password update failed", updateError);
+    return {
+      success: false,
+      message: "Could not update the password. Please try again.",
+    };
+  }
+
+  await supabase.auth.signOut({ scope: "local" });
+
+  return {
+    success: true,
+    message: "Your password has been reset. You can log in now.",
+  };
+}
+
+/* ---------------- SESSION HELPERS ---------------- */
+
+export async function getIsLoggedInFromCookies(): Promise<boolean> {
+  return Boolean(await getCurrentUser());
+}
+
+/** Kept for existing server actions; this now returns a verified Auth user ID. */
 export async function getUserIdFromCookies(): Promise<string | null> {
-  const store = await cookies();
-  const userId = store.get("userId")?.value;
-  return userId || null;
+  const user = await getCurrentUser();
+  return user?.id ?? null;
 }
 
 export async function getVerified(username: string): Promise<boolean> {
-  // Get the current user id from cookies
-  // Look up the "verified" flag on the profiles table
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("profiles")
     .select("verified")
-    .eq("username", username)
-    .maybeSingle()          // or .eq("user_id", userId) if that's your schema
-    
+    .eq("username", normalizeUsername(username))
+    .maybeSingle();
 
   if (error || !data) {
-    console.error("getVerified: failed to load profile", error);
+    if (error) console.error("getVerified failed", error);
     return false;
   }
 
   return Boolean(data.verified);
 }
 
-
 export type SimpleResult = { success: boolean };
 
 export async function logoutAction(): Promise<{ success: boolean }> {
-  const store = await cookies();
-  const base = await getAuthCookieOptions();
-  const names = ["userId", "isLoggedIn", "username", "avatar", "verified", "preferences"];
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signOut();
 
-  for (const name of names) {
-    store.set(name, "", {
-      ...base,
-      maxAge: 0,
-    });
+  if (error) {
+    console.error("logoutAction failed", error);
+    return { success: false };
+  }
+
+  // Expire old custom cookies so no legacy UI can mistake them for a session.
+  const store = await cookies();
+  const cookieOptions = await getAuthCookieOptions();
+  const legacyCookieNames = [
+    "userId",
+    "isLoggedIn",
+    "username",
+    "avatar",
+    "verified",
+    "preferences",
+  ];
+
+  for (const name of legacyCookieNames) {
+    store.set(name, "", { ...cookieOptions, maxAge: 0 });
   }
 
   return { success: true };
 }
 
-export async function getIdWUsername(username:string) {
-
+export async function getIdWUsername(
+  username: string
+): Promise<string | false> {
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("profiles")
     .select("id")
-    .eq("username", username)          // or .eq("user_id", userId) if that's your schema
-    .single();
+    .eq("username", normalizeUsername(username))
+    .maybeSingle();
 
   if (error || !data) {
-    console.error("getVerified: failed to load profile", error);
+    if (error) console.error("getIdWUsername failed", error);
     return false;
   }
 
   return data.id;
-  
 }
-
 
 export async function getUserProfileFromCookies(): Promise<{
   username: string | null;
   avatarUrl: string | null;
   isLoggedIn: string | null;
 }> {
-  const store = await cookies();
+  const user = await getCurrentUser();
+  if (!user) {
+    return { username: null, avatarUrl: null, isLoggedIn: null };
+  }
 
-  const username = store.get("username")?.value ?? null;
-  const avatarPath = store.get("avatar")?.value ?? null;
-  const isLoggedIn = store.get("isLoggedIn")?.value ?? null;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("username, avatar_url")
+    .eq("id", user.id)
+    .maybeSingle();
 
+  if (error || !data) {
+    if (error) console.error("getUserProfileFromCookies failed", error);
+    return { username: null, avatarUrl: null, isLoggedIn: null };
+  }
 
-  let avatarUrl: string | null = null;
-
-  avatarUrl = avatarPath;
-
-  return { username, avatarUrl, isLoggedIn };
+  return {
+    username: data.username,
+    avatarUrl: data.avatar_url,
+    isLoggedIn: "true",
+  };
 }
 
 export async function getUserProfile(): Promise<{
@@ -563,89 +528,87 @@ export async function getUserProfile(): Promise<{
   avatarUrl: string | null;
   isLoggedIn: string | null;
 }> {
-  
-
-  let avatarUrl: string | null = null;
-
-  if (avatarPath) {
-    const { data } = supabase.storage
-      .from("media")
-      .getPublicUrl(avatarPath);
-    avatarUrl = data.publicUrl || null;
-  }
-
-  return { username, avatarUrl, isLoggedIn };
+  return getUserProfileFromCookies();
 }
 
-
-
-const smtpTransporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT ?? 465),
-  secure: Number(process.env.SMTP_PORT ?? 465) === 465, // true for 465
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
-
-
+/* ---------------- PREFERENCES ---------------- */
 
 export async function updateUserPreferencesAction(
   prefs: string[]
 ): Promise<{ success: boolean; message?: string }> {
-  const store = await cookies();
-  const userId = store.get("userId")?.value ?? null;
-
-  // normalise + filter to allowed values
   let normalized = normalizePreferences(prefs);
+  if (!normalized.length) normalized = ["straight"];
 
-  // If nothing selected, fall back to straight
-  if (!normalized.length) {
-    normalized = ["straight"];
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError) {
+    console.error("updateUserPreferencesAction auth error", userError);
+    return { success: false, message: "Could not verify your session." };
   }
 
-  // Update DB if we know who the user is
-  if (userId) {
+  if (user) {
     const { error } = await supabase
       .from("profiles")
       .update({ preferences: normalized })
-      .eq("id", userId);
+      .eq("id", user.id);
 
     if (error) {
-      console.error("updateUserPreferencesAction error", error);
+      console.error("updateUserPreferencesAction update failed", error);
       return { success: false, message: "Failed to save preferences." };
     }
   }
 
-  const base = await getAuthCookieOptions();
-
-  // Store in cookies for client-side fetching
+  // This cookie stores a display preference only; it is never used for identity.
+  const store = await cookies();
+  const cookieOptions = await getAuthCookieOptions();
   store.set("preferences", JSON.stringify(normalized), {
-  ...base,
-  httpOnly: false,
-});
+    ...cookieOptions,
+    httpOnly: false,
+  });
 
   return { success: true };
 }
 
+export async function getUserPreferencesFromCookies(): Promise<
+  Preference[] | null
+> {
+  const user = await getCurrentUser();
 
-export async function getUserPreferencesFromCookies(): Promise<Preference[] | null> {
+  if (user) {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("preferences")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!error && data) {
+      const normalized = normalizePreferences(data.preferences ?? []);
+      return normalized.length ? normalized : null;
+    }
+
+    if (error) {
+      console.error("getUserPreferencesFromCookies profile lookup failed", error);
+    }
+  }
+
+  // Preserve pre-login preference selection as non-security UI state.
   const store = await cookies();
   const raw = store.get("preferences")?.value;
-
   if (!raw) return null;
 
   try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.every((value) => typeof value === "string")) {
       const normalized = normalizePreferences(parsed);
       return normalized.length ? normalized : null;
     }
   } catch {
-    // maybe an older comma-separated format
-    const parts = raw.split(",").map((s) => s.trim());
-    const normalized = normalizePreferences(parts);
+    const normalized = normalizePreferences(raw.split(","));
     return normalized.length ? normalized : null;
   }
 
@@ -655,16 +618,6 @@ export async function getUserPreferencesFromCookies(): Promise<Preference[] | nu
 export async function getUserIdByUsername(
   username: string
 ): Promise<string | null> {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("username", username)
-    .single();
-
-  if (error || !data) {
-    console.error("getUserIdByUsername error", error);
-    return null;
-  }
-
-  return data.id as string;
+  const id = await getIdWUsername(username);
+  return typeof id === "string" ? id : null;
 }
