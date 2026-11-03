@@ -1,6 +1,21 @@
 "use server";
 
+import { cookies } from "next/headers";
+import { verifyAdminJwt } from "@/lib/adminJwt";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+
+async function requireAdmin() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("admin_token")?.value;
+
+  if (!token) throw new Error("Admin authentication required.");
+
+  try {
+    await verifyAdminJwt(token);
+  } catch {
+    throw new Error("Your admin session has expired. Please sign in again.");
+  }
+}
 
 type AffiliateStatus = "pending" | "accepted" | "rejected";
 type AffiliateFilter = "all" | AffiliateStatus;
@@ -36,6 +51,7 @@ export async function adminGetAffiliateRequests(args: {
   page: number;
   pageSize: number;
 }): Promise<{ rows: AffiliateRequestRow[]; total: number; page: number; pageSize: number }> {
+  await requireAdmin();
   const supabase = getSupabaseAdmin();
   const page = clampPage(args.page);
   const pageSize = Math.min(100, Math.max(5, args.pageSize));
@@ -62,6 +78,7 @@ export async function adminGetAffiliateRequests(args: {
 }
 
 export async function adminAcceptAffiliateRequest(requestId: string) {
+  await requireAdmin();
   const supabase = getSupabaseAdmin();
   const id = String(requestId || "").trim();
   if (!id) return { ok: false, error: "Missing request id." };
@@ -100,6 +117,7 @@ export async function adminAcceptAffiliateRequest(requestId: string) {
 }
 
 export async function adminRejectAffiliateRequest(requestId: string) {
+  await requireAdmin();
   const supabase = getSupabaseAdmin();
   const id = String(requestId || "").trim();
   if (!id) return { ok: false, error: "Missing request id." };
@@ -115,6 +133,7 @@ export async function adminGetPayoutRequests(args: {
   page: number;
   pageSize: number;
 }): Promise<{ rows: PayoutRequestRow[]; total: number; page: number; pageSize: number }> {
+  await requireAdmin();
   const supabase = getSupabaseAdmin();
   const page = clampPage(args.page);
   const pageSize = Math.min(100, Math.max(5, args.pageSize));
@@ -145,6 +164,7 @@ export async function adminGetPayoutRequests(args: {
 }
 
 export async function adminMarkPayoutPaid(requestId: string) {
+  await requireAdmin();
   const supabase = getSupabaseAdmin();
   const id = String(requestId || "").trim();
   if (!id) return { ok: false, error: "Missing request id." };
