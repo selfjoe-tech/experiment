@@ -45,7 +45,7 @@ export async function fetchRandomAdForFeed(): Promise<Video | null> {
   if (!src) return null;
 
   return {
-    id: picked.id,
+    id: String(picked.id),
     mediaId: picked.id,
     src,
     title: "",
