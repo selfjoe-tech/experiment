@@ -1,8 +1,17 @@
 // lib/actions/media.ts
 "use client";
 
-import { supabase } from "@/lib/supabaseClient";
-import { getUserIdFromCookies } from "./auth";
+import { createClient } from "@/lib/supabase/client";
+
+const supabase = createClient();
+
+async function getCurrentUserId(): Promise<string> {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) {
+    throw new Error("You must be signed in to upload media.");
+  }
+  return data.user.id;
+}
 
 /**
  * Must match your SQL enum:
@@ -87,7 +96,7 @@ async function insertMediaRow(params: {
   durationSeconds?: number;
   width?: number | null;
   height?: number | null;
-  tags?: [];
+  tags?: string[];
 }): Promise<InsertedMediaRow> {
   const { data, error } = await supabase
     .from("media")
@@ -134,7 +143,7 @@ export async function uploadTrimmedVideo(
         "bytes",
         `(${sizeMB.toFixed(2)} MB)`
         );
-  const ownerId = await getUserIdFromCookies()
+  const ownerId = await getCurrentUserId()
 
   const storagePath = makeStoragePath("video", ownerId, clip.file);
 
@@ -162,7 +171,7 @@ export async function uploadSingleImage(
   file: File,
   form: ImageUploadFormValues
 ): Promise<InsertedMediaRow> {
-  const ownerId = await getUserIdFromCookies();
+  const ownerId = await getCurrentUserId();
   const storagePath = makeStoragePath("image", ownerId, file);
 
   await uploadToStorage(storagePath, file);
@@ -188,7 +197,7 @@ export async function uploadImagesBatch(
   files: File[],
   form: ImageUploadFormValues
 ): Promise<BulkImageUploadResult> {
-  const ownerId = await getUserIdFromCookies();
+  const ownerId = await getCurrentUserId();
 
   const results: BulkImageUploadResult = {
     successes: [],
