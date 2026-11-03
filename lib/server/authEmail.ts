@@ -188,10 +188,10 @@ export async function sendAuthHookEmail(payload: SendEmailHookPayload) {
     throw new Error("The Auth email hook payload is incomplete.");
   }
 
+  // The Send Email Auth Hook receives every Auth email event. Ignore all
+  // non-recovery events so this custom mailer never sends signup or sign-in OTPs.
   if (emailData.email_action_type !== "recovery") {
-    throw new Error(
-      "This application only sends Auth email OTPs for password recovery."
-    );
+    return;
   }
 
   if (!user.email) {
