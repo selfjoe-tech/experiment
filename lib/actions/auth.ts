@@ -548,9 +548,11 @@ export async function updateUserPreferencesAction(
 
   if (user) {
     const { error } = await supabase
-      .from("profiles")
-      .update({ preferences: normalized })
-      .eq("id", user.id);
+      .from("user_preferences")
+      .upsert(
+        { user_id: user.id, preferences: normalized },
+        { onConflict: "user_id" }
+      );
 
     if (error) {
       console.error("updateUserPreferencesAction update failed", error);
@@ -577,9 +579,9 @@ export async function getUserPreferencesFromCookies(): Promise<
   if (user) {
     const supabase = await createClient();
     const { data, error } = await supabase
-      .from("profiles")
+      .from("user_preferences")
       .select("preferences")
-      .eq("id", user.id)
+      .eq("user_id", user.id)
       .maybeSingle();
 
     if (!error && data) {
@@ -588,7 +590,7 @@ export async function getUserPreferencesFromCookies(): Promise<
     }
 
     if (error) {
-      console.error("getUserPreferencesFromCookies profile lookup failed", error);
+      console.error("getUserPreferencesFromCookies private preferences lookup failed", error);
     }
   }
 
