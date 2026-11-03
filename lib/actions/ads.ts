@@ -1,3 +1,5 @@
+"use client";
+
 import { createClient } from "@/lib/supabase/client";
 
 const supabase = createClient();
@@ -86,7 +88,12 @@ export async function uploadAdForSlot(args: {
     throw new Error("This advertising slot has expired.");
   }
 
-  const url = new URL(landingUrl);
+  let url: URL;
+  try {
+    url = new URL(landingUrl);
+  } catch {
+    throw new Error("Enter a valid HTTP or HTTPS landing URL.");
+  }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new Error("Enter a valid HTTP or HTTPS landing URL.");
   }
