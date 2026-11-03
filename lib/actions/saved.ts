@@ -1,8 +1,7 @@
 // lib/actions/saved.ts
 "use server";
 
-import { supabase } from "@/lib/supabaseClient";
-import { getUserIdFromCookies } from "./auth";
+import { createClient } from "@/lib/supabase/server";
 
 // Only gifs/videos & images needed here
 type SavedTab = "gifs" | "images";
@@ -24,8 +23,14 @@ export async function getSavedItemsForTab({
   limit = 9,
   page = 0,
 }: GetSavedArgs) {
-  const userId = await getUserIdFromCookies();
-  if (!userId) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  const userId = user?.id ?? null;
+  if (authError || !userId) {
     // not logged in -> nothing saved
     return [];
   }
