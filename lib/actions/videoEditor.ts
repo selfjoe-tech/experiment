@@ -20,6 +20,7 @@ async function stageUploadViaSignedUrl(
     body: JSON.stringify({
       filename: file.name,
       contentType: file.type || "video/mp4",
+      size: file.size,
       bucket: "uploads-staging",
     }),
   });
