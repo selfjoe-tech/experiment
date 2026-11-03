@@ -158,9 +158,9 @@ async function sendMessage(to: string, actionType: string, otp?: string) {
     port,
     secure: process.env.SMTP_SECURE === "true" || port === 465,
     ...(user && pass ? { auth: { user, pass } } : {}),
-    connectionTimeout: 10_000,
-    greetingTimeout: 10_000,
-    socketTimeout: 15_000,
+    connectionTimeout: 3_000,
+    greetingTimeout: 3_000,
+    socketTimeout: 4_000,
   });
 
   const message = buildEmail(actionType, otp);
