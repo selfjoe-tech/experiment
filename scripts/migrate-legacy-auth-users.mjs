@@ -84,6 +84,16 @@ const usersByEmail = new Map(
     .map((user) => [user.email.toLowerCase(), user])
 );
 
+const usernameCounts = new Map();
+const emailCounts = new Map();
+
+for (const profile of profiles) {
+  const username = String(profile.username ?? "").trim().toLowerCase();
+  const email = String(profile.email ?? "").trim().toLowerCase();
+  if (username) usernameCounts.set(username, (usernameCounts.get(username) ?? 0) + 1);
+  if (email) emailCounts.set(email, (emailCounts.get(email) ?? 0) + 1);
+}
+
 let created = 0;
 let skipped = 0;
 let failed = 0;
@@ -94,6 +104,12 @@ console.log(applyChanges ? "Mode: APPLY" : "Mode: DRY RUN (no changes will be ma
 console.log(
   `Legacy email confirmation: ${confirmLegacyEmails ? "confirmed" : "not confirmed"}.`
 );
+if (!confirmLegacyEmails) {
+  console.warn(
+    "Warning: unconfirmed imported accounts cannot sign in until their email is confirmed. " +
+    "This script does not send verification emails."
+  );
+}
 
 for (const profile of profiles) {
   const id = String(profile.id ?? "");
@@ -113,9 +129,21 @@ for (const profile of profiles) {
     continue;
   }
 
+  if (emailCounts.get(email) > 1) {
+    failed += 1;
+    console.error(`CONFLICT profile ${id}: duplicate email in legacy profiles.`);
+    continue;
+  }
+
   if (!username || username.length > 30 || !/^[a-z0-9._]+$/.test(username)) {
     failed += 1;
     console.error(`SKIP profile ${id}: username does not meet current rules.`);
+    continue;
+  }
+
+  if (usernameCounts.get(username) > 1) {
+    failed += 1;
+    console.error(`CONFLICT profile ${id}: duplicate username (case-insensitive).`);
     continue;
   }
 
