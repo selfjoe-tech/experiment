@@ -384,6 +384,9 @@ export async function toggleMediaLike(
   mediaId: number
 ): Promise<{ liked: boolean; likeCount: number | null }> {
   const userId = await getCurrentUserId();
+  if (!userId) {
+    throw new Error("You must be logged in to like media.");
+  }
 
   // Does a like already exist?
   const { data: existing, error: existingError } = await supabase
