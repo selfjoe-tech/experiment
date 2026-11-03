@@ -238,26 +238,28 @@ async function addTagsToUserRecs(userId: string, mediaId: number) {
   if (!tags.length) return;
 
   // 2) get existing recs
-  const { data: profileRow, error: profileError } = await supabase
-    .from("profiles")
+  const { data: preferenceRow, error: preferenceError } = await supabase
+    .from("user_preferences")
     .select("recs")
-    .eq("id", userId)
+    .eq("user_id", userId)
     .maybeSingle();
 
-  if (profileError) {
-    console.error("addTagsToUserRecs profile error", profileError);
+  if (preferenceError) {
+    console.error("addTagsToUserRecs preference error", preferenceError);
     return;
   }
 
 
-  const existing: string[] = (profileRow?.recs ?? []).filter(Boolean);
+  const existing: string[] = (preferenceRow?.recs ?? []).filter(Boolean);
   const merged = Array.from(new Set([...existing, ...tags])); // dedupe
 
   // 3) update recs
   const { error: updateError } = await supabase
-    .from("profiles")
-    .update({ recs: merged })
-    .eq("id", userId);
+    .from("user_preferences")
+    .upsert(
+      { user_id: userId, recs: merged },
+      { onConflict: "user_id" }
+    );
 
   if (updateError) {
     console.error("addTagsToUserRecs update error", updateError);
