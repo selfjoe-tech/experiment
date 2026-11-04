@@ -4,6 +4,7 @@ import React, { UIEvent, useEffect, useLayoutEffect, useRef, useState } from "re
 import VideoCard, { SponsoredVideoCard } from "./VideoCard";
 import type { Video } from "./types";
 import { registerView, registerAdView } from "@/lib/actions/mediaFeed";
+import { X } from "lucide-react";
 
 const PREFETCH_AHEAD = 2;
 const SNAP_SETTLE_MS = 90;     // debounce after scroll ends
@@ -154,6 +155,19 @@ export default function FullscreenVideoOverlay({
       restoreHrefRef.current = null;
     };
   }, [open]);
+
+  // Independent close control for Explore and profile overlays.
+  useEffect(() => {
+    if (!open) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [open, onClose]);
 
   // cleanup timers/raf when closing
   useEffect(() => {
@@ -325,7 +339,18 @@ export default function FullscreenVideoOverlay({
         lg:bg-black/70 lg:backdrop-blur-xl
         h-full flex flex-col
       "
+      role="dialog"
+      aria-modal="true"
+      aria-label="Fullscreen video viewer"
     >
+      <button
+        type="button"
+        aria-label="Close fullscreen video"
+        onClick={onClose}
+        className="fixed right-4 top-[max(16px,env(safe-area-inset-top))] z-[150] grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-black/75 text-white shadow-lg backdrop-blur-sm transition hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-white sm:right-6"
+      >
+        <X size={23} strokeWidth={2} />
+      </button>
       <div
         ref={scrollRef}
         onScroll={handleScroll}

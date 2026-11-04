@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -669,7 +668,7 @@ function TopBannerPreview({ imageUrl }: { imageUrl: string | null }) {
 
   return (
     <div className="space-y-3">
-      <Link href={href} className="flex flex-col gap-2 max-w-md">
+      <a href={href} className="flex flex-col gap-2 max-w-md">
         <div
           className="h-12 px-5 gap-2 w-full flex rounded-[50px] items-center justify-between text-sm font-semibold text-white border border-white/15"
           style={bgStyle}
@@ -681,7 +680,7 @@ function TopBannerPreview({ imageUrl }: { imageUrl: string | null }) {
           </span>
           <ArrowUpRightFromSquare size={18} />
         </div>
-      </Link>
+      </a>
       <p className="text-[11px] text-white/60">
         Recommended: <span className="font-semibold">1200 × 320 px</span>{" "}
         (approx 4:1) for a clean top-of-feed banner.

@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import React, {
   startTransition,
   useEffect,
@@ -1312,7 +1311,7 @@ export default function WatchVideoCard({
         {/* Creator */}
 
         <div className="flex items-center gap-3 min-w-0">
-          <Link href={`/${video.username}`}>
+          <a href={`/${video.username}`}>
             <div
               className="
                 h-10
@@ -1334,9 +1333,9 @@ export default function WatchVideoCard({
                 className="h-full w-full object-cover"
               />
             </div>
-          </Link>
+          </a>
 
-          <Link
+          <a
             href={`/${video.username}`}
             className="min-w-0"
           >
@@ -1349,7 +1348,7 @@ export default function WatchVideoCard({
                 <VerifiedBadgeIcon />
               )}
             </div>
-          </Link>
+          </a>
 
           {video.ownerId !== currentId && (
             <button
@@ -1425,7 +1424,7 @@ export default function WatchVideoCard({
 
             {video.hashtags?.map(
               (tag, index) => (
-                <Link
+                <a
                   href={`/explore/niches/${labelToSlug(
                     tag
                   )}`}
@@ -1434,7 +1433,7 @@ export default function WatchVideoCard({
                   <span className="text-pink-500 underline">
                     #{tag}{" "}
                   </span>
-                </Link>
+                </a>
               )
             )}
           </p>
@@ -2039,7 +2038,7 @@ function CommentList({
             "
           >
             {comment.avatar_path ? (
-              <Link
+              <a
                 href={`/${comment.username}`}
               >
                 <Image
@@ -2049,14 +2048,14 @@ function CommentList({
                   height={28}
                   className="h-full w-full object-cover"
                 />
-              </Link>
+              </a>
             ) : null}
           </div>
 
           {/* Content */}
 
           <div className="flex-1 min-w-0">
-            <Link
+            <a
               href={`/${comment.username}`}
             >
               <div className="flex items-center gap-2">
@@ -2068,7 +2067,7 @@ function CommentList({
                   <VerifiedBadgeIcon />
                 )}
               </div>
-            </Link>
+            </a>
 
             <p className="mt-0.5 text-white/80">
               {comment.comment}

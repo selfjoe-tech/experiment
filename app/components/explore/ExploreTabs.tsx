@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 
 export default function ExploreTabs({ active }: { active: "gifs" | "images" | "creators" | "niches" }) {
   const tabs: { key: typeof active; label: string }[] = [
@@ -13,7 +12,7 @@ export default function ExploreTabs({ active }: { active: "gifs" | "images" | "c
   return (
     <div className="flex items-center gap-6">
       {tabs.map((t) => (
-        <Link
+        <a
           key={t.key}
           href={`/explore/${t.key}`}
           className={`pb-2 text-sm ${
@@ -23,7 +22,7 @@ export default function ExploreTabs({ active }: { active: "gifs" | "images" | "c
           }`}
         >
           {t.label}
-        </Link>
+        </a>
       ))}
     </div>
   );

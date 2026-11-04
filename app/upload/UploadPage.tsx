@@ -24,7 +24,6 @@ import {
   uploadImagesBatch,
 } from "@/lib/client/mediaUploads";
 
-import Link from "next/link";
 
 // import {
 //   watermarkVideoFile,
@@ -615,7 +614,7 @@ export default function UploadPage() {
           <p className="flex gap-2 text-sm text-white/70 mt-2 px-1">
             Users who are verified get more views and interaction.
 
-            <Link href="https://upskirtcandy.com/verify">
+            <a href="https://upskirtcandy.com/verify">
               <button
                 className="underline underline-offset-4 font-medium"
                 style={{ color: ACCENT }}
@@ -623,7 +622,7 @@ export default function UploadPage() {
               >
                 Get verified.
               </button>
-            </Link>
+            </a>
           </p>
         </Card>
 

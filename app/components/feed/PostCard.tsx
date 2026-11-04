@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowUpRight, Bookmark, Check, Eye, Heart, Loader2, MessageCircle, Pause, Play,
@@ -230,12 +229,12 @@ export default function PostCard({ post, viewerId }: { post: HomePost; viewerId:
 
   return <article className="w-full border-b border-white/10 pb-5 pt-3 text-white sm:pb-6">
     <header className="flex h-[57px] items-center gap-3 px-1">
-      <Link href={"/" + encodeURIComponent(post.username)} className="shrink-0 rounded-full bg-gradient-to-tr from-amber-400 p-[2px]">
+      <a href={"/" + encodeURIComponent(post.username)} className="shrink-0 rounded-full bg-gradient-to-tr from-amber-400 p-[2px]">
         <Image unoptimized src={post.avatar} width={40} height={40} alt={post.username} className="h-10 w-10 rounded-full border-2 border-[#0b0d10] object-cover" />
-      </Link>
+      </a>
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2 text-[13px]">
-          <Link href={"/" + encodeURIComponent(post.username)} className="truncate font-semibold hover:opacity-80">{post.username}</Link>
+          <a href={"/" + encodeURIComponent(post.username)} className="truncate font-semibold hover:opacity-80">{post.username}</a>
           {post.verified && <span aria-label="Verified" className="text-sky-400"><Check size={14}/></span>}
           <span className="text-white/35">·</span><time className="shrink-0 text-white/50" dateTime={post.createdAt}>{timeAgo(post.createdAt)}</time>
         </div>
@@ -265,9 +264,9 @@ export default function PostCard({ post, viewerId }: { post: HomePost; viewerId:
       {previewEnded && post.type === "video" && videoDuration > 30 && <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-black/75 px-5 text-center backdrop-blur-sm">
         <span className="text-xs font-semibold uppercase tracking-[.16em] text-white/60">Preview complete</span>
         <h3 className="text-xl font-semibold text-white">Keep watching</h3>
-        <Link href={`/watch/${post.id}`} className="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-white/90">
+        <a href={`/watch/${post.id}`} className="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-white/90">
           Watch full video <ArrowUpRight size={18}/>
-        </Link>
+        </a>
       </div>}
       {burst && <div key={burstIteration} className="pointer-events-none absolute inset-0 z-20 grid place-items-center" aria-hidden="true">
         <div className="goon-heart-halo" />
@@ -298,12 +297,12 @@ export default function PostCard({ post, viewerId }: { post: HomePost; viewerId:
       <span className="inline-flex items-center gap-1.5 text-white/50"><Eye size={15}/> {compact(post.views)} views</span>
     </div>
     {(post.description || post.title) && <p className="px-1 pt-1 text-[13px] leading-5 text-white/90">
-      <Link href={"/" + encodeURIComponent(post.username)} className="mr-2 font-semibold">{post.username}</Link>
+      <a href={"/" + encodeURIComponent(post.username)} className="mr-2 font-semibold">{post.username}</a>
       {post.description || post.title}
     </p>}
     {post.hashtags.length > 0 && <div className="px-1 pt-1 text-[13px] text-[#8da8d2]">{post.hashtags.slice(0,8).map((tag,index) => {
       const label = tag.replace(/^#/, "").trim();
-      return <Link key={tag + index} href={`/explore/niches/${encodeURIComponent(label.toLowerCase().replace(/\s+/g, "-"))}`} className="mr-2 inline-block transition hover:text-white">#{label}</Link>;
+      return <a key={tag + index} href={`/explore/niches/${encodeURIComponent(label.toLowerCase().replace(/\s+/g, "-"))}`} className="mr-2 inline-block transition hover:text-white">#{label}</a>;
     })}</div>}
     <button type="button" onClick={() => setCommentsOpen(true)} className="px-1 pt-2 text-left text-[13px] text-white/50">View comments</button>
     <button type="button" onClick={() => setCommentsOpen(true)} className="block px-1 pt-2 text-left text-[12px] text-white/40">Add a comment...</button>

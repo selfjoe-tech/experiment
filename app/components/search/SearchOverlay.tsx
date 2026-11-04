@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import Image from "next/image";
 import {
   Hash,
@@ -171,7 +170,7 @@ export default function SearchOverlay({ query, onItemSelected }: Props) {
               : `/media/${m.id}`;
 
           return (
-            <Link
+            <a
               href={href}
               key={`${type}-${m.id}`}
               onClick={onItemSelected}
@@ -190,7 +189,7 @@ export default function SearchOverlay({ query, onItemSelected }: Props) {
                   hoverPlay
                 />
               )}
-            </Link>
+            </a>
           );
         })}
       </div>
@@ -247,7 +246,7 @@ export default function SearchOverlay({ query, onItemSelected }: Props) {
             <h4 className="text-xs text-white/60 mb-2">Images</h4>
             <div className="grid grid-cols-3 gap-2">
               {current.images.slice(0, 6).map((m) => (
-                <Link
+                <a
                   href={`/media/${m.id}`}
                   key={`img-${m.id}`}
                   onClick={onItemSelected}
@@ -258,7 +257,7 @@ export default function SearchOverlay({ query, onItemSelected }: Props) {
                     alt=""
                     className="w-full h-full object-cover"
                   />
-                </Link>
+                </a>
               ))}
             </div>
           </section>
@@ -269,7 +268,7 @@ export default function SearchOverlay({ query, onItemSelected }: Props) {
             <h4 className="text-xs text-white/60 mb-2">Videos</h4>
             <div className="grid grid-cols-3 gap-2">
               {current.videos.slice(0, 6).map((m) => (
-                <Link
+                <a
                   href={`/watch/${m.id}`}
                   key={`vid-${m.id}`}
                   onClick={onItemSelected}
@@ -280,7 +279,7 @@ export default function SearchOverlay({ query, onItemSelected }: Props) {
                     className="w-full h-full object-cover"
                     hoverPlay
                   />
-                </Link>
+                </a>
               ))}
             </div>
           </section>
@@ -379,7 +378,7 @@ function CreatorRow({
       : `${user.followerCount} FOLLOWERS`;
 
   return (
-    <Link
+    <a
       href={`/${user.username}`}
       onClick={onSelected}
       className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-white/5 transition-colors"
@@ -425,7 +424,7 @@ function CreatorRow({
       >
         {isFollowing ? "Following" : "Follow"}
       </button>
-    </Link>
+    </a>
   );
 }
 
@@ -442,7 +441,7 @@ function TagRow({
       : `${tag.postCount} POSTS`;
 
   return (
-    <Link
+    <a
       href={`/explore/niches/${encodeURIComponent(tag.slug)}`}
       onClick={onSelected}
       className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-white/5 transition-colors"
@@ -456,6 +455,6 @@ function TagRow({
         </div>
         <div className="text-[11px] text-white/60">{postsLabel}</div>
       </div>
-    </Link>
+    </a>
   );
 }

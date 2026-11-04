@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import Link from "next/link";
 import { removeMediaFromReport, ignoreReport } from "./actions";
 import type { ReportRow } from "./page";
 import { buildPublicUrl } from "@/lib/actions/mediaFeed";
@@ -220,20 +219,20 @@ export default function ReportsClient({
         </div>
         <div className="flex gap-2">
           {page > 1 && (
-            <Link
+            <a
               href={buildPageHref({ page: page - 1, status, q })}
               className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20"
             >
               Previous
-            </Link>
+            </a>
           )}
           {page < totalPages && (
-            <Link
+            <a
               href={buildPageHref({ page: page + 1, status, q })}
               className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20"
             >
               Next
-            </Link>
+            </a>
           )}
         </div>
       </div>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import DesktopShell from "@/app/components/feed/layout/DesktopShell";
 import MobileChrome from "@/app/components/feed/layout/MobileChrome";
@@ -29,7 +28,7 @@ export default function PostDetailClient({ id }: { id: number }) {
     <MobileChrome/>
     <main className="min-h-screen px-3 pb-24 pt-[76px] sm:px-6 lg:pl-[76px] min-[1360px]:pl-[244px] lg:pr-[340px] lg:pt-9">
       <div className="mx-auto max-w-[480px]">
-        <Link href="/" className="mb-5 flex items-center gap-2 text-sm text-white/60 hover:text-white"><ArrowLeft size={17}/> Back to feed</Link>
+        <a href="/" className="mb-5 flex items-center gap-2 text-sm text-white/60 hover:text-white"><ArrowLeft size={17}/> Back to feed</a>
         {loading ? <div className="flex justify-center py-24"><Loader2 size={26} className="animate-spin text-white/50"/></div> :
           error ? <p className="py-16 text-center text-sm text-rose-400">{error}</p> :
           post ? <PostCard post={post} viewerId={viewerId} /> :

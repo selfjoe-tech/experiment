@@ -9,8 +9,6 @@ import React, {
   useRef,
   useState,
 } from "react";
-import Link from "next/link";
-
 import LazyImage from "@/app/components/media/LazyImage";
 import LazyVideo from "@/app/components/media/LazyVideo";
 import { useInView } from "@/app/components/media/useInView";
@@ -25,6 +23,7 @@ import {
 } from "../feed/FullscreenImageOverlay";
 import { ExploreGridSkeleton } from "../skeletons/ExploreGridSkeleton";
 import GridVideoPreview from "@/app/components/media/GridVideoPreview";
+import { ExploreGridAd } from "@/app/components/ads/AdPlacements";
 
 
 // 🔧 UPDATED: add slug + simplify niche variant
@@ -248,157 +247,86 @@ export default function ExploreGrid({ onVideoClick, tab, sortBy, fetcher }: Prop
   const tileChrome =
     "rounded-xl overflow-hidden border border-white/10 bg-white/5 hover:border-white/20 transition-colors";
 
-  // --- loading/empty states ---
-  if (items.length === 0 && (loading || hasMore)) {
-    return <ExploreGridSkeleton />;
-  }
+  // The ad lives outside the virtualizer and its tab-specific branches.
+  // Switching tabs/sort, scrolling, or loading another batch must never
+  // destroy the JuicyAds element. Each grid reserves its first square cell.
+  const loadingInitial = items.length === 0 && (loading || hasMore);
+  const empty = !loading && items.length === 0 && !hasMore;
+  const gap = tab === "niches" || tab === "creators" ? 8 : 4;
+  const sponsoredTile = { id: "__explore_sponsored", type: "ad" as const };
 
-  if (!loading && items.length === 0) {
-    return (
-      <div className="py-12 text-center text-sm text-white/60">
-        No items yet.
+  const reservedAdTile = <div aria-hidden="true" className="h-full w-full rounded-sm bg-white/[.035]"/>;
+
+  return <div className="w-full">
+    <div className="relative w-full">
+      {/* Visually occupies grid cell 0; mounted outside the virtualizer. */}
+      <div className="absolute left-0 top-0 z-20 aspect-square overflow-hidden"
+        style={{width: `calc((100% - ${gap * (cols - 1)}px) / ${cols})`}}>
+        <ExploreGridAd/>
       </div>
-    );
-  }
-
-  // --- creators tab (non-virtual is fine) ---
-  if (tab === "creators") {
-    return (
-      <>
-        <div className="grid grid-cols-3 lg:grid-cols-4 gap-2">
-          {creatorItems.map((c) => (
-            <Link
-              href={`/${encodeURIComponent(c.name)}`}
-              key={c.id}
-              className={`block ${tileChrome}`}
-            >
-              <div className="relative">
-                <LazyImage src={c.avatar} alt={c.name} className="aspect-square" />
-                <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
-                  <div className="text-sm font-semibold truncate">{c.name}</div>
-                  {c.followers ? (
-                    <div className="text-[11px] text-white/70">
-                      {c.followers.toLocaleString()} followers
-                    </div>
-                  ) : null}
+      {loadingInitial ? <ExploreGridSkeleton/> : empty ?
+        <div className="grid min-h-[160px] place-items-center text-sm text-white/60">No items yet.</div> :
+      tab === "creators" ?
+        <div className="grid grid-cols-3 gap-2 lg:grid-cols-4">
+          {reservedAdTile}
+          {creatorItems.map(c => <a
+            href={`/${encodeURIComponent(c.name)}`} key={c.id} className={`block ${tileChrome}`}>
+            <div className="relative">
+              <LazyImage src={c.avatar} alt={c.name} className="aspect-square"/>
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+                <div className="truncate text-sm font-semibold">{c.name}</div>
+                {c.followers ? <div className="text-[11px] text-white/70">{c.followers.toLocaleString()} followers</div> : null}
+              </div>
+            </div>
+          </a>)}
+        </div> :
+      tab === "niches" ?
+        <VirtualizedSquareGrid
+          items={[sponsoredTile, ...nicheItems]}
+          cols={cols} gapPx={8} gridClassName="w-full"
+          getKey={n => n.type === "ad" ? "reserved-ad-cell" : `niche-${n.slug}`}
+          renderItem={n => n.type === "ad" ? reservedAdTile :
+            <a href={`/explore/niches/${encodeURIComponent(n.slug)}`}
+              className={`block h-full w-full ${tileChrome}`}>
+              <div className="relative h-full w-full">
+                <GridVideoPreview src={n.src} cacheKey={`niche-${n.slug}`}
+                  className="h-full w-full" mobileLimit={4} mobileMode="still"/>
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-2">
+                  <div className="truncate text-sm font-semibold text-white/70">{n.name}</div>
                 </div>
               </div>
-            </Link>
-          ))}
-        </div>
-
-        <BottomSentinel ref={sentinelRef} loading={loading} hasMore={hasMore} />
-        {error && <div className="mt-2 text-center text-xs text-red-400">{error}</div>}
-      </>
-    );
-  }
-
-  // --- niches tab (virtualized) ---
-  if (tab === "niches") {
-    return (
-      <>
+            </a>}
+        /> :
+      tab === "gifs" ?
         <VirtualizedSquareGrid
-          items={nicheItems}
-          cols={cols}
-          gapPx={8} // gap-2
-          gridClassName="w-full"
-          getKey={(n) => `niche-${n.slug}`}
-          renderItem={(n) => (
-            <Link
-              href={`/explore/niches/${encodeURIComponent(n.slug)}`}
-              className={`block w-full h-full ${tileChrome}`}
-            >
-              <div className="relative w-full h-full">
-              <GridVideoPreview
-                src={n.src}
-                cacheKey={`niche-${n.slug}`}
-                className="w-full h-full"
-                mobileLimit={4}          // niches are few, but keep it extra safe
-                mobileMode="still"
-              />                
-              
-              <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/85 to-transparent">
-                  <div className="text-white/70 text-sm font-semibold truncate">{n.name}</div>
-                </div>
-              </div>
-            </Link>
-          )}
-        />
-
-        <BottomSentinel ref={sentinelRef} loading={loading} hasMore={hasMore} />
-        {error && <div className="mt-2 text-center text-xs text-red-400">{error}</div>}
-      </>
-    );
-  }
-
-  // --- gifs/videos tab (virtualized) ---
-  if (tab === "gifs") {
-    return (
-      <>
+          items={[sponsoredTile, ...mediaItems]}
+          cols={cols} gapPx={4} gridClassName="w-full"
+          getKey={m => m.type === "ad" ? "reserved-ad-cell" : `media-${m.id}`}
+          renderItem={(m, index) => m.type === "ad" ? reservedAdTile :
+            <button type="button" className={`h-full w-full ${tileChrome}`}
+              onClick={() => onVideoClick(m as Video, index - 1, mediaItems)}>
+              <GridVideoPreview src={m.src} cacheKey={`media-${m.id}`}
+                className="h-full w-full" hoverPlay mobileLimit={6} mobileMode="still"/>
+            </button>}
+        /> :
         <VirtualizedSquareGrid
-          items={mediaItems}
-          cols={cols}
-          gapPx={4} // gap-1
-          gridClassName="w-full"
-          getKey={(m) => `media-${m.id}`}
-          renderItem={(m, index) => (
-            <button
-              type="button"
-              className={`w-full h-full ${tileChrome}`}
-              onClick={() => onVideoClick(m as any, index, mediaItems)}
-            >
-          <GridVideoPreview
-            src={m.src}
-            cacheKey={`media-${m.id}`}
-            className="w-full h-full"
-            hoverPlay
-            mobileLimit={6}          // allow some motion, but not a stampede
-            mobileMode="still"       // still on mobile = less memory
-          />            
-          </button>
-          )}
-        />
+          items={[sponsoredTile, ...imageItemsOnly]}
+          cols={cols} gapPx={4} gridClassName="w-full"
+          getKey={m => m.type === "ad" ? "reserved-ad-cell" : `img-${m.id}`}
+          renderItem={(m, index) => m.type === "ad" ? reservedAdTile :
+            <button type="button" className={`h-full w-full ${tileChrome}`}
+              onClick={() => { setOverlayIndex(index - 1); setImageOverlayOpen(true); }}>
+              <LazyImage src={m.src} alt={m.alt ?? ""} className="h-full w-full object-cover"/>
+            </button>}
+        />}
+    </div>
 
-        <BottomSentinel ref={sentinelRef} loading={loading} hasMore={hasMore} />
-        {error && <div className="mt-2 text-center text-xs text-red-400">{error}</div>}
-      </>
-    );
-  }
-
-  // --- images tab (virtualized) ---
-  return (
-    <>
-      <VirtualizedSquareGrid
-        items={imageItemsOnly}
-        cols={cols}
-        gapPx={4} // gap-1
-        gridClassName="w-full"
-        getKey={(m) => `img-${m.id}`}
-        renderItem={(m, index) => (
-          <button
-            type="button"
-            onClick={() => {
-              setOverlayIndex(index);
-              setImageOverlayOpen(true);
-            }}
-            className={`w-full h-full ${tileChrome}`}
-          >
-            <LazyImage src={m.src} alt={m.alt ?? ""} className="w-full h-full object-cover" />
-          </button>
-        )}
-      />
-
-      <BottomSentinel ref={sentinelRef} loading={loading} hasMore={hasMore} />
-      {error && <div className="mt-2 text-center text-xs text-red-400">{error}</div>}
-
-      <FullscreenImageOverlay
-        open={imageOverlayOpen}
-        onClose={() => setImageOverlayOpen(false)}
-        items={imageOverlayItems}
-        initialIndex={overlayIndex}
-      />
-    </>
-  );
+    {!loadingInitial && !empty && <BottomSentinel ref={sentinelRef} loading={loading} hasMore={hasMore}/>}
+    {error && <div className="mt-2 text-center text-xs text-red-400">{error}</div>}
+    <FullscreenImageOverlay open={imageOverlayOpen}
+      onClose={() => setImageOverlayOpen(false)}
+      items={imageOverlayItems} initialIndex={overlayIndex}/>
+  </div>;
 }
 
 type BottomSentinelProps = {
@@ -416,9 +344,9 @@ const BottomSentinel = forwardRef<HTMLDivElement, BottomSentinelProps>(
         {!loading && !hasMore && (
           <div className="text-[15px] text-white/40 text-center">
             The End! Contribute to the community by{" "}
-            <Link href="/upload" className="text-pink-500 underline">
+            <a href="/upload" className="text-pink-500 underline">
               uploading
-            </Link>{" "}
+            </a>{" "}
             stuff :P
           </div>
         )}
@@ -590,7 +518,7 @@ const BottomSentinel = forwardRef<HTMLDivElement, BottomSentinelProps>(
 //           {items.map((c, index) => {
 //             if (c.type !== "creator") return null;
 //             return (
-//               <Link
+//               <a
 //                 href={`/${encodeURIComponent(c.name)}`}
 //                 key={index}
 //               >
@@ -613,7 +541,7 @@ const BottomSentinel = forwardRef<HTMLDivElement, BottomSentinelProps>(
 //                 </div>
 //               </div>              
               
-//               </Link>
+//               </a>
 
 //             );
 //           })}
@@ -636,7 +564,7 @@ const BottomSentinel = forwardRef<HTMLDivElement, BottomSentinelProps>(
 //             if (n.type !== "niche") return null;
 
 //             return (
-//               <Link
+//               <a
 //                 key={index}
 //                 href={`/explore/niches/${encodeURIComponent(n.slug)}`}
 //                 className="relative overflow-hidden block"
@@ -651,7 +579,7 @@ const BottomSentinel = forwardRef<HTMLDivElement, BottomSentinelProps>(
 //                     {n.name}
 //                   </div>
 //                 </div>
-//               </Link>
+//               </a>
 //             );
 //           })}
 //         </div>
@@ -745,7 +673,7 @@ const BottomSentinel = forwardRef<HTMLDivElement, BottomSentinelProps>(
 //           <div className="text-[15px] text-white/40">
 //             The End! Contribute to the community by{" "}
 //             <span className="pink-500 underline">
-//               <Link href={"/upload"}>uploading</Link>
+//               <a href={"/upload"}>uploading</a>
 //             </span>{" "}
 //             stuff :P
 //           </div>
@@ -1025,7 +953,7 @@ const BottomSentinel = forwardRef<HTMLDivElement, BottomSentinelProps>(
 //         )}
 //         {!loading && !hasMore && (
 //           <div className="text-[15px] text-white/40">
-//             The End! Contribute to the community by <span className="pink-500 underline"><Link href={"/upload"}>uploading</Link></span> stuff:P
+//             The End! Contribute to the community by <span className="pink-500 underline"><a href={"/upload"}>uploading</a></span> stuff:P
 //           </div>
 //         )}
 //       </div>

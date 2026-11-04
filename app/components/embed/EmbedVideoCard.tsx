@@ -2,7 +2,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import React, { useEffect, useRef, useState } from "react";
 import { Eye, Play, Volume2, VolumeX, EllipsisIcon } from "lucide-react";
 import type { Video } from "@/app/components/feed/types";
@@ -166,9 +165,9 @@ export default function EmbedVideoCard({
       </div>
 
       <div className="absolute flex left-3 top-12 z-30 flex-col items-center">
-        <Link href={"/"}>
+        <a href={"/"}>
            <LongLogo />
-        </Link>
+        </a>
       </div>
 
       {/* click overlay: play/pause only */}
@@ -204,7 +203,7 @@ export default function EmbedVideoCard({
       <div className="absolute inset-x-3 bottom-3 z-30 space-y-2">
         {/* creator row */}
         <div className="flex items-center gap-3 text-white">
-          <Link href={`/${video.username}`}>
+          <a href={`/${video.username}`}>
             <div className="h-10 w-10 rounded-full bg-white/60 overflow-hidden">
               <Image
                 src={video.avatar}
@@ -215,15 +214,15 @@ export default function EmbedVideoCard({
                 loading="lazy"
               />
             </div>
-          </Link>
+          </a>
 
-          <Link href={`/${video.username}`}>
+          <a href={`/${video.username}`}>
             <div className="min-w-0">
               <div className="text-sm font-semibold truncate">
                 {video.username}
               </div>
             </div>
-          </Link>
+          </a>
         </div>
 
         {/* description */}

@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import Link from "next/link";
 import { Info, X, AlertCircle, BadgeCheck, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,9 +81,9 @@ export default function VerifiedLinksEditor(props: {
             <p className="text-sm text-white/70">
               Only <span className="font-semibold">verified</span> creators can add external links.
             </p>
-            <Link href="/verify" className="text-pink-500 underline text-sm">
+            <a href="/verify" className="text-pink-500 underline text-sm">
               Go verify your account
-            </Link>
+            </a>
           </div>
         </div>
       </section>

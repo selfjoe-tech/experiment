@@ -1,5 +1,4 @@
 // app/admin/ads/page.tsx
-import Link from "next/link";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireAdmin } from "@/lib/server/requireAdmin";
 import { renewAdBuyer } from "./actions";
@@ -194,7 +193,7 @@ export default async function AdminAdsPage({
         </div>
         <div className="flex gap-2">
           {page > 1 && (
-            <Link
+            <a
               href={buildUrl("/admin/ads", {
                 page: String(page - 1),
                 status,
@@ -203,10 +202,10 @@ export default async function AdminAdsPage({
               className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20"
             >
               Previous
-            </Link>
+            </a>
           )}
           {page < totalPages && (
-            <Link
+            <a
               href={buildUrl("/admin/ads", {
                 page: String(page + 1),
                 status,
@@ -215,7 +214,7 @@ export default async function AdminAdsPage({
               className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20"
             >
               Next
-            </Link>
+            </a>
           )}
         </div>
       </div>

@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import type { Video } from "@/app/components/feed/types";
 import { SponsoredVideoCard } from "@/app/components/feed/VideoCard";
 import { ChartSpline, Mail, ArrowUpRightFromSquare, UploadCloud } from "lucide-react";
@@ -525,7 +524,7 @@ function TopBannerPreview({
 
   return (
     <div className="space-y-3">
-      <Link href={href} className="flex flex-col gap-2 max-w-md">
+      <a href={href} className="flex flex-col gap-2 max-w-md">
         <div
           className="h-12 px-5 gap-2 w-full flex rounded-[50px] items-center justify-between text-sm font-semibold text-white border border-white/15"
           style={bgStyle}
@@ -537,7 +536,7 @@ function TopBannerPreview({
           </span>
           <ArrowUpRightFromSquare size={18} />
         </div>
-      </Link>
+      </a>
       <div className="flex items-center gap-3">
         <button
           type="button"

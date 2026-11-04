@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { Loader2, RefreshCw } from "lucide-react";
 import DesktopShell from "@/app/components/feed/layout/DesktopShell";
 import MobileChrome from "@/app/components/feed/layout/MobileChrome";
@@ -11,13 +10,11 @@ import {
   type HomeFeedMode, type HomePost,
 } from "@/lib/actions/homeFeed";
 import { getUserIdFromCookies } from "@/lib/actions/auth";
-import { SponsoredAdPanel, MobileBannerAd } from "@/app/components/ads/AdPlacements";
+import { DesktopAdRail } from "@/app/components/ads/AdPlacements";
 import { useAutoHideHeader } from "@/app/hooks/useAutoHideHeader";
 
 function HomeAds() {
-  return <aside aria-label="Advertising and contact" className="fixed inset-y-0 right-0 z-20 hidden w-[340px] overflow-y-auto overscroll-y-contain border-l border-white/10 bg-[#0b0d10] px-4 pb-7 pt-7 text-white lg:block">
-    <SponsoredAdPanel zone={1108263} withContacts adHeight={420}/>
-  </aside>;
+  return <DesktopAdRail/>;
 }
 
 function PostSkeleton() {
@@ -110,7 +107,7 @@ export default function HomeTimeline() {
   return <div className="min-h-screen overflow-x-hidden bg-[#0b0d10] text-white">
     <DesktopShell/>
     <MobileChrome/>
-    <div className="pt-[58px] lg:hidden"><MobileBannerAd /></div>
+    <div className="h-[58px] lg:hidden" aria-hidden="true"/>
     <main className="min-h-screen pb-24 pt-0 lg:pl-[76px] lg:pr-[340px] min-[1360px]:pl-[244px] lg:pt-0">
       <div className="mx-auto flex w-full max-w-[800px] items-start justify-center px-0 pt-0 sm:px-6">
         <section className="min-w-0 w-full max-w-[480px]">
@@ -124,13 +121,13 @@ export default function HomeTimeline() {
           <div className="space-y-0 px-3 sm:px-0">
             {mode==="following" && !viewerId && viewerLoaded ? <div className="py-24 text-center">
               <h2 className="text-lg font-semibold">See posts from people you follow</h2><p className="mt-2 text-sm text-white/50">Log in to view your following feed.</p>
-              <Link href="/auth/login" className="mt-6 inline-block rounded-lg bg-[#8ea4ff] px-5 py-2.5 text-sm font-semibold text-black">Log in</Link>
+              <a href="/auth/login" className="mt-6 inline-block rounded-lg bg-[#8ea4ff] px-5 py-2.5 text-sm font-semibold text-black">Log in</a>
             </div> :
             <>
               {posts.map(post => <PostCard post={post} viewerId={viewerId} key={post.id}/>)}
               {loading && (posts.length === 0 ? <><PostSkeleton/><PostSkeleton/></> : <div className="flex justify-center py-8"><Loader2 className="animate-spin text-white/55" size={23}/></div>)}
               {!loading && error && <div className="flex flex-col items-center gap-3 py-12 text-center"><p className="text-sm text-white/55">{error}</p><button className="flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm" onClick={() => void loadMore(mode, session.current)}><RefreshCw size={16}/> Try again</button></div>}
-              {!loading && !error && !more && posts.length === 0 && <div className="py-24 text-center"><h2 className="text-lg font-semibold">No posts yet</h2><p className="mt-2 text-sm text-white/50">{mode==="following"?"Follow creators to see their posts here.":"Explore the community or check back later."}</p><Link href="/explore/gifs" className="mt-5 inline-block text-sm text-[#8ea4ff]">Explore posts</Link></div>}
+              {!loading && !error && !more && posts.length === 0 && <div className="py-24 text-center"><h2 className="text-lg font-semibold">No posts yet</h2><p className="mt-2 text-sm text-white/50">{mode==="following"?"Follow creators to see their posts here.":"Explore the community or check back later."}</p><a href="/explore/gifs" className="mt-5 inline-block text-sm text-[#8ea4ff]">Explore posts</a></div>}
               {!loading && !error && !more && posts.length > 0 && <p className="py-10 text-center text-xs text-white/35">You're all caught up</p>}
               <div ref={sentinel} className="h-4" aria-hidden="true"/>
             </>}
