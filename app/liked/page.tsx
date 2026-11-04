@@ -2,6 +2,8 @@
 "use client";
 
 import React, { useState } from "react";
+import DesktopShell from "@/app/components/feed/layout/DesktopShell";
+import MobileChrome from "@/app/components/feed/layout/MobileChrome";
 import ExploreGrid, {
   TabKey,
   ExploreItem,
@@ -48,7 +50,9 @@ export default function SavedPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white lg:pl-[17rem] lg:pr-[21rem] pt-16 lg:pt-20">
+    <div className="min-h-screen bg-[#0b0d10] text-white lg:pl-[76px] min-[1360px]:pl-[244px] lg:pr-[340px] pt-[76px] lg:pt-9">
+      <DesktopShell />
+      <MobileChrome />
       <div className="px-4 lg:px-0 flex items-center justify-between mb-4">
         <h1 className="text-lg font-semibold">Saved</h1>
 

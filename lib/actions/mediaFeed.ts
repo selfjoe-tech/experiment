@@ -944,3 +944,52 @@ export async function registerAdView(adId: string): Promise<void> {
 
 
 
+
+/**
+ * Limited, public video recommendations for the /watch page.
+ * Page zero is the initial six, page one is the final six.
+ */
+export async function fetchWatchSuggestions(options: {
+  excludeMediaId: number;
+  page?: number;
+  limit?: number;
+}): Promise<Video[]> {
+  const { excludeMediaId, page = 0, limit = 6 } = options;
+  if (!Number.isSafeInteger(excludeMediaId) || excludeMediaId <= 0) return [];
+  const safeLimit = Math.min(8, Math.max(1, Math.floor(limit)));
+  const safePage = Math.min(1, Math.max(0, Math.floor(page)));
+
+  const { data, error } = await supabase.from("media")
+    .select(`
+      id, storage_path, title, description, like_count, view_count, tags,
+      owner:profiles!media_owner_id_fkey (
+        id, username, avatar_url, verified
+      )
+    `)
+    .eq("media_type", "video")
+    .neq("id", excludeMediaId)
+    .not("storage_path", "is", null)
+    .order("view_count", { ascending: false })
+    .order("created_at", { ascending: false })
+    .range(safePage * safeLimit, (safePage + 1) * safeLimit - 1);
+
+  if (error) throw new Error(error.message || "Could not load more videos.");
+
+  return (data ?? []).filter(row => Boolean(row.storage_path)).map(row => {
+    const owner = Array.isArray(row.owner) ? row.owner[0] : row.owner;
+    return {
+      id: String(row.id),
+      mediaId: Number(row.id),
+      src: buildPublicUrl(row.storage_path),
+      title: row.title ?? "",
+      description: row.description ?? "",
+      username: owner?.username ?? "unknown",
+      avatar: owner?.avatar_url ?? "/avatar-placeholder.png",
+      ownerId: owner?.id,
+      verified: Boolean(owner?.verified),
+      likes: Number(row.like_count ?? 0),
+      views: Number(row.view_count ?? 0),
+      hashtags: row.tags ?? [],
+    } satisfies Video;
+  });
+}

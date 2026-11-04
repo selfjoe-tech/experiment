@@ -27,6 +27,7 @@ type Props = {
   onTabChange: (tab: FeedTab) => void;
   onScrollDirectionChange?: (direction: "up" | "down") => void;
   initialVideo?: Video | null;
+  withAds?: boolean;
 };
 
 function clamp(n: number, min: number, max: number) {
@@ -38,6 +39,7 @@ export default function VideoFeed({
   onTabChange,
   onScrollDirectionChange,
   initialVideo,
+  withAds = false,
 }: Props) {
   // ads
   const AD_EVERY = 3;
@@ -379,7 +381,7 @@ export default function VideoFeed({
 
   const mainClass = overlayOpen
     ? "relative z-[80] h-[100dvh] w-full overflow-y-scroll overscroll-y-contain snap-y snap-mandatory shadow-2xl backdrop-blur"
-    : "relative h-screen snap-y snap-mandatory overflow-y-scroll overscroll-y-contain lg:pt-70 lg:pb-70 lg:pl-[17rem] lg:pr-[21rem]";
+    : `relative h-screen snap-y snap-mandatory overflow-y-scroll overscroll-y-contain lg:pt-0 lg:pb-0 lg:pl-[76px] min-[1360px]:pl-[244px] lg:pr-0 ${withAds ? "lg:pr-[340px]" : ""}`;
 
   const sectionHeightClass = overlayOpen ? "h-full" : "h-screen w-full lg:h-[100dvh]";
 
@@ -395,7 +397,7 @@ export default function VideoFeed({
 
           {noVideos && (
             <div className="flex h-full items-center justify-center text-white/70">
-              {"No internet :("}
+              {"No videos available right now."}
             </div>
           )}
 
@@ -446,13 +448,7 @@ export default function VideoFeed({
         </main>
       </div>
 
-      {loading && (
-        <div className="pointer-events-none fixed bottom-15 left-1/2 -translate-x-1/2 z-[95]">
-          <div className="rounded-full bg-black/70 border border-white/15 px-4 py-2 text-xs text-white/80 backdrop-blur">
-            <LucideLoader />
-          </div>
-        </div>
-      )}
+
     </>
   );
 }
@@ -766,7 +762,7 @@ export default function VideoFeed({
 //         ref={scrollRef}
 //         onScroll={handleScroll}
 //         className="relative h-screen snap-y snap-mandatory overflow-y-scroll scroll-smooth overscroll-y-contain
-//                    lg:pt-70 lg:pb-70 lg:pl-[17rem] lg:pr-[21rem]"
+//                    lg:pt-0 lg:pb-0 lg:pl-[76px] min-[1360px]:pl-[244px] lg:pr-0"
 //       >
 //         {feedError && (
 //           <div className="sticky top-0 z-20 bg-red-900/90 text-red-100 text-xs px-4 py-2 text-center">
@@ -1005,7 +1001,7 @@ export default function VideoFeed({
 //         ref={scrollRef}
 //         onScroll={handleScroll}
 //         className="relative h-screen snap-y snap-mandatory overflow-y-scroll scroll-smooth overscroll-y-contain
-//                    lg:pt-70 lg:pb-70 lg:pl-[17rem] lg:pr-[21rem]"
+//                    lg:pt-0 lg:pb-0 lg:pl-[76px] min-[1360px]:pl-[244px] lg:pr-0"
 //       >
 //         {/* You can still render tab UI here using activeTab / onTabChange */}
 
@@ -1227,7 +1223,7 @@ export default function VideoFeed({
 //         ref={scrollRef}
 //         onScroll={handleScroll}
 //         className="relative h-screen snap-y snap-mandatory overflow-y-scroll scroll-smooth overscroll-y-contain
-//                    lg:pt-70 lg:pb-70 lg:pl-[17rem] lg:pr-[21rem]"
+//                    lg:pt-0 lg:pb-0 lg:pl-[76px] min-[1360px]:pl-[244px] lg:pr-0"
 //       >
 //         {/* You can keep your tabs UI here if needed, using activeTab / onTabChange */}
 
@@ -1374,7 +1370,7 @@ export default function VideoFeed({
 //         ref={scrollRef}
 //         onScroll={handleScroll}
 //         className="relative h-screen snap-y snap-mandatory overflow-y-scroll scroll-smooth overscroll-y-contain
-//                    lg:pt-70 lg:pb-70 lg:pl-[17rem] lg:pr-[21rem]"
+//                    lg:pt-0 lg:pb-0 lg:pl-[76px] min-[1360px]:pl-[244px] lg:pr-0"
 //       >
 //         {/* Desktop tabs above the video area (if you still want them here) */}
         

@@ -249,7 +249,7 @@ export default function ExploreGrid({ onVideoClick, tab, sortBy, fetcher }: Prop
     "rounded-xl overflow-hidden border border-white/10 bg-white/5 hover:border-white/20 transition-colors";
 
   // --- loading/empty states ---
-  if (loading && items.length === 0) {
+  if (items.length === 0 && (loading || hasMore)) {
     return <ExploreGridSkeleton />;
   }
 
@@ -410,7 +410,9 @@ const BottomSentinel = forwardRef<HTMLDivElement, BottomSentinelProps>(
   function BottomSentinelInner({ loading, hasMore }, ref) {
     return (
       <div ref={ref} className="flex flex-col items-center py-4">
-        {loading && <ExploreGridSkeleton />}
+        {loading && <div className="grid w-full grid-cols-3 gap-2 py-4 lg:grid-cols-4">
+          {Array.from({length: 4},(_,i)=><div key={i} className="aspect-square animate-pulse rounded-md bg-white/[.055]"/>)}
+        </div>}
         {!loading && !hasMore && (
           <div className="text-[15px] text-white/40 text-center">
             The End! Contribute to the community by{" "}

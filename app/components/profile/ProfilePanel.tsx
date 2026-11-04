@@ -64,7 +64,7 @@ function Modal({
         onClick={onClose}
       />
       <div className="absolute left-1/2 top-1/2 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2">
-        <div className="rounded-3xl border border-white/10 bg-[#0b0b0b] shadow-2xl">
+        <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#17191d] shadow-[0_30px_100px_rgba(0,0,0,.75)]">
           <div className="flex items-start justify-between gap-3 p-4 border-b border-white/10">
             <div className="min-w-0">
               <div className="text-white font-semibold">{title}</div>
@@ -74,7 +74,7 @@ function Modal({
             </div>
             <button
               onClick={onClose}
-              className="h-9 w-9 inline-flex items-center justify-center rounded-xl border border-white/10 bg-black/30 hover:bg-white/5"
+              className="h-9 w-9 inline-flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10"
             >
               <X className="h-4 w-4 text-white/80" />
             </button>
@@ -170,7 +170,7 @@ export function ProfilePanel({
   const logOut = { label: "Log out", icon: LogOut };
 
   return (
-    <div className="h-full w-full bg-black text-white flex flex-col">
+    <div className="h-full w-full bg-[#111216] text-white flex flex-col">
       {/* header */}
       <div className="p-4 border-b border-white/10 flex items-center gap-3">
         <div className="relative h-10 w-10 rounded-full bg-white/10 overflow-hidden">
@@ -235,7 +235,7 @@ export function ProfilePanel({
           <button
             key={r.label}
             type="button"
-            className="w-full rounded-md bg-transparent hover:bg-white/5 border border-white/10 px-3 py-3 flex items-center justify-between"
+            className="w-full rounded-lg bg-transparent px-4 py-3.5 hover:bg-white/[.07] transition flex items-center justify-between"
             onClick={() => router.push(r.link)}
           >
             <span className="flex items-center gap-2">

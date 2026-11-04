@@ -392,9 +392,7 @@ export default function FullscreenVideoOverlay({
           );
         })}
 
-        {isLoadingMore && (
-          <div className="py-6 text-center text-sm text-neutral-400">Loading more…</div>
-        )}
+
       </div>
     </div>
   );

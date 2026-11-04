@@ -176,6 +176,7 @@ const mediaIdNum = !isSponsored
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const [previewEnded, setPreviewEnded] = useState(false);
 
   // OTHER UI
   const [expandedDesc, setExpandedDesc] = useState(false);
@@ -277,6 +278,7 @@ useEffect(() => {
   // We have src, but only the active one plays
   if (shouldAutoPlay) {
     el.currentTime = 0;
+    setPreviewEnded(false);
     const p = el.play();
     if (p) p.catch(() => setIsPlaying(false));
   } else {
@@ -379,6 +381,7 @@ useEffect(() => {
   const togglePlay = () => {
     const el = videoRef.current;
     if (!el) return;
+    if (previewEnded) return;
     if (el.paused) {
       const maybePlay = el.play();
       if (maybePlay) maybePlay.catch(() => setIsPlaying(false));
@@ -411,6 +414,14 @@ useEffect(() => {
     if (!el || !el.duration) return;
     const cur = el.currentTime;
     const dur = el.duration;
+    if (!isSponsored && dur > 30 && cur >= 30) {
+      el.currentTime = 30;
+      el.pause();
+      setCurrentTime(30);
+      setProgress((30 / dur) * 100);
+      setPreviewEnded(true);
+      return;
+    }
     setCurrentTime(cur);
     setDuration(dur);
     setProgress((cur / dur) * 100);
@@ -419,10 +430,16 @@ useEffect(() => {
   const handleSeek = (value: number) => {
     const el = videoRef.current;
     if (!el || !el.duration) return;
-    const newTime = (value / 100) * el.duration;
+    const newTime = Math.min((value / 100) * el.duration, !isSponsored && el.duration > 30 ? 30 : el.duration);
     el.currentTime = newTime;
     setCurrentTime(newTime);
-    setProgress(value);
+    setProgress((newTime / el.duration) * 100);
+    if (!isSponsored && el.duration > 30 && newTime >= 30) {
+      el.pause();
+      setPreviewEnded(true);
+    } else {
+      setPreviewEnded(false);
+    }
   };
 
   // ===== LIKE TOGGLE (with backend) =====
@@ -505,7 +522,8 @@ useEffect(() => {
 
 
   const handleDoubleLike = () => {
-    handleToggleLike();
+    if (liked) { triggerLikeBurst(); return; }
+    void handleToggleLike();
   };
 
   // single vs double click on video
@@ -679,7 +697,7 @@ useEffect(() => {
               transition-opacity duration-300
               ${metadataLoaded ? "opacity-100" : "opacity-0"}
             `}
-            loop
+            loop={isSponsored || duration <= 30}
             playsInline
         />
             )
@@ -695,7 +713,16 @@ useEffect(() => {
 
       </div>
 
-      {/* ❤️ LIKE BURST OVERLAY */}
+      {previewEnded && !isSponsored && duration > 30 && <div className="absolute inset-0 z-[45] flex flex-col items-center justify-center gap-5 bg-black/80 px-6 text-center backdrop-blur-sm">
+        <div className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-[.18em] text-white/50">30-second preview</p>
+          <h3 className="text-xl font-semibold text-white">Watch the full video</h3>
+        </div>
+        <Link href={`/watch/${mediaIdNum}`} className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 text-sm font-semibold text-black transition-colors hover:bg-white/90">
+          Watch full video <ArrowUpRight size={18}/>
+        </Link>
+      </div>}
+      {/* LIKE BURST OVERLAY */}
       {likeBurstVisible && (
         <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
           <Heart className="h-24 w-24 text-red-500 fill-red-500 like-burst drop-shadow-[0_0_18px_rgba(248,113,113,1)]" />
@@ -1134,7 +1161,7 @@ function CommentsOverlay({
 
       <form
         onSubmit={onSubmit}
-        className="border-t border-white/10 px-4 py-3 space-y-2 bg-black"
+        className="border-t border-white/10 px-4 py-3 space-y-2 bg-[#16171b]"
       >
         {replyTo && (
           <div className="flex items-center justify-between text-[11px] text-white/60">
@@ -1175,7 +1202,7 @@ function CommentsOverlay({
   if (isDesktop) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange} >
-        <DialogContent className="max-w-md w-full bg-black text-white border-white/10 z-[100]">
+        <DialogContent className="max-h-[85dvh] w-[calc(100%-1rem)] max-w-[520px] overflow-hidden rounded-2xl border-white/10 bg-[#16171b] text-white shadow-[0_30px_100px_rgba(0,0,0,.75)] z-[100]">
           <DialogHeader>
             <DialogTitle className="text-sm font-semibold">
               Comments
@@ -1190,7 +1217,7 @@ function CommentsOverlay({
   // mobile drawer
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="bg-black text-white border-t border-white/10 z-[100]">
+      <DrawerContent className="rounded-t-3xl border-t border-white/10 bg-[#16171b] text-white z-[100]">
         <DrawerHeader>
           <DrawerTitle className="text-sm font-semibold">
             Comments

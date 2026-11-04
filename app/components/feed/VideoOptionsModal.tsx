@@ -22,7 +22,9 @@ type Props = {
   open: boolean;
   onClose: () => void;
   mediaId: number | string;
-  videoUrl: string; // ✅ supabase public URL
+  videoUrl: string; // Supabase public URL
+  sharePath?: string;
+  allowEmbed?: boolean;
 };
 
 type Mode = "options" | "share" | "report-step1" | "report-step2" | "report-done";
@@ -69,6 +71,8 @@ export default function VideoOptionsModal({
   onClose,
   mediaId,
   videoUrl,
+  sharePath,
+  allowEmbed = true,
 }: Props) {
   const [origin, setOrigin] = useState("");
   const [copied, setCopied] = useState<"embed" | "share" | null>(null);
@@ -116,7 +120,7 @@ export default function VideoOptionsModal({
   if (!open) return null;
 
   const idStr = String(mediaId);
-  const shareUrl = origin !== "" ? `${origin}/watch/${idStr}` : `/watch/${idStr}`;
+  const shareUrl = origin !== "" ? `${origin}${sharePath || `/watch/${idStr}`}` : (sharePath || `/watch/${idStr}`);
   const embedUrl = origin !== "" ? `${origin}/embed/${idStr}` : `/embed/${idStr}`;
 
   const iframeSnippet = `<iframe src="${embedUrl}" width="360" height="640" style="border:0;overflow:hidden" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>`;
@@ -187,21 +191,21 @@ export default function VideoOptionsModal({
   };
 
   const baseCardClass =
-    "w-full max-w-sm rounded-2xl bg-[#090909] border border-white/15 text-sm text-white shadow-2xl overflow-hidden";
+    "w-full max-w-[440px] rounded-2xl bg-[#15161a] border border-white/10 text-sm text-white shadow-[0_30px_110px_rgba(0,0,0,.8)] overflow-hidden";
 
   const rowClass =
-    "w-full flex items-center justify-between rounded-xl border border-white/10 px-3 py-3 hover:bg-white/5 transition";
+    "w-full flex items-center justify-between rounded-lg border-b border-white/[.07] px-3 py-4 text-left hover:bg-white/[.05] transition";
 
-  const iconBubble = "inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10";
+  const iconBubble = "inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/[.07]";
 
   return (
     <Portal>
-      <div className="fixed inset-0 z-[150] bg-black/70 backdrop-blur-sm flex items-center justify-center px-3">
+      <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 px-3 backdrop-blur-sm">
         <div className={baseCardClass}>
-          <div className="h-1 w-full bg-gradient-to-r from-pink-500 via-yellow-400 to-purple-500" />
+          
 
           <div className="flex items-center justify-between px-5 pt-4 pb-2">
-            <h2 className="font-semibold">
+            <h2 className="text-base font-semibold">
               {mode === "share"
                 ? "Share"
                 : mode.startsWith("report")
@@ -212,7 +216,7 @@ export default function VideoOptionsModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-full p-1 hover:bg-white/10"
+              className="rounded-full p-2 transition hover:bg-white/10"
               aria-label="Close"
             >
               <XIcon className="h-4 w-4" />
@@ -307,7 +311,7 @@ export default function VideoOptionsModal({
               </button>
 
               {/* Embed (toggle showing code) */}
-              <button
+              {allowEmbed && <button
                 type="button"
                 onClick={() => setShowEmbedCode((v) => !v)}
                 className={rowClass}
@@ -322,9 +326,9 @@ export default function VideoOptionsModal({
                 <span className="text-[11px] text-white/60">
                   {showEmbedCode ? "Hide" : "Show"}
                 </span>
-              </button>
+              </button>}
 
-              {showEmbedCode && (
+              {allowEmbed && showEmbedCode && (
                 <div className="space-y-2">
                   <button
                     type="button"

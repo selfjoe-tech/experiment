@@ -185,11 +185,16 @@ export default function UserGrid({ username, tab, sortBy, onVideoClick }: Props)
   );
 
   const tileChrome =
-    "rounded-xl overflow-hidden border border-white/10 bg-white/5 hover:border-white/20 transition-colors";
+    "overflow-hidden rounded-sm bg-white/[.04] transition-opacity duration-200 hover:opacity-85";
 
-  // empty
+  if (items.length === 0 && (loading || hasMore)) {
+    return <div className="grid grid-cols-3 gap-1 sm:grid-cols-4" aria-label="Loading profile posts">
+      {Array.from({length: 12}, (_, i) => <div key={i} className="aspect-square animate-pulse rounded-sm bg-white/[.055]"/>)}
+    </div>;
+  }
+
   if (!loading && items.length === 0) {
-    return <div className="py-12 text-center text-sm text-white/60">No uploads yet.</div>;
+    return <div className="grid min-h-56 place-items-center text-sm text-white/50">No uploads yet.</div>;
   }
 
   // render per-tab with virtualization (clean + fast)
