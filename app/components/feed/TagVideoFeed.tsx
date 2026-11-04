@@ -291,7 +291,7 @@ export default function TagVideoFeed({ tagSlug, onScrollDirectionChange }: Props
 
   const mainClass = overlayOpen
     ? "relative z-[80] h-[100dvh] w-full overflow-y-scroll overscroll-y-contain snap-y snap-mandatory shadow-2xl backdrop-blur"
-    : "relative h-screen snap-y snap-mandatory overflow-y-scroll overscroll-y-contain lg:pt-70 lg:pb-70 lg:pl-[17rem] lg:pr-[21rem]";
+    : "relative h-screen snap-y snap-mandatory overflow-y-scroll overscroll-y-contain lg:pt-0 lg:pb-0 lg:pl-[76px] min-[1360px]:pl-[244px] lg:pr-[340px]";
 
   const sectionHeightClass = overlayOpen
     ? "h-full w-full"
@@ -309,7 +309,7 @@ export default function TagVideoFeed({ tagSlug, onScrollDirectionChange }: Props
 
           {noVideos && (
             <div className="flex h-full items-center justify-center text-white/70">
-              {"No internet :("}
+              {"No videos available right now."}
             </div>
           )}
 
@@ -341,13 +341,7 @@ export default function TagVideoFeed({ tagSlug, onScrollDirectionChange }: Props
         </main>
       </div>
 
-      {loading && (
-        <div className="pointer-events-none fixed bottom-15 left-1/2 -translate-x-1/2 z-[95]">
-          <div className="rounded-full bg-black/70 border border-white/15 px-4 py-2 text-xs text-white/80 backdrop-blur">
-            <Loader />
-          </div>
-        </div>
-      )}
+
     </>
   );
 }

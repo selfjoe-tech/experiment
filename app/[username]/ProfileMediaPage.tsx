@@ -1,7 +1,7 @@
 // app/profile/[username]/page.tsx
 "use client";
 
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { trackProfileVisitByUsername } from "@/lib/actions/earn";
@@ -10,6 +10,8 @@ import {
   Ellipsis,
   User2,
   X,
+  UserPlus,
+  Share,
   Trash2,
   Pencil,
   Share2,
@@ -19,14 +21,14 @@ import {
 
 import ExploreGrid from "@/app/components/explore/ExploreGrid";
 import SortDropdown, { SortKey } from "@/app/components/explore/SortDropdown";
-import { fetchByUserName } from "@/app/components/explore/data"; 
+ 
 import type { Video } from "@/app/components/feed/types";
 import FullscreenVideoOverlay from "@/app/components/feed/FullscreenVideoOverlay";
 import UserGrid from "@/app/components/profile/UserGrid";
 import { VerifiedBadgeIcon } from "@/app/components/icons/VerifiedBadgeIcon";
 import { verify } from "crypto";
-import { getUserProfileFromCookies, getVerified } from "@/lib/actions/auth";
-import { FollowCounts, getFollowCountsByUsername, getMyFollowCounts, getUserProfileByUsername } from "@/lib/actions/social";
+import { getUserProfileFromCookies, getVerified, getUserIdFromCookies } from "@/lib/actions/auth";
+import { FollowCounts, getFollowCountsByUsername, getMyFollowCounts, getUserProfileByUsername, checkIsFollowing, toggleFollowUser } from "@/lib/actions/social";
 import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
 import { ExternalLink } from "lucide-react";
@@ -51,9 +53,7 @@ export default function ProfileMediaPage() {
   const [sortBy, setSortBy] = useState<SortKey>("trending");
   const [actionsOpen, setActionsOpen] = useState(false);
 
-  const [items, setItems] = useState<Video[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
   
     // Only used for the fullscreen overlay
 const [overlayVideos, setOverlayVideos] = useState<Video[]>([]);
@@ -65,6 +65,10 @@ const [overlayVideos, setOverlayVideos] = useState<Video[]>([]);
     const router = useRouter()
       const [followCounts, setFollowCounts] = useState<FollowCounts | null>(null);
         const [avatar, setAvatar] = useState("");
+        const [profileId, setProfileId] = useState<string | null>(null);
+        const [viewerId, setViewerId] = useState<string | null>(null);
+        const [following, setFollowing] = useState(false);
+        const [followBusy, setFollowBusy] = useState(false);
           const [followCountsLoading, setFollowCountsLoading] = useState(true);
 
     const [isMuted, setIsMuted] = useState(true)
@@ -232,8 +236,16 @@ useEffect(() => {
       if (cancelled) return;
 
       setVerified(isVerified); // 👈 no toggle, just set it
-      setLinks(profile.links)
+      setLinks(profile.links ?? {});
+      setProfileId(profile.id);
       setFollowCounts(counts);
+      const currentViewer = await getUserIdFromCookies().catch(() => null);
+      if (!cancelled) {
+        setViewerId(currentViewer);
+        if (currentViewer && profile.id && currentViewer !== profile.id) {
+          setFollowing(await checkIsFollowing(profile.id).catch(() => false));
+        }
+      }
       setAvatar(profile.avatarUrl || "/avatar-placeholder.png");
       setFollowCountsLoading(false);
     } catch (err) {
@@ -248,62 +260,6 @@ useEffect(() => {
     cancelled = true;
   };
 }, [username]);
-
-  // ===== Fetch media for this username + tab =====
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await fetchByUserName(username, tab);
-        if (!cancelled) {
-          setItems(data);
-        }
-      } catch (err) {
-        console.error("ProfileMediaPage fetch error", err);
-        if (!cancelled) {
-          setError("Failed to load media");
-          setItems([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [username, tab]);
-
-  // ===== Sort the fetched items locally =====
-  const sortedItems = useMemo(() => {
-    const base = items ?? [];
-    const copy = [...base];
-
-    switch (sortBy) {
-      case "newest":
-        copy.sort(
-          (a: any, b: any) =>
-            (b.createdAt || b.date || 0) - (a.createdAt || a.date || 0)
-        );
-        break;
-      case "views":
-        copy.sort(
-          (a: any, b: any) => (b.views || 0) - (a.views || 0)
-        );
-        break;
-      default:
-        // trending / score – fall back to views or a score field
-        copy.sort(
-          (a: any, b: any) => (b.score || b.views || 0) - (a.score || a.views || 0)
-        );
-    }
-
-    return copy;
-  }, [items, sortBy]);
 
   function normalizeUrl(raw: string) {
   const v = (raw ?? "").trim();
@@ -324,49 +280,78 @@ function isSafeExternalUrl(url: string) {
 
 
 
+  const changeFollow = async () => {
+    if (!viewerId) { router.push("/auth/login"); return; }
+    if (!profileId || followBusy) return;
+    setFollowBusy(true);
+    try {
+      const result = await toggleFollowUser(profileId);
+      setFollowing(result.following);
+      setFollowCounts(previous => previous ? {
+        ...previous, followers: Math.max(0, previous.followers + (result.following ? 1 : -1))
+      } : previous);
+    } finally { setFollowBusy(false); }
+  };
+
+  const shareProfile = async () => {
+    const url = window.location.href;
+    if (navigator.share) await navigator.share({url}).catch(() => {});
+    else await navigator.clipboard.writeText(url).catch(() => {});
+  };
+
   return (
-    <div className="px-3 sm:px-4">
+    <div className="mx-auto w-full max-w-[1020px] px-3 pb-24 sm:px-6">
       {/* ===== Header ===== */}
-      <div className="pt-3 pb-4">
+      <div className="border-b border-white/10 pb-8 pt-7 sm:pt-10">
         <div className="flex items-start justify-between gap-4">
           {/* Left: avatar + name + stats + button */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-4">
-              <div className="h-15 w-15 rounded-full bg-white/60 overflow-hidden">
+            <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start sm:gap-12">
+              <div className="h-24 w-24 shrink-0 overflow-hidden rounded-full border-[3px] border-[#0b0d10] bg-gradient-to-tr from-pink-500 to-violet-600 p-[2px] sm:h-36 sm:w-36">
 
                   <Image
                   src={avatar || "/avatar-placeholder.png"}
-                  height={20}
-                  width={20}
+                  height={150}
+                  width={150}
                   alt={`${username}' avatar on Goon Gram - Porn videos`} 
-                  className="h-full w-full object-cover"
+                  className="h-full w-full rounded-full object-cover"
                   loading="lazy"              
                   />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <div className="text-lg sm:text-xl font-semibold truncate">
+                  <div className="truncate text-xl font-semibold tracking-tight sm:text-2xl">
                   {username}
                 </div>
                 {verified && <VerifiedBadgeIcon />}
                 </div>
                 
                 {followCountsLoading ? (
-                <div className="mt-1 flex gap-2">
+                <div className="mt-4 flex gap-4">
                   <Skeleton className="h-3 w-20 bg-white/10" />
                   <Skeleton className="h-3 w-20 bg-white/10" />
                   <Skeleton className="h-3 w-20 bg-white/10" />
                 </div>
               ) : (
-                <div className="text-xs text-white/60">
-                  {formatCount(followCounts?.followers)} Followers ·{" "}
-                  {formatCount(followCounts?.following)} Following ·{" "}
-                  {formatCount(followCounts?.views)} Views
+                <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/75">
+                  <span><strong className="text-white">{formatCount(followCounts?.followers)}</strong> followers</span>
+                  <span><strong className="text-white">{formatCount(followCounts?.following)}</strong> following</span>
+                  <span><strong className="text-white">{formatCount(followCounts?.views)}</strong> views</span>
                 </div>
               )}
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                {viewerId !== profileId && <button type="button" onClick={() => void changeFollow()} disabled={followBusy}
+                  className={`inline-flex h-9 items-center gap-2 rounded-lg px-5 text-sm font-semibold transition-colors ${following ? "bg-white/10 text-white hover:bg-white/15" : "bg-[#ff365e] text-white hover:bg-[#ed2651]"}`}>
+                  <UserPlus size={16}/>{followBusy ? "Saving..." : following ? "Following" : "Follow"}
+                </button>}
+                {viewerId === profileId && <Link href="/edit-profile" className="inline-flex h-9 items-center rounded-lg bg-white/10 px-5 text-sm font-semibold hover:bg-white/15">Edit profile</Link>}
+                <button type="button" onClick={() => void shareProfile()} aria-label="Share profile"
+                  className="inline-flex h-9 items-center gap-2 rounded-lg bg-white/10 px-4 text-sm font-semibold transition-colors hover:bg-white/15">
+                  <Share size={16}/> Share
+                </button>
+              </div>
               </div>
             </div>
-
 
 
             
@@ -417,7 +402,7 @@ function isSafeExternalUrl(url: string) {
       </div>
 
       {/* ===== Tabs + Sort (Explore style) ===== */}
-      <div className="flex items-center justify-between gap-3 mb-4">
+      <div className="sticky top-[58px] z-20 mb-5 flex items-center justify-between gap-3 border-b border-white/10 bg-[#0b0d10]/95 py-3 backdrop-blur-xl lg:top-0">
         <div className="flex w-full justify-center">
           <ProfileTabs active={tab} username={username} />
         </div>
@@ -425,19 +410,13 @@ function isSafeExternalUrl(url: string) {
       </div>
 
       {/* ===== Grid ===== */}
-      {error && (
-        <div className="text-sm text-red-400 mb-2">{error}</div>
-      )}
-      {loading && sortedItems.length === 0 ? (
-        <div className="py-10 text-center text-white/60">Loading…</div>
-      ) : (
-            <UserGrid
-              username={username}
-              tab={tab}            
-              sortBy={sortBy}
-              onVideoClick={handleVideoClick}
-            />      
-        )}
+      <UserGrid
+        key={`${username}:${tab}`}
+        username={username}
+        tab={tab}
+        sortBy={sortBy}
+        onVideoClick={handleVideoClick}
+      />
 
       {/* ===== Actions Modal ===== */}
       

@@ -231,6 +231,7 @@ export default function ProfileMenuContent() {
           </button>
 
           <Row icon={Heart} label="Liked" href={`/liked`} />
+          <Row icon={Bookmark} label="Saved" href={`/saved`} />
           <Row icon={Pencil} label="Edit Profile" href={`/edit-profile`} />
 
           <button

@@ -9,6 +9,7 @@ import SortDropdown, { SortKey } from "@/app/components/explore/SortDropdown";
 import FullscreenVideoOverlay from "@/app/components/feed/FullscreenVideoOverlay";
 import { Video } from "@/app/components/feed/types";
 import { getItemsForTab } from "@/app/components/explore/data";
+import { useAutoHideHeader } from "@/app/hooks/useAutoHideHeader";
 
 type Props = {
   initialVideos?: Video[];
@@ -36,8 +37,7 @@ export default function ExploreTabPage({ initialVideos = [] }: Props) {
   const [page, setPage] = useState(1);
   const [isMuted, setIsMuted] = useState(true);
   const toggleMute = () => setIsMuted((prev) => !prev);
-  const [hideHeader, setHideHeader] = useState(false);
-  const lastScrollY = useRef(0);
+  const hideHeader = useAutoHideHeader();
   const OVERLAY_LIMIT = 12;
 const overlayPageRef = useRef(0);
 const overlaySeenRef = useRef(new Set<string>());
@@ -191,32 +191,6 @@ const [initialOverlayIndex, setInitialOverlayIndex] = useState<number | null>(nu
 
 
 
-  useEffect(() => {
-    const handleScroll = () => {
-      const current = window.scrollY || 0;
-      const delta = current - lastScrollY.current;
-
-      const threshold = 4;
-      if (Math.abs(delta) < threshold) return;
-
-      if (current <= 0) {
-        setHideHeader(false);
-        lastScrollY.current = current;
-        return;
-      }
-
-      if (delta > 0) {
-        setHideHeader(true);
-      } else {
-        setHideHeader(false);
-      }
-
-      lastScrollY.current = current;
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   // ====== RENDER ======
   return (
@@ -248,17 +222,17 @@ const [initialOverlayIndex, setInitialOverlayIndex] = useState<number | null>(nu
         />
       </Head>
 
-      <div className="pt-14 lg:pt-20 lg:ml-64 lg:mr-80">
+      <div className="pt-14 lg:pt-20 lg:ml-[76px] min-[1360px]:ml-[244px] lg:mr-[340px]">
         <div className="px-3 sm:px-4">
           {/* Top row: tabs + sort */}
           <div
             className={`
-              sticky top-0 z-30 mb-4
+              sticky top-[58px] lg:top-0 z-30 mb-4
               bg-black/95 backdrop-blur
               flex items-center justify-between gap-3
               border-b border-white/10
-              transition-transform duration-200
-              ${hideHeader ? "-translate-y-full" : "translate-y-0"}
+              transition-all duration-300
+              ${hideHeader ? "pointer-events-none -translate-y-full opacity-0" : "translate-y-0 opacity-100"}
             `}
           >
             <div className="flex w-full justify-center">

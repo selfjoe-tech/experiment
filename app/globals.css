@@ -194,3 +194,52 @@ html {
   animation: like-burst 700ms ease-out forwards;
 }
 
+
+
+/* Home feed micro-interactions (respects reduced-motion settings). */
+@keyframes goon-feed-heart-pop {
+  0% { opacity: 0; transform: scale(.35) rotate(-14deg); }
+  35% { opacity: 1; transform: scale(1.18) rotate(3deg); }
+  58% { opacity: 1; transform: scale(.96) rotate(-2deg); }
+  83% { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 0; transform: scale(1.4); }
+}
+@keyframes goon-feed-liked-pop {
+  0% { transform: scale(.72); }
+  55% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+.goon-feed-heart-burst { animation: goon-feed-heart-pop 740ms cubic-bezier(.2,.75,.2,1) both; }
+.goon-feed-liked { animation: goon-feed-liked-pop 330ms ease-out; }
+.scrollbar-none { scrollbar-width: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .goon-feed-heart-burst, .goon-feed-liked { animation: none; }
+}
+
+/* Layered double-tap heart: spring, glowing halo and outward particles. */
+@keyframes goon-heart-spring {
+  0% { opacity: 0; transform: scale(.15) rotate(-18deg); filter: blur(5px); }
+  28% { opacity: 1; transform: scale(1.24) rotate(8deg); filter: blur(0); }
+  49% { opacity: 1; transform: scale(.92) rotate(-4deg); }
+  66% { opacity: 1; transform: scale(1.09) rotate(2deg); }
+  85% { opacity: .9; transform: scale(1.02); }
+  100% { opacity: 0; transform: scale(1.35) translateY(-24px); }
+}
+@keyframes goon-heart-spark {
+  0%, 10% { opacity: 0; transform: rotate(var(--particle-angle)) translateY(0) scale(.15); }
+  27% { opacity: 1; transform: rotate(var(--particle-angle)) translateY(-25px) scale(1); }
+  85% { opacity: .95; }
+  100% { opacity: 0; transform: rotate(var(--particle-angle)) translateY(calc(-1 * var(--particle-distance))) scale(.25); }
+}
+@keyframes goon-halo-pulse {
+  from { opacity: .7; transform: scale(.25); }
+  to { opacity: 0; transform: scale(1.8); }
+}
+.goon-feed-heart-burst { position: relative; z-index: 1; animation: goon-heart-spring 740ms cubic-bezier(.16, 1, .3, 1) both; }
+.goon-heart-particle { animation: goon-heart-spark 680ms ease-out both; transform-origin: center; }
+.goon-heart-halo { position: absolute; width: 120px; height: 120px; border: 4px solid rgba(255,255,255,.78); border-radius: 100%; animation: goon-halo-pulse 520ms ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .goon-feed-heart-burst, .goon-heart-particle, .goon-heart-halo { animation: none; }
+  .goon-heart-particle, .goon-heart-halo { display: none; }
+}

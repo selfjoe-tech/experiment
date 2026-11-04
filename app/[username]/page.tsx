@@ -92,13 +92,15 @@ export async function generateMetadata({
 }
 
 function ProfileFallback() {
-  // Server-rendered fallback helps while the client component hydrates.
-  return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8">
-      <div className="text-white font-semibold">Loading profile…</div>
-      <div className="text-white/60 text-sm mt-2">Fetching posts and stats.</div>
+  return <div className="mx-auto w-full max-w-4xl px-4 py-8">
+    <div className="mb-9 flex items-center gap-8 animate-pulse">
+      <div className="h-28 w-28 shrink-0 rounded-full bg-white/10"/>
+      <div className="flex-1 space-y-4"><div className="h-5 w-1/3 rounded bg-white/10"/><div className="h-4 w-2/3 rounded bg-white/10"/></div>
     </div>
-  );
+    <div className="grid grid-cols-3 gap-1 sm:grid-cols-4">
+      {Array.from({length: 12},(_,i)=><div key={i} className="aspect-square animate-pulse bg-white/[.055]"/>)}
+    </div>
+  </div>;
 }
 
 export default async function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
