@@ -25,6 +25,7 @@ export function SignupForm() {
   const [showConfirm, setShowConfirm] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<AuthFieldErrors>({});
 
   const [isPending, startTransition] = useTransition();
@@ -36,6 +37,7 @@ export function SignupForm() {
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
+    setNotice(null);
     setFieldErrors({});
 
     const formData = new FormData(e.currentTarget);
@@ -43,7 +45,7 @@ export function SignupForm() {
     startTransition(async () => {
       const result = await signupAction(formData);
       if (result.success) {
-        router.push("/preferences");
+        router.replace("/");
         router.refresh();
       } else {
         setError(result.message ?? "Unable to sign up.");
@@ -229,6 +231,10 @@ if (!username) {
 
         {error && (
           <p className="text-xs text-red-400 text-center">{error}</p>
+        )}
+
+        {notice && (
+          <p className="text-xs text-emerald-400 text-center">{notice}</p>
         )}
 
         <Button

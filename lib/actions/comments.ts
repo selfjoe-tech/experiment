@@ -1,93 +1,44 @@
-// /lib/actions/comments.ts
 "use server";
 
-import { supabase } from "@/lib/supabaseClient";
-import { v4 as uuidv4 } from "uuid";
-import { getUserProfileFromCookies, getUserIdFromCookies, getVerified } from "@/lib/actions/auth";
+import { createClient } from "@/lib/supabase/server";
 
 export type CommentNode = {
   id: string;
   username: string;
-  avatar_path: string;      // we store the final URL here
+  avatar_path: string;
   comment: string;
   likes: number;
-  liked_by?: string[];      // userIds who liked the comment
+  liked_by?: string[];
   replies: CommentNode[];
   verified: boolean;
 };
 
-/** Safely normalize whatever is in media.comments into an array of CommentNode */
-function ensureArray(value: any): CommentNode[] {
+function ensureArray(value: unknown): CommentNode[] {
   if (!value) return [];
   if (Array.isArray(value)) return value as CommentNode[];
   return [value as CommentNode];
 }
 
-/** Recursively add a reply under the comment matching parentId */
-function addReplyRecursive(
-  nodes: CommentNode[],
-  parentId: string,
-  reply: CommentNode
-): CommentNode[] {
-  return nodes.map((c) => {
-    if (c.id === parentId) {
-      return {
-        ...c,
-        replies: [...(c.replies ?? []), reply],
-      };
-    }
-    return {
-      ...c,
-      replies: addReplyRecursive(c.replies ?? [], parentId, reply),
-    };
-  });
+async function requireAuthenticatedClient() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    throw new Error("You must be logged in.");
+  }
+
+  return supabase;
 }
 
-/** Recursively toggle like for a comment by id + userId */
-function toggleLikeRecursive(
-  nodes: CommentNode[],
-  targetId: string,
-  userId: string
-): { updated: CommentNode[]; found: boolean } {
-  let found = false;
-
-  const updated = nodes.map((c) => {
-    if (c.id === targetId) {
-      const likedBy = Array.isArray(c.liked_by) ? [...c.liked_by] : [];
-      const hasLiked = likedBy.includes(userId);
-      let likes = c.likes ?? 0;
-
-      if (hasLiked) {
-        // unlike
-        likes = Math.max(0, likes - 1);
-        const idx = likedBy.indexOf(userId);
-        if (idx >= 0) likedBy.splice(idx, 1);
-      } else {
-        // like
-        likes = likes + 1;
-        likedBy.push(userId);
-      }
-
-      found = true;
-      return { ...c, likes, liked_by: likedBy };
-    }
-
-    const child = toggleLikeRecursive(c.replies ?? [], targetId, userId);
-    if (child.found) found = true;
-
-    return { ...c, replies: child.updated };
-  });
-
-  return { updated, found };
-}
-
-/* =========================================================
- * FETCH COMMENTS FOR A MEDIA ITEM
- * =======================================================*/
-
-export async function fetchCommentsForMedia(mediaId: number): Promise<CommentNode[]> {
+export async function fetchCommentsForMedia(
+  mediaId: number
+): Promise<CommentNode[]> {
   if (!mediaId) return [];
 
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("media")
     .select("comments")
@@ -102,110 +53,57 @@ export async function fetchCommentsForMedia(mediaId: number): Promise<CommentNod
   return ensureArray(data?.comments);
 }
 
-/* =========================================================
- * ADD COMMENT / REPLY
- * =======================================================*/
-
 export async function addCommentForMedia(options: {
   mediaId: number;
   text: string;
   parentId?: string | null;
 }): Promise<CommentNode[]> {
-  const { mediaId, text, parentId } = options;
-  const trimmed = text.trim();
-  if (!mediaId || !trimmed) return [];
+  const mediaId = Number(options.mediaId);
+  const text = String(options.text ?? "").trim();
+  const parentId = options.parentId?.trim() || null;
 
-  // ✅ Use your auth helper for username + avatarUrl + isLoggedIn
-  const [{ username, avatarUrl, isLoggedIn }, userId] = await Promise.all([
-    getUserProfileFromCookies(),
-    getUserIdFromCookies(),
-  ]);
-
-  if (!isLoggedIn || !username || !userId) {
-    throw new Error("You must be logged in to comment.");
+  if (!Number.isSafeInteger(mediaId) || mediaId <= 0) {
+    throw new Error("Invalid media ID.");
   }
 
-  const { data, error } = await supabase
-    .from("media")
-    .select("comments")
-    .eq("id", mediaId)
-    .maybeSingle();
+  if (!text) return [];
+  if (text.length > 5000) {
+    throw new Error("Comment must be 5,000 characters or fewer.");
+  }
+
+  const supabase = await requireAuthenticatedClient();
+  const { data, error } = await supabase.rpc("add_media_comment", {
+    p_media_id: mediaId,
+    p_comment: text,
+    p_parent_id: parentId,
+  });
 
   if (error) {
-    console.error("addCommentForMedia fetch error", error);
-    throw error;
+    console.error("addCommentForMedia RPC error", error);
+    throw new Error(error.message || "Failed to post comment.");
   }
 
-  const existing = ensureArray(data?.comments);
-  const verified = await getVerified(username);
-
-  const newNode: CommentNode = {
-    id: uuidv4(),
-    username,
-    avatar_path: avatarUrl ?? "/avatar-placeholder.png",   // store the resolved URL here
-    comment: trimmed,
-    likes: 0,
-    liked_by: [],
-    replies: [],
-    verified: verified,
-  };
-
-  const updatedComments = parentId
-    ? addReplyRecursive(existing, parentId, newNode)
-    : [...existing, newNode];
-
-  const { error: updateError } = await supabase
-    .from("media")
-    .update({ comments: updatedComments })
-    .eq("id", mediaId);
-
-  if (updateError) {
-    console.error("addCommentForMedia update error", updateError);
-    throw updateError;
-  }
-
-  return updatedComments;
+  return ensureArray(data);
 }
-
-/* =========================================================
- * TOGGLE LIKE ON A COMMENT
- * =======================================================*/
 
 export async function toggleCommentLikeForMedia(
   mediaId: number,
   commentId: string
 ): Promise<CommentNode[]> {
-  if (!mediaId || !commentId) return [];
-
-  // still need userId to enforce one-like-per-user
-  const userId = await getUserIdFromCookies();
-  if (!userId) {
-    throw new Error("You must be logged in to like comments.");
+  if (!Number.isSafeInteger(mediaId) || mediaId <= 0 || !commentId?.trim()) {
+    throw new Error("Invalid media or comment ID.");
   }
 
-  const { data, error } = await supabase
-    .from("media")
-    .select("comments")
-    .eq("id", mediaId)
-    .maybeSingle();
+  const supabase = await requireAuthenticatedClient();
+  const { data, error } = await supabase.rpc("toggle_media_comment_like", {
+    p_media_id: mediaId,
+    p_comment_id: commentId.trim(),
+  });
 
   if (error) {
-    console.error("toggleCommentLikeForMedia fetch error", error);
-    throw error;
+    console.error("toggleCommentLikeForMedia RPC error", error);
+    throw new Error(error.message || "Failed to update comment like.");
   }
 
-  const existing = ensureArray(data?.comments);
-  const { updated } = toggleLikeRecursive(existing, commentId, userId);
-
-  const { error: updateError } = await supabase
-    .from("media")
-    .update({ comments: updated })
-    .eq("id", mediaId);
-
-  if (updateError) {
-    console.error("toggleCommentLikeForMedia update error", updateError);
-    throw updateError;
-  }
-
-  return updated;
+  return ensureArray(data);
 }

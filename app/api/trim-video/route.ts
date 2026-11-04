@@ -7,74 +7,79 @@ import path from "path";
 import crypto from "crypto";
 import { getFfmpegPath } from "@/lib/ffmpegServer";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { createClient } from "@/lib/supabase/server";
+
 export const runtime = "nodejs";
 
-// (Optional) helps on some platforms; ignore if you don't need it.
-// export const maxDuration = 60;
-
-type TrimReq = {
-  inBucket: string;
-  inPath: string;
-  startSec: number;
-  endSec: number;
-  outBucket?: string;
-  cleanupInput?: boolean;
-};
+const STAGING_BUCKET = "uploads-staging";
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
+  let inputPath: string | null = null;
+  let outputPath: string | null = null;
+
   try {
-let body: any;
-try {
-  body = await req.json();
-} catch {
-  return NextResponse.json(
-    {
-      error:
-        "Expected JSON body. Your client is sending multipart/form-data. Update trimOnServer() to send JSON (storage path + times), not the raw file.",
-    },
-    { status: 415 }
-  );
-}
-    const supabase = getSupabaseAdmin();
-    const inBucket = body.inBucket;
-    const inPath = body.inPath;
+    const authClient = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await authClient.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+    }
+
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Expected a JSON request body." }, { status: 400 });
+    }
+
+    const inBucket = String(body.inBucket ?? "");
+    const inPath = String(body.inPath ?? "");
+    const outBucket = String(body.outBucket ?? inBucket);
     const startSec = Number(body.startSec);
     const endSec = Number(body.endSec);
-    const outBucket = body.outBucket || inBucket;
-    const cleanupInput = !!body.cleanupInput;
+    const cleanupInput = body.cleanupInput === true;
 
-    if (!inBucket || !inPath) {
-      return NextResponse.json({ error: "Missing inBucket/inPath" }, { status: 400 });
+    // Never accept arbitrary buckets or object paths for service-role storage access.
+    const ownedInputPrefix = `trim/in/${user.id}/`;
+    if (
+      inBucket !== STAGING_BUCKET ||
+      outBucket !== STAGING_BUCKET ||
+      !inPath.startsWith(ownedInputPrefix) ||
+      inPath.includes("..")
+    ) {
+      return NextResponse.json({ error: "Invalid staging object." }, { status: 403 });
     }
 
-    if (!Number.isFinite(startSec) || !Number.isFinite(endSec) || endSec <= startSec) {
-      return NextResponse.json({ error: "Invalid start/end times" }, { status: 400 });
+    if (
+      !Number.isFinite(startSec) ||
+      !Number.isFinite(endSec) ||
+      startSec < 0 ||
+      endSec <= startSec ||
+      endSec - startSec > 600
+    ) {
+      return NextResponse.json({ error: "Invalid trim range." }, { status: 400 });
     }
 
+    const supabase = getSupabaseAdmin();
+    const download = await supabase.storage.from(STAGING_BUCKET).download(inPath);
 
-    // 1) Download input from Storage
-    const dl = await supabase.storage.from(inBucket).download(inPath);
-    console.log(dl, "<<<<<<<<<<<<<< dl")
-    if (dl.error || !dl.data) {
-      throw new Error(`Failed to download input: ${dl.error?.message || "no data"}`);
+    if (download.error || !download.data) {
+      return NextResponse.json({ error: "Could not load the staged video." }, { status: 400 });
     }
 
-    const inputBuf = Buffer.from(await dl.data.arrayBuffer());
+    const inputBuffer = Buffer.from(await download.data.arrayBuffer());
+    if (!inputBuffer.length || inputBuffer.length > MAX_VIDEO_BYTES) {
+      return NextResponse.json({ error: "Video must be 50 MB or smaller." }, { status: 413 });
+    }
 
-    // 2) Write to /tmp
-    const tmpDir = os.tmpdir();
     const id = crypto.randomUUID();
-    const inputPath = path.join(tmpDir, `trim-in-${id}.mp4`);
-    const outputPath = path.join(tmpDir, `trim-out-${id}.mp4`);
-    await fs.writeFile(inputPath, inputBuf);
+    inputPath = path.join(os.tmpdir(), `trim-in-${id}.mp4`);
+    outputPath = path.join(os.tmpdir(), `trim-out-${id}.mp4`);
+    await fs.writeFile(inputPath, inputBuffer);
 
-    // 3) Run ffmpeg trim
-    const ffmpegBin = getFfmpegPath();
-    console.log(ffmpegBin, "<<<<<<<<<<<<, ffmpegbin")
-
-    // Use -t (duration) instead of -to to avoid "full video" edge cases
     const duration = Math.max(0.001, endSec - startSec);
-
     const args = [
       "-hide_banner",
       "-y",
@@ -91,61 +96,72 @@ try {
       outputPath,
     ];
 
-    await runFfmpeg(ffmpegBin, args);
+    await runFfmpeg(getFfmpegPath(), args);
 
-    // 4) Read output
     const trimmedBuffer = await fs.readFile(outputPath);
-    if (!trimmedBuffer.length) throw new Error("ffmpeg produced empty output");
-
-    // 5) Upload output to Storage
-    const outPath = `trim/out/${Date.now()}-${id}.mp4`;
-
-    const up = await supabase.storage.from(outBucket).upload(outPath, trimmedBuffer, {
-      contentType: "video/mp4",
-      upsert: true,
-    });
-
-    if (up.error) throw new Error(`Failed to upload output: ${up.error.message}`);
-
-    // 6) Signed URL for client to download (so client can return a File)
-    const signed = await supabase.storage.from(outBucket).createSignedUrl(outPath, 60 * 15);
-    if (signed.error || !signed.data?.signedUrl) {
-      throw new Error(`Failed to create signed url: ${signed.error?.message || "no url"}`);
+    if (!trimmedBuffer.length || trimmedBuffer.length > MAX_VIDEO_BYTES) {
+      return NextResponse.json(
+        { error: "The trimmed video is empty or exceeds 50 MB." },
+        { status: 413 }
+      );
     }
 
-    // 7) Cleanup temp files
-    safeUnlink(inputPath);
-    safeUnlink(outputPath);
+    const outPath = `trim/out/${user.id}/${Date.now()}-${id}.mp4`;
+    const upload = await supabase.storage.from(STAGING_BUCKET).upload(
+      outPath,
+      trimmedBuffer,
+      { contentType: "video/mp4", upsert: false }
+    );
 
-    // Optional: remove input object
+    if (upload.error) {
+      throw new Error(`Could not upload the trimmed video: ${upload.error.message}`);
+    }
+
+    const signed = await supabase.storage
+      .from(STAGING_BUCKET)
+      .createSignedUrl(outPath, 60 * 15);
+
+    if (signed.error || !signed.data?.signedUrl) {
+      await supabase.storage.from(STAGING_BUCKET).remove([outPath]);
+      throw new Error("Could not create a download link for the trimmed video.");
+    }
+
     if (cleanupInput) {
-      supabase.storage.from(inBucket).remove([inPath]).catch(() => {});
+      const { error: removeError } = await supabase.storage
+        .from(STAGING_BUCKET)
+        .remove([inPath]);
+
+      if (removeError) {
+        console.error("trim-video cleanup warning", removeError.message);
+      }
     }
 
     return NextResponse.json(
       {
-        outBucket,
+        outBucket: STAGING_BUCKET,
         outPath,
         downloadUrl: signed.data.signedUrl,
         startSec,
         endSec,
       },
-      { status: 200 }
+      { status: 200, headers: { "Cache-Control": "no-store" } }
     );
-  } catch (err: any) {
-    console.error("trim-video error", err);
+  } catch (error) {
+    console.error("trim-video error", error);
     return NextResponse.json(
-      { error: err?.message ?? "Internal error" },
+      { error: error instanceof Error ? error.message : "Video trimming failed." },
       { status: 500 }
     );
+  } finally {
+    if (inputPath) safeUnlink(inputPath);
+    if (outputPath) safeUnlink(outputPath);
   }
 }
 
 function runFfmpeg(bin: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(bin, args);
-
-    child.stderr.on("data", (data) => console.log("[ffmpeg]", data.toString()));
+    child.stderr.on("data", (data) => console.error("[ffmpeg]", data.toString()));
     child.on("error", reject);
     child.on("close", (code) => {
       if (code === 0) resolve();
@@ -154,6 +170,6 @@ function runFfmpeg(bin: string, args: string[]): Promise<void> {
   });
 }
 
-function safeUnlink(p: string) {
-  fs.unlink(p).catch(() => {});
+function safeUnlink(filePath: string) {
+  fs.unlink(filePath).catch(() => {});
 }

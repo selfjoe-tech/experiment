@@ -1,7 +1,10 @@
 // app/admin/dashboard/page.tsx
-import { supabase } from "@/lib/supabaseClient"; // adjust import
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { requireAdmin } from "@/lib/server/requireAdmin"
 
 async function getCounts() {
+  await requireAdmin();
+  const supabase = getSupabaseAdmin();
 
   const [profilesRes, adsRes, mediaRes] = await Promise.all([
     supabase.from("profiles").select("*", { count: "exact", head: true }),

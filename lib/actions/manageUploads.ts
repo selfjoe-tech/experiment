@@ -1,8 +1,15 @@
 // lib/actions/manageUploads.ts
 "use client";
 
-import { supabase } from "@/lib/supabaseClient";
-import { getUserIdFromCookies } from "./auth";
+import { createClient } from "@/lib/supabase/client";
+
+const supabase = createClient();
+
+async function getCurrentUserId(): Promise<string | null> {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) return null;
+  return data.user.id;
+}
 import { buildPublicUrl } from "./mediaFeed";
 
 export type MediaTab = "all" | "gifs" | "images" | "ads";
@@ -103,7 +110,7 @@ export async function fetchManagedMedia(args: {
 }): Promise<ManagedMedia[]> {
   const { tab, page, pageSize = MANAGE_PAGE_SIZE } = args;
 
-  const ownerId = await getUserIdFromCookies();
+  const ownerId = await getCurrentUserId();
   if (!ownerId) return [];
 
   const from = page * pageSize;
@@ -260,7 +267,8 @@ export async function deleteManagedMedia(args: {
   const { id, storagePath, isAd } = args;
 
   const table = isAd ? "ads" : "media";
-  const bucket: "media" | "ads" = isAd ? "ads" : "media";
+  // Ad assets are stored in the same public media bucket.
+  const bucket: "media" = "media";
 
   const { error: deleteError } = await supabase
     .from(table)
@@ -293,7 +301,7 @@ export async function searchManagedMedia(args: {
   query: string;      // search string
 }): Promise<ManagedMedia[]> {
   const { tab, query } = args;
-  const ownerId = await getUserIdFromCookies();
+  const ownerId = await getCurrentUserId();
   if (!ownerId) return [];
 
   const q = query.trim();

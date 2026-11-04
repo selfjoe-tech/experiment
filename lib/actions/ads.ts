@@ -1,6 +1,8 @@
-// lib/actions/ads.ts
+"use client";
 
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/client";
+
+const supabase = createClient();
 
 export type AdBuyerSlot = {
   id: string;
@@ -11,44 +13,91 @@ export type AdBuyerSlot = {
 
 export type AdMediaType = "video" | "image" | "banner";
 
-const MEDIA_BUCKET = "media";
-
-/**
- * Fetch a single ad_buyers row by id
- * Used to verify the slot is still active before upload.
- */
 export async function fetchAdBuyerSlotById(
   id: string
 ): Promise<AdBuyerSlot | null> {
+  const slotId = Number(id);
+  if (!Number.isSafeInteger(slotId) || slotId <= 0) return null;
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) return null;
+
   const { data, error } = await supabase
     .from("ad_buyers")
     .select("id, user_id, expires_at, status")
-    .eq("id", id)
-    .maybeSingle<AdBuyerSlot>();
+    .eq("id", slotId)
+    .eq("user_id", user.id)
+    .maybeSingle();
 
   if (error) {
     console.error("fetchAdBuyerSlotById error", error);
     return null;
   }
 
-  return data ?? null;
+  return data
+    ? {
+        id: String(data.id),
+        user_id: data.user_id,
+        expires_at: data.expires_at,
+        status: data.status,
+      }
+    : null;
 }
 
-/**
- * Uploads the ad file to storage and inserts into `ads` table.
- * This keeps all DB + storage logic out of the client component.
- */
 export async function uploadAdForSlot(args: {
   adBuyerId: string;
-  ownerId: string | null;
+  ownerId: string | null; // Legacy parameter, ignored; owner is derived from Auth.
   file: File;
   mediaType: AdMediaType;
   landingUrl: string;
   description?: string | null;
 }): Promise<{ storagePath: string }> {
-  const { adBuyerId, ownerId, file, mediaType, landingUrl, description } = args;
+  const { adBuyerId, file, mediaType, landingUrl, description } = args;
 
-  // 1) decide folder
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    throw new Error("You must be signed in to upload an ad.");
+  }
+
+  const slotId = Number(adBuyerId);
+  if (!Number.isSafeInteger(slotId) || slotId <= 0) {
+    throw new Error("Invalid advertising slot.");
+  }
+
+  const { data: slot, error: slotError } = await supabase
+    .from("ad_buyers")
+    .select("id, user_id, expires_at")
+    .eq("id", slotId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (slotError || !slot) {
+    console.error("uploadAdForSlot slot lookup failed", slotError);
+    throw new Error("You do not own this advertising slot.");
+  }
+
+  if (!slot.expires_at || new Date(slot.expires_at).getTime() <= Date.now()) {
+    throw new Error("This advertising slot has expired.");
+  }
+
+  let url: URL;
+  try {
+    url = new URL(landingUrl);
+  } catch {
+    throw new Error("Enter a valid HTTP or HTTPS landing URL.");
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("Enter a valid HTTP or HTTPS landing URL.");
+  }
+
   const folder =
     mediaType === "video"
       ? "videos"
@@ -56,49 +105,45 @@ export async function uploadAdForSlot(args: {
       ? "banners"
       : "images";
 
-  // 2) pick extension
   const extMatch = file.name.match(/\.([a-zA-Z0-9]+)$/);
   const ext =
-    extMatch && extMatch[1]
-      ? extMatch[1]
-      : mediaType === "video"
-      ? "mp4"
-      : "jpg";
+    extMatch?.[1]?.toLowerCase() ??
+    (mediaType === "video" ? "mp4" : "jpg");
 
-  const storagePath = `ads/${folder}/${adBuyerId}/${Date.now()}.${ext}`;
+  // The second folder segment is always the authenticated user's UUID.
+  const storagePath =
+    `ads/${user.id}/${slotId}/${folder}/${crypto.randomUUID()}.${ext}`;
 
-  // 3) upload to storage
   const { error: uploadError } = await supabase.storage
-    .from(MEDIA_BUCKET)
+    .from("media")
     .upload(storagePath, file, {
       cacheControl: "3600",
       upsert: false,
+      contentType: file.type || undefined,
     });
 
   if (uploadError) {
     console.error("uploadAdForSlot storage error", uploadError);
-    throw new Error("Failed to upload file. Please try again.");
+    throw new Error(uploadError.message || "Failed to upload ad file.");
   }
 
-  // 4) insert into ads table
   const { error: insertError } = await supabase.from("ads").insert({
-    owner_id: ownerId,
+    owner_id: user.id,
     media_type: mediaType,
     storage_path: storagePath,
-    landing_url: landingUrl,
-    description: description ?? null,
+    landing_url: url.toString(),
+    description: description?.trim() || null,
   });
 
   if (insertError) {
     console.error("uploadAdForSlot insert error", insertError);
-    throw new Error("Failed to save ad in the database.");
+    await supabase.storage.from("media").remove([storagePath]);
+    throw new Error(insertError.message || "Failed to save ad in the database.");
   }
 
   return { storagePath };
 }
 
-
-// lib/actions/ads.ts
 export type SidebarAd = {
   id: string;
   storage_path: string | null;
@@ -107,148 +152,54 @@ export type SidebarAd = {
   owner_username: string | null;
 };
 
-export async function fetchRandomMobileBannerAd(): Promise<SidebarAd | null> {
-  const nowIso = new Date().toISOString();
-
-  // 1) Active ad buyers
-  const { data: buyers, error: buyersError } = await supabase
-    .from("ad_buyers")
-    .select("user_id")
-    .gt("expires_at", nowIso);
-
-  if (buyersError) {
-    console.error("fetchRandomMobileBannerAd ad_buyers error", buyersError);
-    return null;
-  }
-
-  const activeUserIds = Array.from(
-    new Set((buyers ?? []).map((b) => b.user_id).filter(Boolean))
-  );
-
-  if (activeUserIds.length === 0) return null;
-
-  // 2) **BANNER ONLY** ads for those users
-  const { data, error } = await supabase
-    .from("ads")
-    .select(
-      `
-      id,
-      storage_path,
-      media_type,
-      landing_url,
-      owner:profiles!ads_owner_id_fkey (
-        username
-      )
-    `
-    )
-    .eq("media_type", "banner")          // 👈 change here: banners only
-    .in("owner_id", activeUserIds)
-    .limit(50);
-
-  if (error) {
-    console.error("fetchRandomMobileBannerAd ads error", error);
-    return null;
-  }
-
-  if (!data || data.length === 0) return null;
-
-  const rows = data as any[];
-
-  // shuffle & pick one
-  for (let i = rows.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [rows[i], rows[j]] = [rows[j], rows[i]];
-  }
-
-  const picked = rows[0];
-  if (!picked) return null;
-
+function mapSidebarAd(row: any): SidebarAd {
   return {
-    id: picked.id,
-    storage_path: picked.storage_path,
-    media_type: picked.media_type,
-    landing_url: picked.landing_url ?? null,
-    owner_username: picked.owner?.username ?? null,
+    id: String(row.id),
+    storage_path: row.storage_path ?? null,
+    media_type: row.media_type,
+    landing_url: row.landing_url ?? null,
+    owner_username: row.owner_username ?? null,
   };
 }
 
-export async function fetchDesktopSidebarAds(): Promise<SidebarAd[]> {
-  const nowIso = new Date().toISOString();
-
-  // 1) Find active ad buyers (their slots not expired)
-  const { data: buyers, error: buyersError } = await supabase
-    .from("ad_buyers")
-    .select("user_id")
-    .gt("expires_at", nowIso);
-
-  if (buyersError) {
-    console.error("fetchDesktopSidebarAds ad_buyers error", buyersError);
-    return [];
-  }
-
-  const activeUserIds = Array.from(
-    new Set((buyers ?? []).map((b) => b.user_id).filter(Boolean))
-  );
-
-  if (activeUserIds.length === 0) {
-    return [];
-  }
-
-  // 2) Ads owned by those active buyers & marked to show
-  const { data, error } = await supabase
-    .from("ads")
-    .select(
-      `
-        id,
-        storage_path,
-        media_type,
-        landing_url,
-        showAd,
-        owner_id,
-        owner:profiles!ads_owner_id_fkey (
-          username
-        )
-      `
-    )
-    .eq("showAd", true)
-    .in("owner_id", activeUserIds)
-    .limit(3);
+export async function fetchRandomMobileBannerAd(): Promise<SidebarAd | null> {
+  const { data, error } = await supabase.rpc("get_active_ads_for_feed", {
+    p_media_type: "banner",
+    p_limit: 1,
+  });
 
   if (error) {
-    console.error("fetchDesktopSidebarAds ads error", error);
+    console.error("fetchRandomMobileBannerAd RPC error", error);
+    return null;
+  }
+
+  return data?.[0] ? mapSidebarAd(data[0]) : null;
+}
+
+export async function fetchDesktopSidebarAds(): Promise<SidebarAd[]> {
+  const { data, error } = await supabase.rpc("get_active_ads_for_feed", {
+    p_media_type: null,
+    p_limit: 5,
+  });
+
+  if (error) {
+    console.error("fetchDesktopSidebarAds RPC error", error);
     return [];
   }
 
-  const rows = (data ?? []) as any[];
-
-  // shuffle in-place
-  for (let i = rows.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [rows[i], rows[j]] = [rows[j], rows[i]];
-  }
-
-  const mapped: SidebarAd[] = rows.map((row) => ({
-    id: row.id,
-    storage_path: row.storage_path,
-    media_type: row.media_type,
-    landing_url: row.landing_url ?? null,
-    owner_username: row.owner?.username ?? null,
-  }));
-
-  // return up to 5 random ads
-  return mapped.slice(0, 5);
+  return (data ?? []).map(mapSidebarAd);
 }
 
-
 export async function incrementAdClicks(adId: string) {
-  const id = adId;
-  if (!id) {
-    throw new Error("Invalid ad id");
+  const id = Number(adId);
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    throw new Error("Invalid ad ID.");
   }
 
-  const { error } = await supabase.rpc("increment_ad_clicks", { ad_id: id });
+  const { error } = await supabase.rpc("increment_ad_clicks", {
+    ad_id: id,
+  });
 
   if (error) throw new Error(error.message);
-
   return { ok: true };
 }

@@ -1,12 +1,15 @@
 "use server";
 
-import { supabase } from "@/lib/supabaseClient";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { requireAdmin } from "@/lib/server/requireAdmin";
 import { revalidatePath } from "next/cache";
 
 const MEDIA_BUCKET =
   process.env.NEXT_PUBLIC_SUPABASE_MEDIA_BUCKET ?? "media";
 
 export async function removeMediaFromReport(formData: FormData) {
+  await requireAdmin();
+  const supabase = getSupabaseAdmin();
   const reportId = Number(formData.get("reportId"));
   const mediaId = Number(formData.get("mediaId"));
 
@@ -56,6 +59,8 @@ export async function removeMediaFromReport(formData: FormData) {
 }
 
 export async function ignoreReport(formData: FormData) {
+  await requireAdmin();
+  const supabase = getSupabaseAdmin();
   const reportId = Number(formData.get("reportId"));
   if (!reportId) return;
 

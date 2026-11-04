@@ -1,12 +1,21 @@
 // app/api/stage-upload/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import { createClient } from "@/lib/supabase/server";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 
+const STAGING_BUCKET = "uploads-staging";
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
+const ALLOWED_VIDEO_TYPES = new Set([
+  "video/mp4",
+  "video/webm",
+  "video/quicktime",
+]);
+
 function sanitizeName(name: string) {
-  return name.replace(/[^\w.\-]+/g, "_");
+  return name.replace(/[^\w.\-]+/g, "_").slice(0, 120);
 }
 
 function projectRefFromUrl(supabaseUrl: string) {
@@ -15,60 +24,68 @@ function projectRefFromUrl(supabaseUrl: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => null);
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-    const filename = body?.filename as string | undefined;
-    const contentType = (body?.contentType as string | undefined) ?? "video/mp4";
-    const bucket = (body?.bucket as string | undefined) ?? "uploads-staging";
-
-    if (!filename) {
-      return NextResponse.json({ error: "Missing filename" }, { status: 400 });
+    if (authError || !user) {
+      return NextResponse.json({ error: "Authentication required." }, { status: 401 });
     }
 
-    // Prefer server-only vars in production
-    const supabaseUrl =
-      process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const body = await req.json().catch(() => null);
+    const filename = String(body?.filename ?? "").trim();
+    const contentType = String(body?.contentType ?? "video/mp4").trim();
+    const size = Number(body?.size);
 
-    if (!supabaseUrl || !serviceKey) {
+    if (!filename) {
+      return NextResponse.json({ error: "Missing filename." }, { status: 400 });
+    }
+
+    if (!Number.isFinite(size) || size <= 0 || size > MAX_VIDEO_BYTES) {
       return NextResponse.json(
-        {
-          error: "Server misconfigured: missing Supabase env vars",
-          hasSupabaseUrl: !!supabaseUrl,
-          hasServiceRole: !!serviceKey,
-        },
-        { status: 500 }
+        { error: "Video must be 50 MB or smaller." },
+        { status: 413 }
       );
     }
 
-    const supabaseAdmin = createClient(supabaseUrl, serviceKey, {
-      auth: { persistSession: false },
-    });
+    if (!ALLOWED_VIDEO_TYPES.has(contentType)) {
+      return NextResponse.json(
+        { error: "Unsupported video type." },
+        { status: 415 }
+      );
+    }
 
-    const objectName = `trim/in/${crypto.randomUUID()}-${sanitizeName(filename)}`;
+    const supabaseUrl =
+      process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+    if (!supabaseUrl) {
+      return NextResponse.json({ error: "Supabase URL is not configured." }, { status: 500 });
+    }
+
+    const supabaseAdmin = getSupabaseAdmin();
+    const objectName =
+      `trim/in/${user.id}/${crypto.randomUUID()}-${sanitizeName(filename)}`;
 
     const { data, error } = await supabaseAdmin.storage
-      .from(bucket)
-      .createSignedUploadUrl(objectName, { upsert: true });
+      .from(STAGING_BUCKET)
+      .createSignedUploadUrl(objectName, { upsert: false });
 
-    if (error || !data?.token) {
+    if (error || !data?.token || !data?.signedUrl) {
+      console.error("stage-upload createSignedUploadUrl failed", error);
       return NextResponse.json(
-        {
-          error: "Failed to create signed upload token",
-          details: error?.message ?? "unknown",
-          bucket,
-          objectName,
-        },
-        { status: 500 }
+        { error: "Could not prepare the upload. Check the uploads-staging bucket." },
+        { status: 503 }
       );
     }
 
     return NextResponse.json(
       {
-        bucket,
+        bucket: STAGING_BUCKET,
         objectName,
         token: data.token,
-        signedUrl: (data as any).signedUrl, // keep if your SDK returns it
+        signedUrl: data.signedUrl,
         projectRef: projectRefFromUrl(supabaseUrl),
         contentType,
       },
@@ -77,10 +94,10 @@ export async function POST(req: NextRequest) {
         headers: { "Cache-Control": "no-store" },
       }
     );
-  } catch (err: any) {
-    console.error("stage-upload error", err);
+  } catch (error) {
+    console.error("stage-upload error", error);
     return NextResponse.json(
-      { error: err?.message ?? "Unknown server error" },
+      { error: "Could not prepare the upload." },
       { status: 500 }
     );
   }

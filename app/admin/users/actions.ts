@@ -1,64 +1,185 @@
-// app/admin/users/actions.ts
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { supabase } from "@/lib/supabaseClient";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { requireAdmin } from "@/lib/server/requireAdmin";
 
 const MEDIA_BUCKET =
   process.env.NEXT_PUBLIC_SUPABASE_MEDIA_BUCKET ?? "media";
+const VERIFICATION_BUCKET = "verification";
 
-async function deleteUserFolder(prefix: string) {
-  // List all files in this "folder"
-  const { data, error } = await supabase.storage
-    .from(MEDIA_BUCKET)
-    .list(prefix, {
-      limit: 1000,
-      offset: 0,
-    });
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-  if (error) {
-    console.error(`deleteUserFolder: list failed for ${prefix}`, error);
-    return;
+async function removeFolderRecursively(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  bucket: string,
+  prefix: string,
+  depth = 0
+): Promise<void> {
+  if (depth > 8) {
+    throw new Error(`Storage folder nesting is unexpectedly deep: ${prefix}`);
   }
 
-  if (!data || data.length === 0) return;
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .list(prefix, { limit: 1000, offset: 0 });
 
-  const paths = data.map((file) => `${prefix}/${file.name}`);
+  if (error) {
+    if (/not found|does not exist/i.test(error.message)) return;
+    throw new Error(`Could not list ${bucket}/${prefix}: ${error.message}`);
+  }
 
-  const { error: removeError } = await supabase.storage
-    .from(MEDIA_BUCKET)
-    .remove(paths);
+  if (!data?.length) return;
 
-  if (removeError) {
-    console.error(`deleteUserFolder: remove failed for ${prefix}`, removeError);
+  const files: string[] = [];
+
+  for (const item of data) {
+    const path = `${prefix}/${item.name}`;
+
+    // Storage returns directory entries without an object id.
+    if (item.id == null) {
+      await removeFolderRecursively(supabase, bucket, path, depth + 1);
+    } else {
+      files.push(path);
+    }
+  }
+
+  if (files.length) {
+    const { error: removeError } = await supabase.storage
+      .from(bucket)
+      .remove(files);
+
+    if (removeError) {
+      throw new Error(
+        `Could not remove files from ${bucket}/${prefix}: ${removeError.message}`
+      );
+    }
+  }
+}
+
+async function removeExactStoragePaths(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  bucket: string,
+  paths: Array<string | null | undefined>
+) {
+  const uniquePaths = Array.from(
+    new Set(paths.filter((path): path is string => Boolean(path)))
+  );
+
+  if (!uniquePaths.length) return;
+
+  const { error } = await supabase.storage.from(bucket).remove(uniquePaths);
+  if (error) {
+    throw new Error(`Could not remove files from ${bucket}: ${error.message}`);
   }
 }
 
 export async function deleteUser(userId: string) {
-  if (!userId) return;
+  await requireAdmin();
 
-  try {
-    // 1) Delete media DB rows
-    await supabase.from("media").delete().eq("owner_id", userId);
-    await supabase.from("verify").delete().eq("creator_id", userId);
-    await supabase.from("ad_buyers").delete().eq("user_id", userId);
-
-    // 2) Delete files from storage: videos/[id] and images/[id]
-    await deleteUserFolder(`videos/${userId}`);
-    await deleteUserFolder(`images/${userId}`);
-
-    // 3) Delete profile
-    const { error: profileErr } = await supabase
-      .from("profiles")
-      .delete()
-      .eq("id", userId);
-
-    if (profileErr) {
-      console.error("deleteUser: failed to delete profile", profileErr);
-    }
-  } catch (err) {
-    console.error("deleteUser: unexpected error", err);
+  const id = String(userId ?? "").trim();
+  if (!UUID.test(id)) {
+    return { ok: false, error: "Invalid user ID." };
   }
 
-  revalidatePath("/admin/users");
+  const supabase = getSupabaseAdmin();
+
+  try {
+    // Capture non-user-folder object paths before deleting the associated rows.
+    const [mediaRows, adRows, verificationRows] = await Promise.all([
+      supabase.from("media").select("storage_path").eq("owner_id", id),
+      supabase.from("ads").select("storage_path").eq("owner_id", id),
+      supabase
+        .from("verify")
+        .select("storage_path, selfie_path")
+        .eq("creator_id", id),
+    ]);
+
+    for (const result of [mediaRows, adRows, verificationRows]) {
+      if (result.error) throw new Error(result.error.message);
+    }
+
+    await Promise.all([
+      removeFolderRecursively(supabase, MEDIA_BUCKET, `videos/${id}`),
+      removeFolderRecursively(supabase, MEDIA_BUCKET, `images/${id}`),
+      removeFolderRecursively(supabase, MEDIA_BUCKET, `avatars/${id}`),
+      removeFolderRecursively(supabase, MEDIA_BUCKET, `ads/${id}`),
+      // Legacy verification uploads were stored in the public media bucket.
+      removeFolderRecursively(
+        supabase,
+        MEDIA_BUCKET,
+        `verify-selfies/${id}`
+      ),
+      removeFolderRecursively(
+        supabase,
+        VERIFICATION_BUCKET,
+        `verify-selfies/${id}`
+      ),
+    ]);
+
+    await Promise.all([
+      removeExactStoragePaths(
+        supabase,
+        MEDIA_BUCKET,
+        mediaRows.data?.map((row) => row.storage_path) ?? []
+      ),
+      removeExactStoragePaths(
+        supabase,
+        MEDIA_BUCKET,
+        adRows.data?.map((row) => row.storage_path) ?? []
+      ),
+      removeExactStoragePaths(
+        supabase,
+        VERIFICATION_BUCKET,
+        (verificationRows.data ?? []).flatMap((row) => [
+          row.storage_path,
+          row.selfie_path,
+        ])
+      ),
+      // Older verification files lived in the public media bucket.
+      removeExactStoragePaths(
+        supabase,
+        MEDIA_BUCKET,
+        (verificationRows.data ?? []).flatMap((row) => [
+          row.storage_path,
+          row.selfie_path,
+        ])
+      ),
+    ]);
+
+    // Remove ads explicitly: their owner_id FK is ON DELETE SET NULL.
+    const { error: adsError } = await supabase
+      .from("ads")
+      .delete()
+      .eq("owner_id", id);
+    if (adsError) throw new Error(adsError.message);
+
+    // Deleting the profile cascades likes, follows, media, verification,
+    // ad-buyer slots, earnings, payout requests and affiliate requests.
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .delete()
+      .eq("id", id);
+    if (profileError) throw new Error(profileError.message);
+
+    // The database currently does not yet have the profiles -> auth.users FK,
+    // so remove the Auth identity explicitly after its profile has been removed.
+    const { error: authError } = await supabase.auth.admin.deleteUser(id);
+    if (authError && !/not found|does not exist/i.test(authError.message)) {
+      throw new Error(authError.message);
+    }
+
+    revalidatePath("/admin/users");
+    return { ok: true };
+  } catch (error) {
+    console.error("deleteUser failed", error);
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not delete this account completely.",
+    };
+  }
 }

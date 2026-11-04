@@ -20,6 +20,7 @@ async function stageUploadViaSignedUrl(
     body: JSON.stringify({
       filename: file.name,
       contentType: file.type || "video/mp4",
+      size: file.size,
       bucket: "uploads-staging",
     }),
   });
@@ -39,7 +40,7 @@ async function stageUploadViaSignedUrl(
     method: "PUT",
     headers: {
       "Content-Type": contentType || file.type || "video/mp4",
-      "x-upsert": "true",
+      "x-upsert": "false",
     },
     body: file,
   });

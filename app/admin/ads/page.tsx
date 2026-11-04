@@ -1,6 +1,7 @@
 // app/admin/ads/page.tsx
 import Link from "next/link";
-import { supabase } from "@/lib/supabaseClient";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { requireAdmin } from "@/lib/server/requireAdmin";
 import { renewAdBuyer } from "./actions";
 import { AddAdvertiserDialog } from "./AddAdvertiserDialog";
 
@@ -25,6 +26,8 @@ export default async function AdminAdsPage({
 }: {
   searchParams: SearchParams;
 }) {
+  await requireAdmin();
+  const supabase = getSupabaseAdmin();
   const page = Math.max(1, Number(searchParams.page ?? "1"));
   const status = searchParams.status ?? "all";
   const usernameSearch = searchParams.username?.trim() ?? "";

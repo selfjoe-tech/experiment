@@ -1,15 +1,16 @@
 "use server";
 
-import { supabase } from "@/lib/supabaseClient";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { requireAdmin } from "@/lib/server/requireAdmin";
 import { revalidatePath } from "next/cache";
 
 export async function approveVerification(formData: FormData) {
+  await requireAdmin();
+  const supabase = getSupabaseAdmin();
   const requestId = String(formData.get("requestId"));
   const userId = String(formData.get("userId"));
 
-  console.log(userId)
-  console.log(requestId)
-
+  
   if (!requestId || !userId) return;
 
   await supabase
@@ -26,11 +27,12 @@ export async function approveVerification(formData: FormData) {
 }
 
 export async function rejectVerification(formData: FormData) {
+  await requireAdmin();
+  const supabase = getSupabaseAdmin();
   const requestId = String(formData.get("requestId"));
   const reason = String(formData.get("reason") ?? "");
 
-  console.log(requestId, "reques<<<<<<<<<<<<")
-
+  
   if (!requestId) return;
 
   await supabase

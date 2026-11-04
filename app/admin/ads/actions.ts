@@ -1,9 +1,12 @@
 "use server";
 
-import { supabase } from "@/lib/supabaseClient";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { requireAdmin } from "@/lib/server/requireAdmin";
 import { revalidatePath } from "next/cache";
 
 export async function renewAdBuyer(formData: FormData) {
+  await requireAdmin();
+  const supabase = getSupabaseAdmin();
   const id = Number(formData.get("id"));
   if (!id) return;
 
@@ -27,6 +30,8 @@ export async function renewAdBuyer(formData: FormData) {
 }
 
 export async function addAdBuyer(formData: FormData) {
+  await requireAdmin();
+  const supabase = getSupabaseAdmin();
   const rawUsername = String(formData.get("username") ?? "").trim();
   const username = rawUsername.replace(/^@/, ""); // <- strip leading @
   const slot = Number(formData.get("slot") ?? "1");
