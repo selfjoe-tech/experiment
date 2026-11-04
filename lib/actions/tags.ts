@@ -1,17 +1,14 @@
-// lib/actions/tags.ts
-// No "use client" / "use server" here so it can be imported by client components too.
 
-import { supabase } from "@/lib/supabaseClient"; 
+"use server";
+
+import { cookies } from "next/headers";
+import { supabase } from "@/lib/supabaseClient";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { toTitleCase, slugify } from "@/lib/utils/text";
 
-// ^ adjust this import to however you create your supabase client.
-// e.g. `import { createClient } from "@/lib/supabase/client"; const supabase = createClient();`
-
-
-
 /**
- * Fetch up to `limit` tag labels for suggestions.
- * If there are fewer than `limit` tags in DB, Supabase just returns them all.
+ * Fetch initial tag suggestions.
+ * Uses the publishable key and your public SELECT RLS policy.
  */
 export async function fetchInitialTagSuggestions(
   limit = 50
@@ -32,18 +29,12 @@ export async function fetchInitialTagSuggestions(
       ?.map((row) => (row.label as string | null)?.trim())
       .filter((v): v is string => !!v) ?? [];
 
-  // Deduplicate + normalize to Title Case
-  const unique: string[] = [];
-  for (const l of labels) {
-    const t = toTitleCase(l);
-    if (!unique.includes(t)) unique.push(t);
-  }
-  return unique;
+  return [...new Set(labels.map(toTitleCase))];
 }
 
 /**
- * Search tags by label using ILIKE and return up to `limit` results.
- * When `query` is empty, just fall back to the initial suggestions.
+ * Search tags.
+ * Uses the publishable key and your public SELECT RLS policy.
  */
 export async function searchTagSuggestions(
   query: string,
@@ -72,56 +63,133 @@ export async function searchTagSuggestions(
       ?.map((row) => (row.label as string | null)?.trim())
       .filter((v): v is string => !!v) ?? [];
 
-  const unique: string[] = [];
-  for (const l of labels) {
-    const t = toTitleCase(l);
-    if (!unique.includes(t)) unique.push(t);
-  }
-  return unique;
+  return [...new Set(labels.map(toTitleCase))];
 }
 
-// Export the helper if you ever want reuse for local transforms
-export { toTitleCase };
+/**
+ * Create a tag if it doesn't exist.
+ *
+ * Your application uses custom cookie authentication,
+ * not Supabase Auth.
+ *
+ * Therefore, this operation runs server-side using
+ * the existing secret-key client after checking the
+ * application's login cookies and profile.
+ */
+export async function ensureTagAction(input: {
+  label: string;
+  slug?: string;
+}) {
+  try {
+    // 1. Check the application's custom authentication.
+    const cookieStore = await cookies();
 
+    const userId = cookieStore.get("userId")?.value;
 
-export async function ensureTagAction(input: { label: string; slug?: string }) {
+    const isLoggedIn =
+      cookieStore.get("isLoggedIn")?.value === "true";
 
-  const label = toTitleCase(input.label);
-  const slug = slugify(label);
+    if (!userId || !isLoggedIn) {
+      return {
+        success: false as const,
+        message: "You must be logged in to create tags.",
+      };
+    }
 
-  // 1) check if exists
-  const existing = await supabase
-    .from("tags")
-    .select("label, slug")
-    .eq("slug", slug)
-    .maybeSingle();
+    // 2. Validate input.
+    const label = toTitleCase(input.label);
+    const slug = slugify(label);
 
-  if (existing.error) {
-    return { success: false as const, message: existing.error.message };
+    if (!label || !slug) {
+      return {
+        success: false as const,
+        message: "Invalid tag.",
+      };
+    }
+
+    // 3. Use the existing server-only admin client.
+    const admin = getSupabaseAdmin();
+
+    // 4. Verify that the profile exists.
+    const { data: profile, error: profileError } =
+      await admin
+        .from("profiles")
+        .select("id")
+        .eq("id", userId)
+        .maybeSingle();
+
+    if (profileError || !profile) {
+      console.error("Tag authentication failed:", profileError);
+
+      return {
+        success: false as const,
+        message: "Unable to verify your account.",
+      };
+    }
+
+    // 5. Check whether the tag already exists.
+    const { data: existing, error: existingError } =
+      await admin
+        .from("tags")
+        .select("label, slug")
+        .eq("slug", slug)
+        .maybeSingle();
+
+    if (existingError) {
+      return {
+        success: false as const,
+        message: existingError.message,
+      };
+    }
+
+    if (existing) {
+      return {
+        success: true as const,
+        tag: existing,
+      };
+    }
+
+    // 6. Insert the new tag.
+    const { data: inserted, error: insertError } =
+      await admin
+        .from("tags")
+        .insert({ label, slug })
+        .select("label, slug")
+        .single();
+
+    if (!insertError) {
+      return {
+        success: true as const,
+        tag: inserted,
+      };
+    }
+
+    // 7. Handle a possible duplicate insertion race.
+    const { data: retry } = await admin
+      .from("tags")
+      .select("label, slug")
+      .eq("slug", slug)
+      .maybeSingle();
+
+    if (retry) {
+      return {
+        success: true as const,
+        tag: retry,
+      };
+    }
+
+    console.error("ensureTagAction insert error:", insertError);
+
+    return {
+      success: false as const,
+      message: insertError.message,
+    };
+  } catch (error) {
+    console.error("ensureTagAction unexpected error:", error);
+
+    return {
+      success: false as const,
+      message: "Something went wrong while creating the tag.",
+    };
   }
-  if (existing.data) {
-    return { success: true as const, tag: existing.data };
-  }
-
-  // 2) insert if missing (handle race by re-selecting on conflict)
-  const inserted = await supabase
-    .from("tags")
-    .insert({ label, slug })
-    .select("label, slug")
-    .single();
-
-  if (!inserted.error) {
-    return { success: true as const, tag: inserted.data };
-  }
-
-  // If another request inserted first, re-fetch
-  const retry = await supabase
-    .from("tags")
-    .select("label, slug")
-    .eq("slug", slug)
-    .maybeSingle();
-
-  if (retry.data) return { success: true as const, tag: retry.data };
-
-  return { success: false as const, message: inserted.error.message };
 }

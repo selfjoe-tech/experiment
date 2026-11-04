@@ -230,7 +230,7 @@ export default function PostCard({ post, viewerId }: { post: HomePost; viewerId:
 
   return <article className="w-full border-b border-white/10 pb-5 pt-3 text-white sm:pb-6">
     <header className="flex h-[57px] items-center gap-3 px-1">
-      <Link href={"/" + encodeURIComponent(post.username)} className="shrink-0 rounded-full bg-gradient-to-tr from-amber-400 via-pink-500 to-violet-600 p-[2px]">
+      <Link href={"/" + encodeURIComponent(post.username)} className="shrink-0 rounded-full bg-gradient-to-tr from-amber-400 p-[2px]">
         <Image unoptimized src={post.avatar} width={40} height={40} alt={post.username} className="h-10 w-10 rounded-full border-2 border-[#0b0d10] object-cover" />
       </Link>
       <div className="min-w-0 flex-1">
@@ -239,7 +239,6 @@ export default function PostCard({ post, viewerId }: { post: HomePost; viewerId:
           {post.verified && <span aria-label="Verified" className="text-sky-400"><Check size={14}/></span>}
           <span className="text-white/35">·</span><time className="shrink-0 text-white/50" dateTime={post.createdAt}>{timeAgo(post.createdAt)}</time>
         </div>
-        <span className="text-[11px] text-white/45">Original post</span>
       </div>
       {canFollow && !following && <button type="button" onClick={toggleFollow} disabled={followBusy} className="pr-2 text-xs font-semibold text-[#8ea4ff] hover:text-white">{followBusy ? "..." : "Follow"}</button>}
     </header>
