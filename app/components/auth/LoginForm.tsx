@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
 import AuthDialog from "./AuthDialog";
 import { Eye, EyeOff } from "lucide-react";
 import { Label } from "@/components/ui/label";
@@ -125,12 +124,12 @@ export function LoginForm({ onShowForgot }: { onShowForgot: () => void }) {
 
         <p className="text-center text-sm text-white/70">
           New to Goon Gram?{" "}
-          <Link
+          <a
             href={`/auth/signup?redirect=${encodeURIComponent(redirect)}`}
             className="text-white underline underline-offset-4"
           >
             Sign up now.
-          </Link>
+          </a>
         </p>
       </form>
     </AuthDialog>

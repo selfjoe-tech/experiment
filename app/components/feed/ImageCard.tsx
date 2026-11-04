@@ -1,7 +1,6 @@
 // app/components/explore/ImageCard.tsx
 "use client";
 
-import Link from "next/link";
 import {
   Eye,
   Heart,
@@ -468,7 +467,7 @@ export default function ImageCard({
       <div className="absolute inset-x-3 bottom-3 z-30 space-y-2">
         {/* creator row */}
         <div className="flex items-center gap-3">
-          <Link href={`/${username}`}>
+          <a href={`/${username}`}>
             <div className="h-10 w-10 rounded-full bg-white/60 overflow-hidden">
               <Image
                 src={avatar}
@@ -478,14 +477,14 @@ export default function ImageCard({
                 className="h-full w-full object-cover"
               />
             </div>
-          </Link>
+          </a>
 
           <div className="flex items-center gap-3 min-w-0">
-            <Link href={`/${username}`}>
+            <a href={`/${username}`}>
               <div className="text-sm font-semibold truncate">
                 {username}
               </div>
-            </Link>
+            </a>
 
             {data?.ownerId && data.ownerId !== currentId && (
               <button
@@ -762,7 +761,7 @@ function CommentList({
         <div key={c.id} className="flex gap-2 text-xs">
           <div className="mt-1 h-7 w-7 rounded-full bg-white/10 overflow-hidden shrink-0">
             {c.avatar_path ? (
-              <Link href={`/${c.username}`}>
+              <a href={`/${c.username}`}>
                 <Image
                   src={c.avatar_path}
                   alt={c.username}
@@ -770,15 +769,15 @@ function CommentList({
                   height={28}
                   className="h-full w-full object-cover"
                 />
-              </Link>
+              </a>
             ) : null}
           </div>
           <div className="flex-1">
-            <Link href={`/${c.username}`}>
+            <a href={`/${c.username}`}>
               <div className="flex items-center gap-2">
                 <span className="font-semibold">{c.username}</span>
               </div>
-            </Link>
+            </a>
 
             <p className="mt-0.5 text-white/80">{c.comment}</p>
             <div className="mt-1 flex items-center gap-3 text-[11px] text-white/60">

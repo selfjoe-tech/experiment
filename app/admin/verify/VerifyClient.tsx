@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import Link from "next/link";
 import { approveVerification, rejectVerification } from "./actions";
 import type { VerifyRequestRow, StatusFilter } from "./page";
 
@@ -217,7 +216,7 @@ export default function VerifyClient({
         </div>
         <div className="flex gap-2">
           {page > 1 && (
-            <Link
+            <a
               href={buildPageHref({
                 page: page - 1,
                 status,
@@ -226,10 +225,10 @@ export default function VerifyClient({
               className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20"
             >
               Previous
-            </Link>
+            </a>
           )}
           {page < totalPages && (
-            <Link
+            <a
               href={buildPageHref({
                 page: page + 1,
                 status,
@@ -238,7 +237,7 @@ export default function VerifyClient({
               className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20"
             >
               Next
-            </Link>
+            </a>
           )}
         </div>
       </div>

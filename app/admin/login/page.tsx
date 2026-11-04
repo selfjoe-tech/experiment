@@ -1,4 +1,3 @@
-import Link from "next/link";
 import LoginForm from "./LoginForm";
 
 export default function AdminLoginPage() {
@@ -16,12 +15,12 @@ export default function AdminLoginPage() {
 
         <div className="text-[11px] text-white/50 text-center">
           First time here?{" "}
-          <Link
+          <a
             href="/admin/signup"
             className="text-pink-400 hover:text-pink-300 underline"
           >
             Create an admin
-          </Link>
+          </a>
         </div>
       </div>
     </div>

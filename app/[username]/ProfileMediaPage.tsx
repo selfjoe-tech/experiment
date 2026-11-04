@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { trackProfileVisitByUsername } from "@/lib/actions/earn";
 
@@ -344,7 +343,7 @@ function isSafeExternalUrl(url: string) {
                   className={`inline-flex h-9 items-center gap-2 rounded-lg px-5 text-sm font-semibold transition-colors ${following ? "bg-white/10 text-white hover:bg-white/15" : "bg-[#ff365e] text-white hover:bg-[#ed2651]"}`}>
                   <UserPlus size={16}/>{followBusy ? "Saving..." : following ? "Following" : "Follow"}
                 </button>}
-                {viewerId === profileId && <Link href="/edit-profile" className="inline-flex h-9 items-center rounded-lg bg-white/10 px-5 text-sm font-semibold hover:bg-white/15">Edit profile</Link>}
+                {viewerId === profileId && <a href="/edit-profile" className="inline-flex h-9 items-center rounded-lg bg-white/10 px-5 text-sm font-semibold hover:bg-white/15">Edit profile</a>}
                 <button type="button" onClick={() => void shareProfile()} aria-label="Share profile"
                   className="inline-flex h-9 items-center gap-2 rounded-lg bg-white/10 px-4 text-sm font-semibold transition-colors hover:bg-white/15">
                   <Share size={16}/> Share
@@ -376,7 +375,7 @@ function isSafeExternalUrl(url: string) {
               <div className="mt-3 flex flex-wrap gap-2">
                 
                 {items.map((p) => (
-                  <Link
+                  <a
                     key={p.key}
                     href={p.url}
                     target="_blank"
@@ -387,7 +386,7 @@ function isSafeExternalUrl(url: string) {
                       <span className="[&>svg]:h-8 [&>svg]:w-8">{p.short}</span>
                     
                     
-                  </Link>
+                  </a>
                 ))}
               </div>
             );
@@ -454,7 +453,7 @@ function ProfileTabs({
   return (
     <div className="flex items-center gap-6">
       {tabs.map((t) => (
-        <Link
+        <a
           key={t.key}
           href={t.href}
           className={`pb-2 text-sm ${
@@ -464,7 +463,7 @@ function ProfileTabs({
           }`}
         >
           {t.label}
-        </Link>
+        </a>
       ))}
     </div>
   );

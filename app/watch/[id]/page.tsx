@@ -452,14 +452,14 @@ export default async function WatchPage({
 //               <span className="font-semibold">&ldquo;For You&rdquo;</span> feed.
 //             </p>
 
-//             <Link href="/auth/login">
+//             <a href="/auth/login">
 //               <button
 //                 type="button"
 //                 className="w-full rounded-full bg-[pink] text-black font-semibold py-3 text-sm hover:brightness-95 transition"
 //               >
 //                 Log In
 //               </button>
-//             </Link>
+//             </a>
 //           </div>
 
 //           <div className="h-px bg-white/10" />
@@ -468,14 +468,14 @@ export default async function WatchPage({
 //             <p className="text-xs text-white/70 mb-1">
 //               Don&apos;t have an account?
 //             </p>
-//             <Link href="/auth/signup">
+//             <a href="/auth/signup">
 //               <button
 //                 type="button"
 //                 className="w-full rounded-full border border-white text-sm font-semibold py-3 hover:bg-white/5 transition"
 //               >
 //                 Sign Up
 //               </button>
-//             </Link>
+//             </a>
 //           </div>
 //         </div>
 //       </div>

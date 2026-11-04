@@ -1,20 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { Loader2, Play, RefreshCw } from "lucide-react";
 import type { Video } from "@/app/components/feed/types";
 import { fetchVideoById, fetchWatchSuggestions, registerView } from "@/lib/actions/mediaFeed";
 import WatchVideoCard from "@/app/components/feed/WatchVideoCard";
 import WatchDesktopShell from "@/app/components/feed/layout/WatchDesktopShell";
 import WatchMobileChrome from "@/app/components/feed/layout/WatchMobileChrome";
-import { SponsoredAdPanel, MobileBannerAd } from "@/app/components/ads/AdPlacements";
+import { SponsoredAdPanel } from "@/app/components/ads/AdPlacements";
 
 const INITIAL_SUGGESTIONS = 6;
 const MORE_SUGGESTIONS = 6;
 
 function SuggestionCard({ video }: { video: Video }) {
-  return <Link href={`/watch/${video.mediaId}`} className="group flex w-full items-start gap-3 rounded-lg px-1 py-2 transition-colors hover:bg-white/[.06]">
+  return <a href={`/watch/${video.mediaId}`} className="group flex w-full items-start gap-3 rounded-lg px-1 py-2 transition-colors hover:bg-white/[.06]">
     <div className="relative aspect-video w-[126px] shrink-0 overflow-hidden rounded-md bg-[#17191e] sm:w-[142px]">
       <video
         src={video.src}
@@ -35,7 +34,7 @@ function SuggestionCard({ video }: { video: Video }) {
       <p className="mt-1 truncate text-xs text-white/55">@{video.username}</p>
       <p className="mt-1 text-[11px] text-white/40">{new Intl.NumberFormat("en", { notation: "compact" }).format(video.views)} views</p>
     </div>
-  </Link>;
+  </a>;
 }
 
 function WatchRecommendations({ mediaId }: { mediaId: number }) {
@@ -77,7 +76,7 @@ function WatchRecommendations({ mediaId }: { mediaId: number }) {
   return <section aria-label="Recommended videos" className="mt-10 min-w-0 border-t border-white/10 pt-7 text-white">
     <div className="mb-3 flex items-center justify-between border-b border-white/10 pb-3">
       <h2 className="text-[15px] font-semibold">More videos</h2>
-      <Link href="/reels" className="text-xs text-white/50 hover:text-white">See Reels</Link>
+      <a href="/reels" className="text-xs text-white/50 hover:text-white">See Reels</a>
     </div>
     {loading && <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Loading video recommendations">
       {Array.from({length: 6}, (_, i) => <div key={i} className="flex animate-pulse gap-3 rounded-lg p-2">
@@ -127,7 +126,7 @@ export default function WatchClient({ mediaId }: { mediaId: number }) {
   return <div className="min-h-screen overflow-x-hidden bg-[#0b0d10] text-white">
     <WatchDesktopShell />
     <WatchMobileChrome />
-    <div className="pt-[58px] lg:hidden"><MobileBannerAd /></div>
+    <div className="h-[58px] lg:hidden" aria-hidden="true"/>
     <main className="mx-auto min-h-screen w-full max-w-[1600px] px-3 pb-28 pt-5 sm:px-6 lg:pl-[92px] lg:pr-5 lg:pt-8 min-[1360px]:pl-[260px]">
       <div className="mx-auto w-full max-w-[1100px]">
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px] xl:gap-9">
@@ -140,11 +139,12 @@ export default function WatchClient({ mediaId }: { mediaId: number }) {
         </section>
         <aside className="w-full min-w-0 max-w-[350px] lg:sticky lg:top-0 lg:h-[100dvh] lg:overflow-y-auto lg:overscroll-contain lg:py-3">
           <div className="hidden lg:block">
-            <SponsoredAdPanel zone={1125709} withContacts adHeight={380}/>
+            <SponsoredAdPanel zone={1130838} withContacts={false} adHeight={420}/>
+            <div className="mt-8 border-t border-white/10 pt-7">
+              <SponsoredAdPanel zone={1130843} withContacts adHeight={360} title="Sponsored · Footer"/>
+            </div>
           </div>
-          <div className="lg:hidden">
-            <SponsoredAdPanel zone={1125710} withContacts adHeight={300}/>
-          </div>
+          {/* Mobile ads live in the menu; watch desktop ad stays in the right column. */}
 
         </aside>
         </div>

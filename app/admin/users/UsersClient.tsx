@@ -2,7 +2,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import type { UserRow } from "./page";
 import { deleteUser } from "./actions";
 
@@ -155,20 +154,20 @@ export default function UsersClient({
         </div>
         <div className="flex gap-2">
           {page > 1 && (
-            <Link
+            <a
               href={buildPageHref(page - 1)}
               className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20"
             >
               Previous
-            </Link>
+            </a>
           )}
           {page < totalPages && (
-            <Link
+            <a
               href={buildPageHref(page + 1)}
               className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20"
             >
               Next
-            </Link>
+            </a>
           )}
         </div>
       </div>

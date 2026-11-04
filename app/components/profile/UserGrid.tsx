@@ -2,7 +2,6 @@
 "use client";
 
 import React, { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { LoaderIcon } from "lucide-react";
 
 import LazyImage from "@/app/components/media/LazyImage";
@@ -275,9 +274,9 @@ const BottomSentinel = forwardRef<HTMLDivElement, BottomSentinelProps>(function 
       {!loading && !hasMore && (
         <div className="text-[15px] text-white/40 text-center">
           The End! Contribute to the community by{" "}
-          <Link href="/upload" className="text-pink-500 underline">
+          <a href="/upload" className="text-pink-500 underline">
             uploading
-          </Link>{" "}
+          </a>{" "}
           stuff :P
         </div>
       )}
@@ -514,7 +513,7 @@ const BottomSentinel = forwardRef<HTMLDivElement, BottomSentinelProps>(function 
 //           <div className="text-[15px] text-white/40">
 //             The End! Contribute to the community by{" "}
 //             <span className="pink-500 underline">
-//               <Link href={"/upload"}>uploading</Link>
+//               <a href={"/upload"}>uploading</a>
 //             </span>{" "}
 //             stuff :P
 //           </div>

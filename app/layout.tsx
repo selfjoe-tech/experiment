@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import NextTopLoader from "nextjs-toploader";
+import JuicyAdsLoader from "@/app/components/ads/JuicyAdsLoader";
 
 
 const geistSans = Geist({
@@ -160,6 +161,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
 
         <SiteJsonLd />
+        <JuicyAdsLoader />
         {children}
       </body>
     </html>

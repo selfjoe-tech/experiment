@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { Bookmark, Loader2 } from "lucide-react";
 import DesktopShell from "@/app/components/feed/layout/DesktopShell";
 import MobileChrome from "@/app/components/feed/layout/MobileChrome";
@@ -66,7 +65,7 @@ export default function SavedPage() {
           <Bookmark size={25}/>
           <div><h1 className="text-xl font-semibold">Saved</h1><p className="text-xs text-white/50">Posts you've bookmarked</p></div>
         </div>
-        {loaded && !viewer ? <p className="py-16 text-center text-sm text-white/60"><Link className="text-[#8ea4ff]" href="/auth/login">Log in</Link> to see your saved posts.</p> :
+        {loaded && !viewer ? <p className="py-16 text-center text-sm text-white/60"><a className="text-[#8ea4ff]" href="/auth/login">Log in</a> to see your saved posts.</p> :
           <>
             {items.map(item => <PostCard key={item.id} post={item} viewerId={viewer}/>)}
             {loading && <div className="flex justify-center py-10"><Loader2 className="animate-spin text-white/60" size={24}/></div>}

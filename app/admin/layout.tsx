@@ -2,7 +2,6 @@
 
 "use client";
 import React from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 
@@ -30,7 +29,7 @@ function AdminSidebar() {
         {links.map((link) => {
           const active = pathname?.startsWith(link.href);
           return (
-            <Link
+            <a
               key={link.href}
               href={link.href}
               className={`block px-3 py-2 rounded-lg transition ${
@@ -40,7 +39,7 @@ function AdminSidebar() {
               }`}
             >
               {link.label}
-            </Link>
+            </a>
           );
         })}
       </nav>
@@ -58,7 +57,7 @@ function AdminBottomNav() {
         {links.map((link) => {
           const active = pathname?.startsWith(link.href);
           return (
-            <Link
+            <a
               key={link.href}
               href={link.href}
               className={`flex-1 text-center text-xs py-2 rounded-lg mx-0.5 ${
@@ -68,7 +67,7 @@ function AdminBottomNav() {
               }`}
             >
               {link.label}
-            </Link>
+            </a>
           );
         })}
       </div>

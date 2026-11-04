@@ -2,11 +2,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
 import Image from "next/image";
 
 import DesktopShell from "@/app/components/feed/layout/DesktopShell";
-import { DesktopReelsAds, MobileBannerAd } from "@/app/components/ads/AdPlacements";
+import { DesktopReelsAds } from "@/app/components/ads/AdPlacements";
 import MobileChrome from "@/app/components/feed/layout/MobileChrome";
 import VideoFeed from "@/app/components/feed/VideoFeed";
 import type { FeedTab } from "@/app/components/feed/types";
@@ -63,9 +62,9 @@ export default function ReelsPage() {
       />
 
       <DesktopReelsAds />
-      <div className="fixed inset-x-0 top-[58px] z-20 lg:hidden"><MobileBannerAd/></div>
+
       {/* For you / Trending switch – fixed over the video area */}
-      <div className="pointer-events-none fixed top-[132px] lg:top-5 lg:pr-0 left-1/2 lg:left-[calc(50%-132px)] min-[1360px]:left-[calc(50%-48px)] z-30 -translate-x-1/2">
+      <div className="pointer-events-none fixed top-[74px] lg:top-5 lg:pr-0 left-1/2 lg:left-[calc(50%-132px)] min-[1360px]:left-[calc(50%-48px)] z-30 -translate-x-1/2">
         <div className="inline-flex gap-8 text-sm font-medium text-white pointer-events-auto">
           {(["forYou", "trending"] as FeedTab[]).map((tabKey) => {
             const label = tabKey === "forYou" ? "For You" : "Trending";
@@ -145,14 +144,14 @@ function ForYouLoginGate() {
               <span className="font-semibold">&ldquo;For You&rdquo;</span> feed.
             </p>
 
-            <Link href="/auth/login">
+            <a href="/auth/login">
               <button
                 type="button"
                 className="w-full rounded-full bg-[pink] text-black font-semibold py-3 text-sm hover:brightness-95 transition"
               >
                 Log In
               </button>
-            </Link>
+            </a>
           </div>
 
           <div className="h-px bg-white/10" />
@@ -161,14 +160,14 @@ function ForYouLoginGate() {
             <p className="text-xs text-white/70 mb-1">
               Don&apos;t have an account?
             </p>
-            <Link href="/auth/signup">
+            <a href="/auth/signup">
               <button
                 type="button"
                 className="w-full rounded-full border border-white text-sm font-semibold py-3 hover:bg-white/5 transition"
               >
                 Sign Up
               </button>
-            </Link>
+            </a>
           </div>
         </div>
       </div>

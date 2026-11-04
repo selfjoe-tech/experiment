@@ -3,7 +3,6 @@
 import { buildPublicUrl } from "@/lib/actions/mediaFeed";
 import { supabase } from "@/lib/supabaseClient";
 import { ArrowUpRightFromSquare } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
@@ -24,7 +23,7 @@ export function AdCard({ name }: { name: string }) {
   const router = useRouter();
 
   return (
-    <Link href="/ads" className="flex flex-col gap-2">
+    <a href="/ads" className="flex flex-col gap-2">
       <div className="rounded-2xl overflow-hidden bg-white/5 border border-white/10 shadow-lg shadow-pink-500/10">
         <div
           className="h-40 w-full"
@@ -56,7 +55,7 @@ export function AdCard({ name }: { name: string }) {
           </button>
         </div>
       </div>
-    </Link>
+    </a>
   );
 }
 
@@ -65,7 +64,7 @@ export function MobileAdCard({ name }: { name: string }) {
   const router = useRouter();
 
   return (
-    <Link href="/ads" className="flex flex-col gap-2">
+    <a href="/ads" className="flex flex-col gap-2">
         <div
           className="text-nowrap h-40 gap-2 w-full flex rounded-[50px] items-center justify-center text-2xl"
           style={{
@@ -75,7 +74,7 @@ export function MobileAdCard({ name }: { name: string }) {
             Your Banner on mobile will look like this<ArrowUpRightFromSquare size={50} />
         </div>
         
-    </Link>
+    </a>
   );
 }
 

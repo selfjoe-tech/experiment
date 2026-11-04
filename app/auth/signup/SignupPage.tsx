@@ -2,7 +2,6 @@
 "use client";
 
 import { FormEvent, Suspense, useEffect, useState, useTransition } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 
@@ -247,12 +246,12 @@ if (!username) {
 
         <p className="text-center text-sm text-white/70">
           Already have an account?{" "}
-          <Link
+          <a
             href={`/auth/login?redirect=${encodeURIComponent(redirect)}`}
             className="text-white underline underline-offset-4"
           >
             Log in
-          </Link>
+          </a>
         </p>
 
         <p className="text-center text-xs text-white/50">
