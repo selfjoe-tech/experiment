@@ -30,6 +30,7 @@ import {
 // } from "@/lib/client/watermarkVideo";
 
 import { getUserProfileFromCookies } from "@/lib/actions/auth";
+import { useUploadStatus } from "@/app/components/upload/UploadStatusProvider";
 import OverlayPortal from "@/app/components/ui/OverlayPortal";
 
 const ACCENT = "pink";
@@ -45,6 +46,7 @@ type PostFlow =
 export default function UploadPage() {
   const router = useRouter();
   const sp = useSearchParams();
+  const { startUpload } = useUploadStatus();
 
   // Only accept same-site destinations, never external post-upload redirects.
   const requestedRedirect = sp.get("redirect");
@@ -279,195 +281,66 @@ export default function UploadPage() {
   // ============================================================
 
   if (postFlow?.kind === "video") {
-    return (
-      <UploadFlow
-        variant="video"
-        clip={postFlow.clip}
-        processing={processing}
-        progress={progress}
-        processingError={processingError}
-        processingLabel={progressLabel}
-        onCancel={() => setPostFlow(null)}
-        onSubmit={async (formValues) => {
-          setProcessing(true);
-          setProcessingError(null);
-          setProgress(0);
-          setProgressLabel("Preparing upload…");
-
-          try {
-            const originalClip =
-              postFlow.clip;
-
-            /*
-             * The video is no longer trimmed.
-             *
-             * The full original video is watermarked
-             * and uploaded as-is.
-             */
-
-            
-
-            const processedFile: File = originalClip.file;
-
-            /*
-             * Because the video is no longer trimmed,
-             * start/end represent the full original
-             * video for compatibility with the
-             * existing ClipSelection type.
-             */
-            const finalClip: ClipSelection = {
-              ...originalClip,
-              file: processedFile,
-            };
-
-            const row =
-              await uploadTrimmedVideo(
-                finalClip,
-                {
-                  title:
-                    formValues.description?.slice(
-                      0,
-                      80
-                    ) ?? "",
-
-                  description:
-                    formValues.description ?? "",
-
-                  audience:
-                    formValues.audience,
-
-                  tags:
-                    formValues.tags ?? [],
-                },
-                {
-                  /*
-                   * uploadTrimmedVideo can use the actual
-                   * video duration when processing/uploading.
-                   * No selection duration is used here.
-                   */
-                  onUploadProgress: setProgress,
-                  onStageChange: stage => setProgressLabel(
-                    stage === "preparing" ? "Preparing upload…" :
-                    stage === "uploading" ? "Uploading video…" : "Saving video…"
-                  ),
-                }
-              );
-
-            console.log(
-              "Inserted media row:",
-              row
-            );
-
-            setProgress(100);
-            setProgressLabel("Upload complete");
-            await new Promise(resolve => window.setTimeout(resolve, 2000));
-
-            setPostFlow(null);
-            setVideoFile(null);
-
-            if (videoUrl) {
-              URL.revokeObjectURL(videoUrl);
-            }
-
-            setVideoUrl(null);
-
-            router.push(
-              redirect
-            );
-          } catch (err: any) {
-            console.error(err);
-
-            const msg =
-              err?.message ??
-              "Upload failed, please try again.";
-
-            setProcessingError(msg);
-
-            throw new Error(msg);
-          } finally {
-            setProcessing(false);
-          }
-        }}
-      />
-    );
+    return <UploadFlow
+      variant="video"
+      clip={postFlow.clip}
+      processing={processing}
+      progress={progress}
+      processingError={processingError}
+      processingLabel={progressLabel}
+      onCancel={() => setPostFlow(null)}
+      onSubmit={async formValues => {
+        // Keep the original File in the root upload manager's task closure:
+        // navigation unmounts this page, but the browser request continues.
+        const clip = postFlow.clip;
+        const started = startUpload("video", async ({ onProgress, onStageChange }) => {
+          await uploadTrimmedVideo(clip, {
+            title: formValues.description?.slice(0, 80) ?? "",
+            description: formValues.description ?? "",
+            audience: formValues.audience,
+            tags: formValues.tags ?? [],
+          }, {
+            onUploadProgress: onProgress,
+            onStageChange,
+          });
+        });
+        if (!started) throw new Error("Another upload is in progress. Finish it before starting a new one.");
+        router.push(redirect);
+      }}
+    />;
   }
 
-  // ============================================================
-  // 3B) UPLOAD FLOW — IMAGES
-  // ============================================================
-
+  // Images use the same background UI and aggregate progress across files.
   if (postFlow?.kind === "images") {
-    return (
-      <UploadFlow
-        variant="images"
-        images={postFlow.images}
-        onCancel={() => setPostFlow(null)}
-        processing={processing}
-        progress={progress}
-        processingError={processingError}
-        processingLabel={progressLabel}
-        onSubmit={async (formValues: any) => {
-          setProcessing(true);
-          setProcessingError(null);
-          setProgress(0);
-          setProgressLabel("Preparing images…");
-          try {
-            const {
-              successes,
-              failures,
-            } =
-              await uploadImagesBatch(
-                postFlow.images.files,
-                {
-                  title: undefined,
-                  description: formValues.description,
-                  audience: formValues.audience,
-                  tags: formValues.tags ?? [],
-                },
-                {
-                  onUploadProgress: setProgress,
-                  onStageChange: stage => setProgressLabel(
-                    stage === "preparing" ? "Preparing images…" :
-                    stage === "uploading" ? "Uploading images…" : "Saving images…"
-                  ),
-                }
-              );
-
-            console.log(
-              "Image upload successes:",
-              successes
+    return <UploadFlow
+      variant="images"
+      images={postFlow.images}
+      onCancel={() => setPostFlow(null)}
+      processing={processing}
+      progress={progress}
+      processingError={processingError}
+      processingLabel={progressLabel}
+      onSubmit={async formValues => {
+        const files = [...postFlow.images.files];
+        const started = startUpload("images", async ({ onProgress, onStageChange }) => {
+          const { successes, failures } = await uploadImagesBatch(files, {
+            description: formValues.description,
+            audience: formValues.audience,
+            tags: formValues.tags ?? [],
+          }, {
+            onUploadProgress: onProgress,
+            onStageChange,
+          });
+          if (failures.length > 0) {
+            throw new Error(
+              `${failures.length} image(s) failed; ${successes.length} uploaded. Re-select only failed files to avoid duplicates.`
             );
-
-            if (failures.length > 0) {
-              console.warn(
-                "Some images failed to upload:",
-                failures
-              );
-            }
-
-            if (failures.length) {
-              throw new Error(`${failures.length} image(s) failed while ${successes.length} succeeded. Re-select only the failed files to avoid duplicates.`);
-            }
-
-            setProgress(100);
-            setProgressLabel("Upload complete");
-            await new Promise(resolve => window.setTimeout(resolve, 2000));
-            setPostFlow(null);
-            setImageFiles([]);
-
-            router.push(
-              redirect
-            );
-          } catch (err: any) {
-            console.error(err);
-            setProcessingError(err?.message ?? "Image upload failed.");
-            throw err;
-          } finally {
-            setProcessing(false);
           }
-        }}
-      />
-    );
+        });
+        if (!started) throw new Error("Another upload is in progress. Finish it before starting a new one.");
+        router.push(redirect);
+      }}
+    />;
   }
 
   // ============================================================
