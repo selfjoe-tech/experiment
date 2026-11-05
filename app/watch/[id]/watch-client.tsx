@@ -7,7 +7,7 @@ import { fetchVideoById, fetchWatchSuggestions, registerView } from "@/lib/actio
 import WatchVideoCard from "@/app/components/feed/WatchVideoCard";
 import WatchDesktopShell from "@/app/components/feed/layout/WatchDesktopShell";
 import WatchMobileChrome from "@/app/components/feed/layout/WatchMobileChrome";
-import { SponsoredAdPanel } from "@/app/components/ads/AdPlacements";
+import StaticPageAdPair from "@/app/components/ads/StaticPageAdPair";
 
 const INITIAL_SUGGESTIONS = 6;
 const MORE_SUGGESTIONS = 6;
@@ -129,7 +129,7 @@ export default function WatchClient({ mediaId }: { mediaId: number }) {
     <div className="h-[58px] lg:hidden" aria-hidden="true"/>
     <main className="mx-auto min-h-screen w-full max-w-[1600px] px-3 pb-28 pt-5 sm:px-6 lg:pl-[92px] lg:pr-5 lg:pt-8 min-[1360px]:pl-[260px]">
       <div className="mx-auto w-full max-w-[1100px]">
-        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px] xl:gap-9">
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_336px] xl:gap-9">
         <section className="mx-auto w-full min-w-0 max-w-[570px] lg:mx-0">
           {loading ? <div className="aspect-[9/16] w-full animate-pulse rounded-lg bg-white/[.055]" aria-label="Loading video" /> :
             error || !video ? <div className="flex aspect-[9/16] items-center justify-center rounded-xl border border-white/10 bg-black px-6 text-center text-sm text-white/50">{error || "Video not found."}</div> :
@@ -137,16 +137,11 @@ export default function WatchClient({ mediaId }: { mediaId: number }) {
               <WatchVideoCard video={video} isMuted={muted} toggleMute={() => setMuted(value => !value)}/>
             </div>}
         </section>
-        <aside className="w-full min-w-0 max-w-[350px] lg:sticky lg:top-0 lg:h-[100dvh] lg:overflow-y-auto lg:overscroll-contain lg:py-3">
-          <div className="hidden lg:block">
-            <SponsoredAdPanel zone={1130838} withContacts={false} adHeight={420}/>
-            <div className="mt-8 border-t border-white/10 pt-7">
-              <SponsoredAdPanel zone={1130843} withContacts adHeight={360} title="Sponsored · Footer"/>
-            </div>
-          </div>
-          {/* Mobile ads live in the menu; watch desktop ad stays in the right column. */}
-
-        </aside>
+        {/* The original desktop and mobile zones persist independently of player,
+            recommendations and mute/playback state. */}
+        <div className="min-w-0 border-t border-white/10 pt-6 lg:border-t-0 lg:pt-[178px]">
+          <StaticPageAdPair/>
+        </div>
         </div>
         {Number.isSafeInteger(mediaId) && mediaId > 0 && <WatchRecommendations mediaId={mediaId}/>}
       </div>

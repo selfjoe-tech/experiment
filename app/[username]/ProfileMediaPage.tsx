@@ -24,6 +24,7 @@ import SortDropdown, { SortKey } from "@/app/components/explore/SortDropdown";
 import type { Video } from "@/app/components/feed/types";
 import FullscreenVideoOverlay from "@/app/components/feed/FullscreenVideoOverlay";
 import UserGrid from "@/app/components/profile/UserGrid";
+import InlineContentAd from "@/app/components/ads/InlineContentAd";
 import { VerifiedBadgeIcon } from "@/app/components/icons/VerifiedBadgeIcon";
 import { verify } from "crypto";
 import { getUserProfileFromCookies, getVerified, getUserIdFromCookies } from "@/lib/actions/auth";
@@ -406,6 +407,11 @@ function isSafeExternalUrl(url: string) {
           <ProfileTabs active={tab} username={username} />
         </div>
         <SortDropdown value={sortBy} onChange={setSortBy} />
+      </div>
+
+      {/* A stable ad outside the GIF/image grid and its sorting/tab state. */}
+      <div className="mb-5 flex justify-center border-b border-white/10 pb-5">
+        <InlineContentAd/>
       </div>
 
       {/* ===== Grid ===== */}

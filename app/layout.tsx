@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import NextTopLoader from "nextjs-toploader";
 import JuicyAdsLoader from "@/app/components/ads/JuicyAdsLoader";
+import SitewideAd from "@/app/components/ads/SitewideAd";
 
 
 const geistSans = Geist({
@@ -162,6 +163,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         <SiteJsonLd />
         <JuicyAdsLoader />
+        <SitewideAd />
         {children}
       </body>
     </html>

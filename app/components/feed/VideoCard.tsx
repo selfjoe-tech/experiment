@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import React, { startTransition, useEffect, useRef, useState } from "react";
 import {
   Eye,
@@ -78,7 +79,6 @@ type Props = {
   onClose?: () => void;
   open?: boolean;
   loadLevel?: LoadLevel;
-  onPlaybackChange?: (playing: boolean, hasPlayed: boolean, previewEnded: boolean) => void;
   maximize?: boolean;
   changeMaxButtin?: () => void;
   changeMaxButton?: () => void;
@@ -140,7 +140,6 @@ export function VideoCardActive({
   open,
   onClose,
   loadLevel,
-  onPlaybackChange,
   maximize = true,
   changeMaxButton,
   fullscreen
@@ -166,7 +165,6 @@ const mediaIdNum = !isSponsored
 
 
   const [isPlaying, setIsPlaying] = useState(false);
-  const [hasPlayed, setHasPlayed] = useState(false);
 
   // FOLLOW STATE
   const [isFollowing, setIsFollowing] = useState(false);
@@ -182,10 +180,6 @@ const mediaIdNum = !isSponsored
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [previewEnded, setPreviewEnded] = useState(false);
-
-  useEffect(() => {
-    onPlaybackChange?.(isPlaying, hasPlayed, previewEnded);
-  }, [isPlaying, hasPlayed, previewEnded, onPlaybackChange]);
 
   // OTHER UI
   const [expandedDesc, setExpandedDesc] = useState(false);
@@ -288,7 +282,6 @@ useEffect(() => {
   if (shouldAutoPlay) {
     el.currentTime = 0;
     setPreviewEnded(false);
-    setHasPlayed(false);
     const p = el.play();
     if (p) p.catch(() => setIsPlaying(false));
   } else {
@@ -400,7 +393,7 @@ useEffect(() => {
     }
   };
 
-  const handlePlay = () => { setIsPlaying(true); setHasPlayed(true); };
+  const handlePlay = () => { setIsPlaying(true); };
 
   const handlePause = () => {
     setIsPlaying(false);
@@ -728,9 +721,9 @@ useEffect(() => {
           <p className="text-xs font-semibold uppercase tracking-[.18em] text-white/50">30-second preview</p>
           <h3 className="text-xl font-semibold text-white">Watch the full video</h3>
         </div>
-        <a href={`/watch/${mediaIdNum}`} className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 text-sm font-semibold text-black transition-colors hover:bg-white/90">
+        <Link href={`/watch/${mediaIdNum}`} className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 text-sm font-semibold text-black transition-colors hover:bg-white/90">
           Watch full video <ArrowUpRight size={18}/>
-        </a>
+        </Link>
       </div>}
       {/* LIKE BURST OVERLAY */}
       {likeBurstVisible && (
@@ -749,11 +742,11 @@ useEffect(() => {
 
       {/* Familiar vertical Reels actions, with a cleaner hierarchy. */}
       <div className="absolute bottom-[143px] right-2 z-30 flex flex-col items-center gap-4 text-white sm:right-4">
-        {!isSponsored && <a href={`/${encodeURIComponent(video.username)}`} aria-label={`View ${video.username}'s profile`}
+        {!isSponsored && <Link href={`/${encodeURIComponent(video.username)}`} aria-label={`View ${video.username}'s profile`}
           className="relative mb-1 block h-12 w-12 rounded-full border-2 border-white/90 bg-black/30 p-[2px] shadow-lg">
           <Image src={video.avatar || "/avatar-placeholder.png"} width={48} height={48}
             alt="" className="h-full w-full rounded-full object-cover"/>
-        </a>}
+        </Link>}
         {!isSponsored && <div className="relative flex flex-col items-center">
           <IconCircleButton onClick={handleToggleLike} label={liked ? "Unlike" : "Like"} disabled={likeLoading}>
             <Heart className={`h-8 w-8 drop-shadow-md ${liked ? "fill-[#ff3159] text-[#ff3159]" : "text-white"}`} strokeWidth={1.9}/>
@@ -789,10 +782,10 @@ useEffect(() => {
       {/* Creator and caption remain readable above the media gradient. */}
       <div className="absolute inset-x-3 bottom-3 z-30 space-y-3 pr-[72px] text-white sm:left-6">
         <div className="flex flex-wrap items-center gap-2.5">
-          <a href={`/${encodeURIComponent(video.username)}`} className="flex min-w-0 items-center gap-2">
+          <Link href={`/${encodeURIComponent(video.username)}`} className="flex min-w-0 items-center gap-2">
             <span className="max-w-[160px] truncate text-sm font-bold drop-shadow-md">@{video.username}</span>
             {video.verified && <VerifiedBadgeIcon/>}
-          </a>
+          </Link>
           {!isSponsored && video.ownerId && video.ownerId !== currentId && <button
             type="button" onClick={handleFollowClick} disabled={followLoading}
             className="rounded-md border border-white/75 bg-black/25 px-3 py-1 text-xs font-semibold text-white transition hover:bg-white/20">
@@ -803,11 +796,11 @@ useEffect(() => {
         {(video.description || video.hashtags?.length) && <div className="text-[13px] leading-5 text-white/95 drop-shadow-md">
           <p className={expandedDesc ? "max-h-28 overflow-y-auto" : "line-clamp-2"}>
             {video.description}{" "}
-            {video.hashtags?.map((tag, index) => <a key={index}
+            {video.hashtags?.map((tag, index) => <Link key={index}
               href={`/explore/niches/${labelToSlug(tag)}`}
               className="mr-1 inline-block font-medium text-white hover:underline">
               #{tag.replace(/^#/, "")}
-            </a>)}
+            </Link>)}
           </p>
           <button type="button" onClick={() => setExpandedDesc(v => !v)}
             className="mt-1 text-xs font-medium text-white/80 hover:text-white">
@@ -1071,7 +1064,7 @@ function CommentList({
         <div key={c.id} className="flex gap-2 text-xs">
           <div className="mt-1 h-7 w-7 rounded-full bg-white/10 overflow-hidden shrink-0">
             {c.avatar_path ? (
-            <a href={`/${c.username}`}>
+            <Link href={`/${c.username}`}>
               <Image
                 src={c.avatar_path}
                 alt={`Goon Gram Image by ${c.username}`}
@@ -1079,16 +1072,16 @@ function CommentList({
                 height={28}
                 className="h-full w-full object-cover"
               />
-            </a>
+            </Link>
             ) : null}
           </div>
           <div className="flex-1">
-            <a href={`/${c.username}`}>
+            <Link href={`/${c.username}`}>
               <div className="flex items-center gap-2">
                 <span className="font-semibold">{c.username}</span>
                 {c.verified && <VerifiedBadgeIcon />}
               </div>
-            </a>
+            </Link>
             
             <p className="mt-0.5 text-white/80">{c.comment}</p>
             <div className="mt-1 flex items-center gap-3 text-[11px] text-white/60">
@@ -1617,7 +1610,7 @@ export function SponsoredVideoCard(
 //       <div className="absolute inset-x-3 bottom-3 z-30 space-y-2">
 //         {/* creator row */}
 //         <div className="flex items-center gap-3">
-//           <a href={`/profile/${video.username}`}>
+//           <Link href={`/profile/${video.username}`}>
 //             <div className="h-10 w-10 rounded-full bg-white/60 overflow-hidden">
 //               <Image
 //                 src={video.avatar ?? "/avatar-placeholder.png"}
@@ -1628,15 +1621,15 @@ export function SponsoredVideoCard(
 //                 loading="lazy"
 //               />
 //             </div>
-//           </a>
+//           </Link>
 
-//           <a href={`/profile/${video.username}`}>
+//           <Link href={`/profile/${video.username}`}>
 //             <div className="min-w-0">
 //               <div className="text-sm font-semibold truncate">
 //                 {video.username}
 //               </div>
 //             </div>
-//           </a>
+//           </Link>
 
 //     {video.ownerId !== currentId &&   
 //       <button
@@ -2125,7 +2118,7 @@ export function SponsoredVideoCard(
 //         {/* creator row */}
 //         <div className="flex items-center gap-3">
 
-//           <a
+//           <Link
 //             href={`/profile/${video.username}`}
 //           >
 //             <div className="h-10 w-10 rounded-full bg-white/60 overflow-hidden">
@@ -2138,9 +2131,9 @@ export function SponsoredVideoCard(
 //                 loading="lazy"
 //               />
 //             </div>
-//           </a>
+//           </Link>
 
-//           <a
+//           <Link
 //             href={`/profile/${video.username}`}
 //           >
 //           <div className="min-w-0">
@@ -2148,7 +2141,7 @@ export function SponsoredVideoCard(
 //               {video.username}
 //             </div>
 //           </div>
-//           </a>
+//           </Link>
 
 //           <button
 //             type="button"

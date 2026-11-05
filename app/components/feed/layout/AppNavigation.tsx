@@ -10,7 +10,6 @@ import {
 import { getUserProfileFromCookies } from "@/lib/actions/auth";
 import SearchOverlay from "@/app/components/search/SearchOverlay";
 import ProfileMenuContent from "@/app/components/profile/ProfileMenuContent";
-import { MobileHeaderAd, MobileMenuAds } from "@/app/components/ads/AdPlacements";
 
 type Viewer = { username: string | null; avatarUrl: string | null };
 const EMPTY_VIEWER: Viewer = { username: null, avatarUrl: null };
@@ -139,7 +138,6 @@ export function MobileNavigation({ hidden = false }: { hidden?: boolean }) {
       <a href="/" className="min-w-0 shrink" aria-label="Goon Gram home">
         <Image unoptimized src="/icons/goon.png" width={119} height={50} alt="Goon Gram" className="h-auto max-h-10 w-[90px] object-contain object-left sm:w-[119px]"/>
       </a>
-      <div className="flex min-w-0 items-center justify-center"><MobileHeaderAd/></div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         <button type="button" aria-label="Search" onClick={() => setSearchOpen(true)} className="grid h-9 w-8 place-items-center"><Search size={23} strokeWidth={1.8}/></button>
         <button type="button" aria-label="Open menu" onClick={() => setMenuOpen(true)} className="grid h-9 w-8 place-items-center"><Menu size={24} strokeWidth={1.8}/></button>
@@ -183,7 +181,6 @@ export function MobileNavigation({ hidden = false }: { hidden?: boolean }) {
           </>}
           <a href="/ads" onClick={() => setMenuOpen(false)} className="block rounded-lg px-4 py-3 text-white/75 hover:bg-white/10">Advertise</a>
         </div>
-        <div className="pt-6"><MobileMenuAds/></div>
       </div>
     </div>}
     <CreatePrompt open={createOpen} onClose={()=>setCreateOpen(false)} loggedIn={!!viewer.username}/>

@@ -204,18 +204,15 @@ if (tab === "niches") {
 
   return data
     .map((row: any) => {
-      // If you only want niches with a cover video:
-      if (!row.storage_path) return null;
-
-      const url = publicMediaUrl(row.storage_path);
-      if (!url) return null;
+      // Keep the tag visible even when nobody has uploaded matching media yet.
+      const url = row.storage_path ? publicMediaUrl(row.storage_path) : null;
 
       return {
-        id: String(row.media_id ?? row.tag_id),
+        id: String(row.tag_id),
         type: "niche" as const,
         slug: row.slug,
         name: row.label,
-        src: url,
+        src: url ?? "",
         count: row.post_count ?? 0,
         score: row.top_views ?? 0,
         date: row.media_created_at

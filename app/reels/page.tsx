@@ -5,7 +5,6 @@ import React, { useEffect, useState } from "react";
 import Image from "next/image";
 
 import DesktopShell from "@/app/components/feed/layout/DesktopShell";
-import { DesktopReelsAds } from "@/app/components/ads/AdPlacements";
 import MobileChrome from "@/app/components/feed/layout/MobileChrome";
 import VideoFeed from "@/app/components/feed/VideoFeed";
 import type { FeedTab } from "@/app/components/feed/types";
@@ -61,7 +60,6 @@ export default function ReelsPage() {
 
       />
 
-      <DesktopReelsAds />
 
       {/* For you / Trending switch – fixed over the video area */}
       <div className="pointer-events-none fixed top-[74px] lg:top-5 lg:pr-0 left-1/2 lg:left-[calc(50%-132px)] min-[1360px]:left-[calc(50%-48px)] z-30 -translate-x-1/2">
@@ -108,7 +106,7 @@ export default function ReelsPage() {
         />
       ) : (
         // tiny fallback while auth status loads
-        <div className="flex h-screen items-center justify-center lg:pl-[76px] lg:pr-[340px] min-[1360px]:pl-[244px]">
+        <div className="flex h-screen items-center justify-center lg:pl-[76px] lg:pr-0 min-[1360px]:pl-[244px]">
           <div className="h-[80vh] w-full max-w-[430px] animate-pulse rounded-lg bg-white/[.05]" aria-label="Loading Reels" />
         </div>
       )}
@@ -122,7 +120,7 @@ export default function ReelsPage() {
 
 function ForYouLoginGate() {
   return (
-    <main className="relative h-screen lg:pl-[76px] min-[1360px]:pl-[244px] lg:pr-[340px]">
+    <main className="relative h-screen lg:pl-[76px] min-[1360px]:pl-[244px] lg:pr-0">
       <div className="relative h-full flex items-center justify-center">
         {/* Background image behind the card */}
 
