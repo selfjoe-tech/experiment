@@ -259,9 +259,9 @@ export default function ExploreGrid({ onVideoClick, tab, sortBy, fetcher }: Prop
   </div>;
 
   return <div className="w-full">
-    <div className="relative w-full">
+    <div className="relative isolate w-full">
       {/* One real vendor DOM node, never rendered by a virtual row or media map. */}
-      <div className="absolute left-0 top-0 z-10 aspect-square overflow-hidden rounded-[2px]"
+      <div className="absolute left-0 top-0 z-[1] aspect-square overflow-hidden rounded-[2px]"
         style={{ width: `calc((100% - ${gap * (cols - 1)}px) / ${cols})` }}>
         <InlineContentAd variant="tile"/>
       </div>
