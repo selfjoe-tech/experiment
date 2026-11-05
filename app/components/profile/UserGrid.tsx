@@ -194,9 +194,9 @@ export default function UserGrid({ username, tab, sortBy, onVideoClick }: Props)
 
   return (
     <>
-      <div className="relative w-full">
+      <div className="relative isolate w-full">
         {/* Ad stays mounted outside the virtualized tile renderer. */}
-        <div className="absolute left-0 top-0 z-10 aspect-square overflow-hidden rounded-[2px]"
+        <div className="absolute left-0 top-0 z-[1] aspect-square overflow-hidden rounded-[2px]"
           style={{ width: `calc((100% - ${4 * (cols - 1)}px) / ${cols})` }}>
           <InlineContentAd variant="tile" />
         </div>
