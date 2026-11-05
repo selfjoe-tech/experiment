@@ -54,8 +54,8 @@ export default function InlineContentAd({ variant = "banner" }: { variant?: "ban
 
   return <section aria-label="Sponsored advertisement"
     className={variant === "tile"
-      ? "relative h-full w-full min-w-0 overflow-hidden rounded-[2px] bg-[#18191e]"
-      : "mx-auto w-[278px] max-w-full rounded-lg border border-white/10 bg-[#101115] p-[5px]"}>
+      ? "relative isolate z-0 h-full w-full min-w-0 overflow-hidden rounded-[2px] bg-[#18191e]"
+      : "relative isolate z-0 mx-auto w-[278px] max-w-full rounded-lg border border-white/10 bg-[#101115] p-[5px]"}>
     {variant === "banner" && <div className="pb-1 text-[9px] font-medium uppercase tracking-wider text-white/50">Sponsored</div>}
     <div ref={frame} className={variant === "tile" ? "relative h-full w-full" : "relative h-[151px] w-[266px] max-w-full"}>
       <div ref={creative}
