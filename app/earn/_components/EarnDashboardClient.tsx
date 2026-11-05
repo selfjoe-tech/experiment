@@ -1,593 +1,209 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { applyAffiliate, requestPayout, savePaypalEmail, type EarnDashboardData } from "@/lib/actions/earn";
 import {
-  BadgeCheck,
-  Banknote,
-  CheckCircle2,
-  ChevronRight,
-  CreditCard,
-  Crown,
-  Info,
-  Mail,
-  ShieldCheck,
-  Sparkles,
-  TrendingUp,
-  Users,
+  BadgeCheck, Banknote, CheckCircle2, Clock3, CreditCard, ExternalLink,
+  Film, Info, Mail, ShieldCheck, TrendingUp,
 } from "lucide-react";
+import { requestPayout, savePaypalEmail, type EarnDashboardData } from "@/lib/actions/earn";
 
-function money(n: number) {
-  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function rateFmt(n: number) {
-  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 3 });
-}
-
-function clamp01(n: number) {
-  return Math.max(0, Math.min(1, n));
-}
-
-function fmtDate(isoOrYmd: string) {
-  // Accepts "YYYY-MM-DD" or full ISO
-  const d = new Date(isoOrYmd.length === 10 ? `${isoOrYmd}T00:00:00Z` : isoOrYmd);
-  if (Number.isNaN(d.getTime())) return isoOrYmd;
-  return new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "2-digit" }).format(d);
-}
-
-function maskEmail(email: string) {
-  const [name, domain] = email.split("@");
-  if (!domain) return email;
-  const safeName = name.length <= 2 ? `${name[0] ?? ""}*` : `${name.slice(0, 2)}***${name.slice(-1)}`;
-  return `${safeName}@${domain}`;
-}
-
-function Pill({
-  tone = "neutral",
-  children,
-}: {
-  tone?: "neutral" | "good" | "warn" | "info";
-  children: React.ReactNode;
+const money = (v: number) => new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 2, maximumFractionDigits: 2,
+}).format(v);
+const date = (value: string | null) => {
+  if (!value) return "Pending";
+  return new Date(value.length === 10 ? `${value}T12:00:00Z` : value)
+    .toLocaleDateString("en-ZA", { dateStyle: "medium", timeZone: "Africa/Johannesburg" });
+};
+const duration = (s: number | null) => {
+  if (s === null) return "Unknown";
+  const sec = Math.floor(s);
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+};
+function Metric({ title, value, detail, icon: Icon }: {
+  title: string; value: string; detail: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
 }) {
-  const cls =
-    tone === "good"
-      ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
-      : tone === "warn"
-      ? "border-amber-400/20 bg-amber-400/10 text-amber-200"
-      : tone === "info"
-      ? "border-sky-400/20 bg-sky-400/10 text-sky-200"
-      : "border-white/15 bg-white/5 text-white/80";
-
-  return <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs ${cls}`}>{children}</span>;
-}
-
-function InlineNotice({
-  tone = "info",
-  title,
-  children,
-}: {
-  tone?: "info" | "good" | "warn" | "bad";
-  title: string;
-  children: React.ReactNode;
-}) {
-  const palette =
-    tone === "good"
-      ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
-      : tone === "warn"
-      ? "border-amber-400/20 bg-amber-400/10 text-amber-100"
-      : tone === "bad"
-      ? "border-red-400/20 bg-red-400/10 text-red-100"
-      : "border-sky-400/20 bg-sky-400/10 text-sky-100";
-
-  return (
-    <div className={`rounded-2xl border p-3 ${palette}`}>
-      <div className="flex items-start gap-2">
-        <Info className="mt-0.5 h-4 w-4 shrink-0 opacity-90" />
-        <div>
-          <div className="text-sm font-semibold">{title}</div>
-          <div className="mt-0.5 text-sm opacity-90">{children}</div>
-        </div>
-      </div>
+  return <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[.035] p-5">
+    <div className="flex items-center gap-2 text-xs font-medium text-white/55">
+      <Icon size={16}/>{title}
     </div>
-  );
+    <div className="mt-3 text-2xl font-semibold tabular-nums tracking-tight text-white">{value}</div>
+    <p className="mt-1 text-xs text-white/45">{detail}</p>
+  </div>;
 }
-
-function Toast({
-  tone = "good",
-  children,
-  onClose,
-}: {
-  tone?: "good" | "bad" | "info";
-  children: React.ReactNode;
-  onClose: () => void;
-}) {
-  const palette =
-    tone === "good"
-      ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
-      : tone === "bad"
-      ? "border-red-400/20 bg-red-400/10 text-red-100"
-      : "border-sky-400/20 bg-sky-400/10 text-sky-100";
-
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className={`fixed left-1/2 top-4 z-50 w-[calc(100%-1.5rem)] max-w-xl -translate-x-1/2 rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur ${palette}`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="text-sm">{children}</div>
-        <button
-          onClick={onClose}
-          className="rounded-lg border border-white/10 bg-black/20 px-2 py-1 text-xs text-white/80 hover:bg-black/30"
-        >
-          Close
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export default function EarnDashboardClient({ initial }: { initial: EarnDashboardData }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-
   const [email, setEmail] = useState(initial.paypalEmail ?? "");
   const [confirm, setConfirm] = useState(initial.paypalEmail ?? "");
-  const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ tone: "good" | "bad" | "info"; msg: string } | null>(null);
-
-  const sinceYmd = initial.paypalEmailSetAt ? initial.paypalEmailSetAt.slice(0, 10) : null;
-
-  const rows = useMemo(() => {
-    const entries = Object.entries(initial.visitsPerDay ?? {})
-      .map(([date, visits]) => ({ date, views: Number(visits ?? 0) }))
-      .sort((a, b) => b.date.localeCompare(a.date));
-
-    return sinceYmd ? entries.filter((r) => r.date >= sinceYmd) : [];
-  }, [initial.visitsPerDay, sinceYmd]);
-
-  const totalUsd = initial.totalUsd;
-  const minPayout = 50;
-  const remaining = Math.max(0, minPayout - totalUsd);
-  const progress = clamp01(totalUsd / minPayout);
-  const canPayout = totalUsd >= minPayout && !!initial.paypalEmail;
-
-  const isAffiliate = initial.userType === "affiliate";
-  const rateLabel = isAffiliate ? "Affiliate" : "Ordinary";
-  const rateText = isAffiliate ? "100% cut" : "70% cut";
-
-  const totalViewsSince = useMemo(() => rows.reduce((acc, r) => acc + (r.views ?? 0), 0), [rows]);
-
-  const onSaveEmail = () => {
-    setError(null);
-    setToast(null);
-
+  const [notice, setNotice] = useState<{ error: boolean; text: string } | null>(null);
+  const handleSave = () => {
+    setNotice(null);
     startTransition(async () => {
-      const res = await savePaypalEmail(email, confirm);
-      if (!res.ok) {
-        setError(res.error ?? "Failed to save email.");
-        setToast({ tone: "bad", msg: res.error ?? "Failed to save email." });
-        return;
+      try {
+        const res = await savePaypalEmail(email, confirm);
+        if (!res.ok) return setNotice({ error: true, text: res.error || "Could not save email." });
+        setNotice({ error: false, text: "PayPal payout email saved." });
+        router.refresh();
+      } catch {
+        setNotice({ error: true, text: "Could not save your PayPal email." });
       }
-      setToast({ tone: "good", msg: "PayPal email saved." });
-      router.refresh();
+    });
+  };
+  const handlePayout = () => {
+    setNotice(null);
+    startTransition(async () => {
+      try {
+        const res = await requestPayout();
+        if (!res.ok) return setNotice({ error: true, text: res.error || "Payout request failed." });
+        setNotice({
+          error: false,
+          text: `Requested $${money(res.amountUsd || 0)}. Scheduled manual payment by ${date(res.paymentDueDate || null)}.`,
+        });
+        router.refresh();
+      } catch {
+        setNotice({ error: true, text: "Unable to request payout." });
+      }
     });
   };
 
-  const onApplyAffiliate = () => {
-    setError(null);
-    setToast(null);
+  return <div className="space-y-6 text-white">
+    {notice && <div role="status" className={`rounded-xl border p-3 text-sm ${notice.error
+      ? "border-rose-500/25 bg-rose-500/10 text-rose-200"
+      : "border-white/15 bg-white/[.06] text-white/90"}`}>{notice.text}</div>}
 
-    startTransition(async () => {
-      const res = await applyAffiliate();
-      if (!res.ok) {
-        setError(res.error ?? "Failed to apply.");
-        setToast({ tone: "bad", msg: res.error ?? "Failed to apply." });
-        return;
-      }
-      setToast({ tone: "info", msg: "Affiliate request sent. Check back in a week for rate changes." });
-      router.refresh();
-    });
-  };
-
-  const onPayout = () => {
-    setError(null);
-    setToast(null);
-
-    startTransition(async () => {
-      const res = await requestPayout();
-      if (!res.ok) {
-        setError(res.error ?? "Payout request failed.");
-        setToast({ tone: "bad", msg: res.error ?? "Payout request failed." });
-        return;
-      }
-      setToast({ tone: "good", msg: `Payout requested: $${money(res.amountUsd ?? totalUsd)}. Processing by Saturday.` });
-      router.refresh();
-    });
-  };
-
-  return (
-    <div className="space-y-6">
-      {toast ? (
-        <Toast tone={toast.tone} onClose={() => setToast(null)}>
-          {toast.msg}
-        </Toast>
-      ) : null}
-
-      {/* Header strip */}
-      <div className="rounded-3xl border border-white/10 bg-gradient-to-b from-white/7 to-white/3 p-4 sm:p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-white/70" />
-              <h2 className="text-xl sm:text-2xl font-bold text-white">Earnings</h2>
-              {initial.verified ? (
-                <Pill tone="good">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  Verified
-                </Pill>
-              ) : (
-                <Pill tone="neutral">Unverified</Pill>
-              )}
-            </div>
-            <div className="mt-1 text-sm text-white/60">
-              Your rate is <b className="text-white">${rateFmt(initial.rate)}</b> per <b className="text-white">1,000 views</b>.
-              {sinceYmd ? (
-                <>
-                  {" "}
-                  Tracking since <b className="text-white">{fmtDate(sinceYmd)}</b>.
-                </>
-              ) : (
-                <> Add your PayPal email to start tracking.</>
-              )}
-            </div>
-          </div>
-
-          {/* Desktop CTA */}
-          <div className="hidden sm:flex items-center gap-2">
-            <button
-              onClick={onPayout}
-              disabled={pending || !canPayout}
-              className="h-11 px-4 rounded-2xl bg-emerald-400/90 text-black font-semibold disabled:opacity-60 hover:brightness-105 active:brightness-95"
-            >
-              {pending ? "Requesting..." : "Request payout"}
-            </button>
-          </div>
+    <section className="rounded-2xl border border-white/10 bg-[#14161b] px-5 py-6 sm:px-7">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">Your video earnings</h2>
+          <p className="mt-1 text-sm text-white/55">
+            All creators qualify. Verification changes your rate, not your eligibility.
+          </p>
         </div>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs text-white/75">
+          {initial.verified ? <BadgeCheck size={15} className="text-sky-400"/> : <ShieldCheck size={15}/>}
+          {initial.verified ? "Verified creator" : "Ordinary creator"}
+        </span>
       </div>
-
-      {/* Top grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Balance / payout */}
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2 text-white/70 text-sm">
-                <Banknote className="h-4 w-4" />
-                Balance
-              </div>
-              <div className="mt-2 text-3xl font-bold text-white">${money(totalUsd)}</div>
-              <div className="mt-1 text-sm text-white/60">
-                Minimum payout: <b className="text-white">${minPayout}</b>
-              </div>
-            </div>
-
-            {canPayout ? (
-              <Pill tone="good">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Ready
-              </Pill>
-            ) : (
-              <Pill tone="warn">
-                <TrendingUp className="h-3.5 w-3.5" />
-                In progress
-              </Pill>
-            )}
-          </div>
-
-          <div className="mt-4">
-            <div className="h-2 rounded-full bg-black/40 border border-white/10 overflow-hidden">
-              <div className="h-full bg-white/70" style={{ width: `${Math.round(progress * 100)}%` }} />
-            </div>
-            <div className="mt-2 flex items-center justify-between text-xs text-white/60">
-              <span>{Math.round(progress * 100)}%</span>
-              {!canPayout ? (
-                <span className="text-white/70">
-                  Need <b className="text-white">${money(remaining)}</b> more
-                </span>
-              ) : (
-                <span className="text-white/70">You can request now</span>
-              )}
-            </div>
-          </div>
-
-          <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-white/70">
-            <div className="flex items-start gap-2">
-              <CreditCard className="mt-0.5 h-4 w-4 shrink-0 text-white/60" />
-              <div>
-                <div className="text-white font-semibold">Payout schedule</div>
-                <div className="mt-0.5 text-white/70">
-                  Submit before <b className="text-white">Thursday</b>. Paid every <b className="text-white">Saturday</b>.
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {initial.lastPayout ? (
-            <div className="mt-3 rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-white/80">
-              Last request: <b>${money(initial.lastPayout.amountUsd)}</b>
-              <div className="mt-1 text-xs text-white/60">
-                Submitted {new Date(initial.lastPayout.requestedAt).toLocaleString()} • Processing by Saturday
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        {/* Rate / affiliate */}
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2 text-white/70 text-sm">
-                <Crown className="h-4 w-4" />
-                Your rate
-              </div>
-
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <Pill tone={isAffiliate ? "good" : "neutral"}>
-                  {isAffiliate ? <BadgeCheck className="h-3.5 w-3.5" /> : <Users className="h-3.5 w-3.5" />}
-                  {rateLabel}
-                </Pill>
-                <Pill tone="info">
-                  ${rateFmt(initial.rate)} / 1,000
-                </Pill>
-                <Pill tone="neutral">{rateText}</Pill>
-              </div>
-
-              <div className="mt-3 text-sm text-white/60">
-                Rate may increase as ad purchases grow. Higher engagement = better deals for everyone.
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <button
-              onClick={onApplyAffiliate}
-              disabled={pending || initial.hasAffiliateRequest || isAffiliate}
-              className="w-full h-11 px-4 rounded-2xl border border-white/15 bg-black/40 text-white font-semibold disabled:opacity-60 hover:bg-black/50"
-              title={isAffiliate ? "You are already an affiliate." : initial.hasAffiliateRequest ? "Request already submitted." : ""}
-            >
-              {isAffiliate ? "Affiliate ✅" : initial.hasAffiliateRequest ? "Affiliate request sent" : "Apply to be an affiliate"}
-            </button>
-
-            {!isAffiliate && (
-              <div className="mt-2 text-xs text-white/60">
-                If your rate hasn’t changed after a week, your affiliate request was rejected.
-              </div>
-            )}
-          </div>
-
-          <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-sm text-white/70">Views since tracking started</div>
-              <div className="text-sm font-semibold text-white">{totalViewsSince.toLocaleString()}</div>
-            </div>
-            <div className="mt-1 text-xs text-white/50">This is the total used to compute your earnings.</div>
-          </div>
-        </div>
-
-        {/* PayPal card */}
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 text-white/70 text-sm">
-                <Mail className="h-4 w-4" />
-                PayPal email
-              </div>
-
-              <div className="mt-2 text-sm text-white/70">
-                {initial.paypalEmail ? (
-                  <>
-                    Currently set to <b className="text-white">{maskEmail(initial.paypalEmail)}</b>
-                    <div className="mt-1 text-xs text-white/50">You can change it anytime. Tracking continues from your original start date.</div>
-                  </>
-                ) : (
-                  <>Add your PayPal email to begin tracking earnings.</>
-                )}
-              </div>
-            </div>
-
-            {initial.paypalEmail ? (
-              <Pill tone="good">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Set
-              </Pill>
-            ) : (
-              <Pill tone="warn">Not set</Pill>
-            )}
-          </div>
-
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="PayPal email"
-              className="h-11 rounded-2xl bg-black/40 border border-white/10 px-3 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/15"
-            />
-            <input
-              type="email"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              placeholder="Confirm email"
-              className="h-11 rounded-2xl bg-black/40 border border-white/10 px-3 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/15"
-            />
-          </div>
-
-          <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2">
-            <button
-              onClick={onSaveEmail}
-              disabled={pending}
-              className="h-11 px-4 rounded-2xl bg-white text-black font-semibold disabled:opacity-60 hover:brightness-105 active:brightness-95"
-            >
-              {pending ? "Saving..." : "Save email"}
-            </button>
-
-            <div className="text-xs text-white/60">
-              Tip: Use the same email you want payouts sent to.
-            </div>
-          </div>
-        </div>
+      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Metric title="Available balance" value={`$${money(initial.totalUsd)}`}
+          detail="Unpaid eligible Watch loads" icon={Banknote}/>
+        <Metric title="Eligible page loads" value={initial.eligibleViews.toLocaleString()}
+          detail="After ad-load checks" icon={Film}/>
+        <Metric title="Your rate" value={`$${initial.rate.toFixed(2)}`}
+          detail="Per 1,000 qualifying loads" icon={TrendingUp}/>
+        <Metric title="Pending payment" value={`$${money(initial.pendingUsd)}`}
+          detail="Awaiting manual payment" icon={Clock3}/>
       </div>
+      <div className="mt-5 flex items-start gap-2 rounded-lg bg-white/[.035] p-3 text-xs leading-5 text-white/60">
+        <Info size={16} className="mt-0.5 shrink-0"/>
+        Only videos at least 30 seconds long qualify. Earnings are estimated from eligible Watch-page ad loads
+        and are subject to anti-abuse checks and ad-network reconciliation before payment.
+        Profile visits, Reels previews and image views do not earn money.
+      </div>
+    </section>
 
-      {/* Notices */}
-      {!initial.paypalEmail ? (
-        <InlineNotice tone="info" title="You’re not tracking yet">
-          Add your PayPal email above. After that, we’ll start counting views and calculating earnings automatically.
-        </InlineNotice>
-      ) : rows.length === 0 ? (
-        <InlineNotice tone="warn" title="No earnings yet">
-          Share your profile link and start getting views. We’ll populate your daily breakdown here.
-        </InlineNotice>
-      ) : null}
-
-      {error ? (
-        <InlineNotice tone="bad" title="Something went wrong">
-          {error}
-        </InlineNotice>
-      ) : null}
-
-      {/* History */}
-      <div className="rounded-3xl border border-white/10 bg-white/5 p-4 sm:p-6">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <div className="text-white font-semibold text-lg">Daily breakdown</div>
-            <div className="text-white/60 text-sm mt-1">
-              Earnings = <b className="text-white">(views ÷ 1,000) × rate</b> (USD)
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 text-xs text-white/60">
-            <ChevronRight className="h-4 w-4 opacity-60" />
-            <span className="hidden sm:inline">Desktop shows a table. Mobile shows cards.</span>
-            <span className="sm:hidden">Swipe-friendly cards below.</span>
-          </div>
+    <section className="rounded-2xl border border-white/10 bg-[#14161b] p-5 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h3 className="text-lg font-semibold">Earnings by video</h3>
+          <p className="mt-1 text-xs text-white/50">Calculated from individual eligible visits at the creator's rate when each visit was counted.</p>
         </div>
-
-        {/* Mobile cards */}
-        <div className="mt-4 space-y-3 md:hidden">
-          {rows.length === 0 ? (
-            <div className="rounded-2xl border border-white/10 bg-black/30 p-5 text-center text-white/60">
-              No rows yet.
-            </div>
-          ) : (
-            rows.map((r) => {
-              const earned = (r.views / 1000) * initial.rate;
-              return (
-                <div key={r.date} className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-white font-semibold">{fmtDate(r.date)}</div>
-                      <div className="mt-1 text-xs text-white/60">
-                        Views: <b className="text-white">{r.views.toLocaleString()}</b> • Rate:{" "}
-                        <b className="text-white">${rateFmt(initial.rate)}</b>/1,000
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xs text-white/60">Earned</div>
-                      <div className="text-white font-semibold">${money(earned)}</div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-
-          <div className="rounded-2xl border border-white/10 bg-black/30 p-4 flex items-center justify-between">
-            <div className="text-white/70 text-sm">Total</div>
-            <div className="text-white font-semibold">${money(totalUsd)}</div>
-          </div>
-        </div>
-
-        {/* Desktop table */}
-        <div className="mt-4 hidden md:block overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-white/60">
-              <tr className="border-b border-white/10">
-                <th className="text-left py-3">Date</th>
-                <th className="text-right py-3">Views</th>
-                <th className="text-right py-3">Rate (per 1,000)</th>
-                <th className="text-right py-3">Earned (USD)</th>
+        <span className="text-xs text-white/45">Lifetime: $${money(initial.lifetimeUsd)}</span>
+      </div>
+      <div className="mt-5 overflow-x-auto">
+        <table className="w-full min-w-[640px] text-left text-sm">
+          <thead className="border-b border-white/10 text-xs text-white/50">
+            <tr>
+              <th className="py-3 pr-3 font-medium">Video</th>
+              <th className="py-3 pr-3 font-medium">Duration</th>
+              <th className="py-3 pr-3 text-right font-medium">Eligible loads</th>
+              <th className="py-3 pr-3 text-right font-medium">Lifetime earned</th>
+              <th className="py-3 text-right font-medium">Available</th>
+            </tr>
+          </thead>
+          <tbody>
+            {initial.videos.length ? initial.videos.map(video =>
+              <tr key={video.mediaId} className="border-b border-white/[.055]">
+                <td className="max-w-[260px] py-3 pr-3">
+                  <a href={`/watch/${video.mediaId}`} className="inline-flex max-w-full items-center gap-1.5 font-medium hover:underline">
+                    <span className="truncate">{video.title}</span><ExternalLink size={13} className="shrink-0 text-white/40"/>
+                  </a>
+                  {!video.eligible && <div className="mt-1 text-[11px] text-amber-300/80">Not eligible (under 30s or unknown duration)</div>}
+                </td>
+                <td className="py-3 pr-3 text-white/65">{duration(video.durationSeconds)}</td>
+                <td className="py-3 pr-3 text-right tabular-nums">{video.eligibleViews.toLocaleString()}</td>
+                <td className="py-3 pr-3 text-right tabular-nums">$${money(video.earnedUsd)}</td>
+                <td className="py-3 text-right font-medium tabular-nums">$${money(video.unpaidUsd)}</td>
               </tr>
-            </thead>
-            <tbody className="text-white">
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="py-10 text-center text-white/50">
-                    No earnings yet.
-                  </td>
-                </tr>
-              ) : (
-                rows.map((r, idx) => {
-                  const earned = (r.views / 1000) * initial.rate;
-                  const zebra = idx % 2 === 0 ? "bg-white/[0.03]" : "bg-transparent";
-                  return (
-                    <tr key={r.date} className={`border-b border-white/5 ${zebra}`}>
-                      <td className="py-3">{fmtDate(r.date)}</td>
-                      <td className="py-3 text-right">{r.views.toLocaleString()}</td>
-                      <td className="py-3 text-right">${rateFmt(initial.rate)}</td>
-                      <td className="py-3 text-right font-semibold">${money(earned)}</td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-
-            <tfoot>
-              <tr className="border-t border-white/10">
-                <td className="py-4 font-semibold">Total</td>
-                <td />
-                <td />
-                <td className="py-4 text-right font-bold">${money(totalUsd)}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-
-        {/* Footer hint */}
-        <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-white/60">
-          <div>
-            {canPayout ? (
-              <span className="text-white/70">✅ You’re eligible to request payout.</span>
-            ) : (
-              <span className="text-white/70">Keep going: you need ${money(remaining)} more to hit ${minPayout}.</span>
-            )}
-          </div>
-          <div className="text-white/50">Numbers may lag by a few minutes as views sync.</div>
-        </div>
+            ) : <tr><td colSpan={5} className="py-10 text-center text-sm text-white/50">No videos uploaded yet.</td></tr>}
+          </tbody>
+        </table>
       </div>
+    </section>
 
-      {/* Sticky mobile payout bar */}
-      <div className="sm:hidden sticky bottom-3 z-40">
-        <div className="mx-auto max-w-5xl">
-          <div className="rounded-2xl border border-white/10 bg-black/60 backdrop-blur px-3 py-3 shadow-2xl">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-xs text-white/60">Balance</div>
-                <div className="text-white font-semibold truncate">${money(totalUsd)}</div>
-              </div>
-              <button
-                onClick={onPayout}
-                disabled={pending || !canPayout}
-                className="h-11 shrink-0 px-4 rounded-2xl bg-emerald-400/90 text-black font-semibold disabled:opacity-60 hover:brightness-105 active:brightness-95"
-              >
-                {pending ? "..." : "Payout"}
-              </button>
-            </div>
-          </div>
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <section className="rounded-2xl border border-white/10 bg-[#14161b] p-5 sm:p-6">
+        <div className="flex items-center gap-2"><Mail size={19} className="text-white/65"/><h3 className="text-lg font-semibold">PayPal email</h3></div>
+        <p className="mt-2 text-xs leading-5 text-white/55">
+          Add the PayPal email where you want to receive manual payouts. Your uploads earn even before an email is saved.
+          No PayPal account connection is required.
+        </p>
+        <div className="mt-5 space-y-3">
+          <label className="block text-xs text-white/65">PayPal email
+            <input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="you@example.com" maxLength={254}
+              className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-sm text-white outline-none focus:border-white/35"/>
+          </label>
+          <label className="block text-xs text-white/65">Confirm PayPal email
+            <input type="email" value={confirm} onChange={e => setConfirm(e.target.value)}
+              placeholder="Repeat email" maxLength={254}
+              className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-sm text-white outline-none focus:border-white/35"/>
+          </label>
+          <button type="button" onClick={handleSave} disabled={pending}
+            className="h-11 rounded-xl bg-white px-5 text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-50">
+            {pending ? "Saving…" : "Save PayPal email"}
+          </button>
         </div>
-      </div>
+      </section>
+      <section className="rounded-2xl border border-white/10 bg-[#14161b] p-5 sm:p-6">
+        <div className="flex items-center gap-2"><CreditCard size={19} className="text-white/65"/><h3 className="text-lg font-semibold">Request payout</h3></div>
+        <div className="mt-5 text-3xl font-semibold tabular-nums">$${money(initial.totalUsd)}</div>
+        <p className="mt-1 text-xs text-white/55">Minimum payout: $30.00 USD</p>
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
+          <div className="h-full rounded-full bg-white/80"
+            style={{ width: `${Math.min(100, initial.totalUsd / 30 * 100)}%` }}/>
+        </div>
+        <p className="mt-4 text-xs leading-5 text-white/60">
+          Manual PayPal payouts are processed within three days after the applicable Friday, no later than Monday.
+          Requests submitted Saturday through Thursday are scheduled for the next Friday.
+          One request is allowed every seven days. Existing pending requests must be settled first.
+        </p>
+        {initial.payoutBlockReason && <p className="mt-3 text-xs text-amber-200/80">{initial.payoutBlockReason}</p>}
+        <button type="button" onClick={handlePayout} disabled={pending || !initial.canPayout}
+          className="mt-5 h-11 w-full rounded-xl bg-pink-500 px-5 text-sm font-semibold text-white hover:bg-pink-400 disabled:cursor-not-allowed disabled:opacity-40">
+          {pending ? "Submitting…" : "Request payout"}
+        </button>
+      </section>
     </div>
-  );
+    <section className="rounded-2xl border border-white/10 bg-[#14161b] p-5 sm:p-6">
+      <h3 className="text-lg font-semibold">Payout history</h3>
+      <p className="mt-1 text-xs text-white/50">Requests and payment status, recorded separately from lifetime video earnings.</p>
+      <div className="mt-5 space-y-2">
+        {initial.payouts.length ? initial.payouts.map(payout =>
+          <div key={payout.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[.07] bg-white/[.025] p-3 text-sm">
+            <div>
+              <p className="font-semibold">$${money(payout.amountUsd)}
+                <span className="ml-2 text-xs font-normal text-white/50">{payout.status === "paid" ? "Paid" : "Pending manual payment"}</span>
+              </p>
+              <p className="mt-1 text-[11px] text-white/45">Requested {date(payout.requestedAt)} · Due {date(payout.paymentDueDate)}</p>
+            </div>
+            {payout.status === "paid" ? <CheckCircle2 size={18} className="text-emerald-400"/> : <Clock3 size={18} className="text-white/45"/>}
+          </div>
+        ) : <p className="py-6 text-sm text-white/45">No payout requests yet.</p>}
+      </div>
+    </section>
+  </div>;
 }
