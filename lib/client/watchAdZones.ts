@@ -1,0 +1,1 @@
+export const PAYABLE_AD_ZONES = [1130835, 1130836, 1130843, 1130846] as const;
