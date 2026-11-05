@@ -3,29 +3,19 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Four reserved 308px-wide panels sharing the same horizontally scrollable rail.
- * The first two are existing live JuicyAds zones. Additional zones are never
- * reused or invented: set NEXT_PUBLIC_JUICYADS_EXTRA_ZONE_1/2 to two new,
- * distinct JuicyAds IDs configured at 308x2592 in the publisher dashboard.
+ * The four existing JuicyAds publisher zones, restored from the site's
+ * November 4 ad inventory. Their original 308×2592 sizes are unchanged.
+ * Each zone has exactly one <ins> element per shared ad rail instance.
  *
- * The unconfigured third and fourth panels remain visibly reserved but do
- * not request ads until the actual publisher IDs have been supplied.
+ * The horizontal rail stays in flow and isolated below site navigation,
+ * dialogs, and fullscreen media overlays.
  */
-type Zone = { key: string; id: number | null; title: string };
-const existingIds = new Set([1130835, 1130836, 1130841, 1130842]);
-const parseExtraId = (value: string | undefined): number | null => {
-  if (!value || !/^[1-9][0-9]*$/.test(value)) return null;
-  const n = Number(value);
-  return Number.isSafeInteger(n) && !existingIds.has(n) ? n : null;
-};
-const extra1 = parseExtraId(process.env.NEXT_PUBLIC_JUICYADS_EXTRA_ZONE_1);
-const parsedExtra2 = parseExtraId(process.env.NEXT_PUBLIC_JUICYADS_EXTRA_ZONE_2);
-const extra2 = parsedExtra2 !== extra1 ? parsedExtra2 : null;
+type Zone = { key: string; id: 1130835 | 1130836 | 1130843 | 1130846; title: string };
 const ZONES: readonly Zone[] = [
-  { key: "original-desktop", id: 1130835, title: "Sponsored placement 1" },
-  { key: "original-mobile", id: 1130836, title: "Sponsored placement 2" },
-  { key: "extra-1", id: extra1, title: "Sponsored placement 3" },
-  { key: "extra-2", id: extra2, title: "Sponsored placement 4" },
+  { key: "desktop", id: 1130835, title: "Desktop ad" },
+  { key: "mobile", id: 1130836, title: "Mobile ad" },
+  { key: "desktop-footer", id: 1130843, title: "Desktop footer ad" },
+  { key: "mobile-footer", id: 1130846, title: "Mobile footer ad" },
 ];
 
 declare global {
@@ -38,7 +28,7 @@ function StaticAd({ zone, compactOnMobile }: { zone: Zone; compactOnMobile: bool
   const requested = useRef(false);
 
   useEffect(() => {
-    if (zone.id === null || requested.current) return;
+    if (requested.current) return;
     requested.current = true;
     try {
       (window.adsbyjuicy = window.adsbyjuicy || []).push({ adzone: zone.id });
@@ -58,16 +48,13 @@ function StaticAd({ zone, compactOnMobile }: { zone: Zone; compactOnMobile: bool
         Sponsored
       </div>
       <div className={`w-full overflow-x-auto overflow-y-auto overscroll-contain rounded-sm bg-white/[.025] ${compactOnMobile ? "h-[96px] lg:h-[300px]" : "h-[300px] sm:h-[360px]"}`}>
-        {zone.id !== null ? <ins
+        <ins
           id={String(zone.id)}
           data-width="308"
           data-height="2592"
           className="block"
           style={{ width: 308, minHeight: 2592 }}
-        /> : <div className="flex h-full min-h-[96px] w-full flex-col items-center justify-center gap-2 px-6 text-center text-white/45">
-          <span className="text-xs font-medium">Advertising space</span>
-          <span className="text-[10px] leading-4">Awaiting publisher ad zone</span>
-        </div>}
+        />
       </div>
     </section>
   );
