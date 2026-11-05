@@ -125,7 +125,7 @@ export default async function WatchPage({
   const { id } = await params;
   const query = await searchParams;
   const raw = Array.isArray(query.s) ? query.s[0] : query.s;
-  const value = raw && /^\\d+(?:\\.\\d+)?$/.test(raw) ? Number(raw) : 0;
+  const value = raw && /^[0-9]+(?:[.][0-9]+)?$/.test(raw) ? Number(raw) : 0;
   const startAtSeconds = Number.isFinite(value) && value >= 0 && value <= 86400 ? value : 0;
   return <WatchClient mediaId={Number(id)} startAtSeconds={startAtSeconds} />;
 }
