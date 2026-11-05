@@ -39,6 +39,10 @@ export type PayoutRequestRow = {
   amount_usd: number;
   status: PayoutStatus;
   created_at: string;
+  paypal_email: string;
+  settlement_friday: string | null;
+  payment_due_date: string | null;
+  paid_at: string | null;
 };
 
 function clampPage(n: number) {
@@ -140,7 +144,7 @@ export async function adminGetPayoutRequests(args: {
 
   let q = supabase
     .from("payout_requests")
-    .select("id,user_id,username,verified,amount_usd,status,created_at", { count: "exact" })
+    .select("id,user_id,username,verified,paypal_email,amount_usd,status,created_at,settlement_friday,payment_due_date,paid_at", { count: "exact" })
     .order("created_at", { ascending: false });
 
   if (args.filter === "paid") q = q.eq("status", "paid");
@@ -169,8 +173,12 @@ export async function adminMarkPayoutPaid(requestId: string) {
   const id = String(requestId || "").trim();
   if (!id) return { ok: false, error: "Missing request id." };
 
-  const res = await supabase.from("payout_requests").update({ status: "paid" }).eq("id", id);
+  // A conditional update prevents duplicate "paid" transitions.
+  const res = await supabase.from("payout_requests")
+    .update({ status: "paid", paid_at: new Date().toISOString() })
+    .eq("id", id).eq("status", "pending").select("id").maybeSingle();
   if (res.error) return { ok: false, error: res.error.message };
+  if (!res.data) return { ok: false, error: "Request has already been paid or no longer exists." };
 
   return { ok: true };
 }
