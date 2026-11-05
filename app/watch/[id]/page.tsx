@@ -117,11 +117,17 @@ export async function generateMetadata({
 
 export default async function WatchPage({
   params,
+  searchParams,
 }: {
-  params: Promise<{ id: number }>;
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ s?: string | string[] }>;
 }) {
   const { id } = await params;
-  return <WatchClient mediaId={Number(id)} />;
+  const query = await searchParams;
+  const raw = Array.isArray(query.s) ? query.s[0] : query.s;
+  const value = raw && /^\\d+(?:\\.\\d+)?$/.test(raw) ? Number(raw) : 0;
+  const startAtSeconds = Number.isFinite(value) && value >= 0 && value <= 86400 ? value : 0;
+  return <WatchClient mediaId={Number(id)} startAtSeconds={startAtSeconds} />;
 }
 
 
