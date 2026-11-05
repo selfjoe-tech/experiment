@@ -198,7 +198,7 @@ export default function WatchClient({ mediaId, startAtSeconds = 0 }: { mediaId: 
               </div>}
           </section>
           {/* Same established sponsor zones; unrelated to player playback. */}
-          <div className="min-w-0 border-t border-white/10 pt-6 lg:border-t-0 lg:pt-[178px]">
+          <div className="relative isolate z-0 min-w-0 border-t border-white/10 pt-6 lg:border-t-0 lg:pt-[178px]">
             <StaticPageAdPair/>
           </div>
         </div>
