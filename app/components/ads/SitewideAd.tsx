@@ -34,14 +34,14 @@ export default function SitewideAd() {
   return (
     <aside
       aria-label="Sponsored advertisement"
-      className="fixed right-2 top-[68px] z-[35] w-[137px] overflow-hidden rounded-lg border border-white/10 bg-[#101115] p-[5px] shadow-lg lg:right-4 lg:top-4"
+      className="pointer-events-none fixed isolate right-2 top-[68px] z-[1] w-[137px] overflow-hidden rounded-lg border border-white/10 bg-[#101115] p-[5px] shadow-lg lg:right-4 lg:top-4"
     >
       <div className="pb-1 text-[9px] font-medium uppercase tracking-wide text-white/50">Sponsored</div>
       <ins
         id={String(ZONE)}
         data-width="125"
         data-height="137"
-        className="block"
+        className="pointer-events-auto block"
         style={{ width: 125, height: 137 }}
       />
     </aside>
