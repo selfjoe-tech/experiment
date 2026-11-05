@@ -108,6 +108,10 @@ export default function PayoutRequestsClient({
 
   return (
     <div className="space-y-4">
+      <p className="text-xs leading-5 text-white/60">
+        Check the PayPal address, payout amount, creator ledger and ad-network reports before marking
+        a request paid. Clicking "Paid out" only records a manual payment; it does not send money.
+      </p>
       {/* Filter tabs */}
       <div className="flex flex-wrap gap-2">
         {tabs.map((t) => (
@@ -132,6 +136,8 @@ export default function PayoutRequestsClient({
               <th className="text-left py-3 px-4">Verified</th>
               <th className="text-left py-3 px-4">Status</th>
               <th className="text-left py-3 px-4">Requested at</th>
+               <th className="text-left py-3 px-4">PayPal email</th>
+               <th className="text-left py-3 px-4">Pay by</th>
               <th className="text-right py-3 px-4">Amount</th>
               <th className="text-right py-3 px-4">Action</th>
             </tr>
@@ -139,7 +145,7 @@ export default function PayoutRequestsClient({
           <tbody className="text-white">
             {initial.rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-10 text-center text-white/50">
+                <td colSpan={8} className="py-10 text-center text-white/50">
                   No payout requests found.
                 </td>
               </tr>
@@ -164,6 +170,10 @@ export default function PayoutRequestsClient({
                       <Badge tone={isPaid ? "good" : "warn"}>{isPaid ? "paid" : "not paid"}</Badge>
                     </td>
                     <td className="py-3 px-4 text-white/70">{fmtDateTime(r.created_at)}</td>
+                     <td className="max-w-[230px] break-all py-3 px-4 text-xs text-white/75">{r.paypal_email}</td>
+                     <td className="py-3 px-4 text-xs text-white/75">
+                       {r.payment_due_date ? new Date(r.payment_due_date + "T12:00:00Z").toLocaleDateString("en-ZA") : "—"}
+                     </td>
                     <td className="py-3 px-4 text-right font-semibold">${money(Number(r.amount_usd ?? 0))}</td>
                     <td className="py-3 px-4">
                       <div className="flex items-center justify-end">
@@ -202,6 +212,8 @@ export default function PayoutRequestsClient({
                   <div>
                     <div className="text-white font-semibold">{r.username}</div>
                     <div className="mt-1 text-xs text-white/60">{fmtDateTime(r.created_at)}</div>
+                     <div className="mt-2 break-all text-xs text-white/75">PayPal: {r.paypal_email}</div>
+                     <div className="mt-1 text-xs text-white/55">Due: {r.payment_due_date ?? "Pending"}</div>
                   </div>
                   <Badge tone={isPaid ? "good" : "warn"}>{isPaid ? "paid" : "not paid"}</Badge>
                 </div>
