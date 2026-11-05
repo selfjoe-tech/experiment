@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { trackProfileVisitByUsername } from "@/lib/actions/earn";
+
 
 import {
   Ellipsis,
@@ -202,22 +202,6 @@ const handleVideoClick = (video: any, index?: number, currentItems?: any[]) => {
   }
 };
 
-
-useEffect(() => {
-  if (!username) return;
-
-  const w = window as any;
-  w.__pvLastTs ??= {}; // { [username]: lastTimestampMs }
-
-  const now = Date.now();
-  const last = w.__pvLastTs[username] ?? 0;
-
-  // Prevent React Strict Mode (dev) double-fire + accidental duplicate calls
-  if (now - last < 1500) return;
-  w.__pvLastTs[username] = now;
-
-  trackProfileVisitByUsername(username).catch(() => {});
-}, [username]);
 
 
 
