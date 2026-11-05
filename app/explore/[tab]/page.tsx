@@ -234,7 +234,7 @@ const [initialOverlayIndex, setInitialOverlayIndex] = useState<number | null>(nu
           </header>
 
           <aside aria-label="Explore advertisements"
-            className="px-3 pb-4 sm:px-6 lg:fixed lg:right-0 lg:top-[186px] lg:z-10 lg:w-[340px] lg:px-1 lg:pb-0">
+            className="isolate px-3 pb-4 sm:px-6 lg:fixed lg:right-0 lg:top-[186px] lg:z-[1] lg:w-[340px] lg:px-1 lg:pb-0">
             <StaticPageAdPair />
           </aside>
 
