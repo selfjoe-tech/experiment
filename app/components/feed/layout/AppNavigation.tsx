@@ -83,13 +83,29 @@ export function DesktopNavigation() {
         <Menu size={25} strokeWidth={1.9} /><span className="hidden min-[1360px]:inline">More</span>
       </button>
     </aside>
-    {searchOpen && <div className="fixed inset-0 z-[90] flex">
-      <button type="button" aria-label="Close search" onClick={() => { setSearchOpen(false); setSearchQuery(""); }} className="absolute inset-0 bg-black/65" />
-      <div className="relative ml-[76px] min-[1360px]:ml-[244px] h-full w-[390px] max-w-[calc(100vw-76px)] min-[1360px]:max-w-[calc(100vw-244px)] border-r border-white/10 bg-[#111317] p-6 text-white shadow-2xl">
-        <div className="flex items-center justify-between"><h2 className="text-xl font-semibold">Search</h2><button type="button" onClick={() => { setSearchOpen(false); setSearchQuery(""); }} aria-label="Close search"><X size={22}/></button></div>
-        <div className="relative mt-6"><input autoFocus placeholder="Search creators, posts or tags" className="w-full rounded-lg bg-white/10 px-4 py-3 text-sm outline-none placeholder:text-white/40" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-          {searchQuery.trim() && <SearchOverlay query={searchQuery} onItemSelected={() => { setSearchOpen(false); setSearchQuery(""); }} />}
+    {searchOpen && <div className="fixed inset-0 z-[90] flex" role="dialog" aria-modal="true" aria-label="Search Goon Gram"
+      onKeyDown={event => { if (event.key === "Escape") { setSearchOpen(false); setSearchQuery(""); } }}>
+      <button type="button" aria-label="Close search" onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
+        className="absolute inset-0 bg-black/65"/>
+      <div className="relative ml-[76px] flex h-full w-[440px] max-w-[calc(100vw-76px)] min-w-0 flex-col border-r border-white/10 bg-[#111317] text-white shadow-2xl min-[1360px]:ml-[244px] min-[1360px]:max-w-[calc(100vw-244px)]">
+        <div className="shrink-0 border-b border-white/10 px-5 pb-5 pt-7">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold tracking-tight">Search</h2>
+            <button type="button" onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
+              aria-label="Close search" className="rounded-full p-2 hover:bg-white/10"><X size={21}/></button>
+          </div>
+          <div className="mt-5 flex items-center gap-2 rounded-xl bg-white/[.08] px-3 py-1">
+            <Search size={19} className="shrink-0 text-white/45"/>
+            <input autoFocus aria-label="Search videos, images, creators and niches"
+              placeholder="Search videos, images, creators, niches"
+              className="h-11 w-full min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/40"
+              value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+            {searchQuery && <button type="button" aria-label="Clear search"
+              onClick={() => setSearchQuery("")} className="rounded-full p-1 text-white/55 hover:bg-white/10"><X size={15}/></button>}
+          </div>
         </div>
+        <SearchOverlay query={searchQuery} onQueryChange={setSearchQuery}
+          onItemSelected={() => { setSearchOpen(false); setSearchQuery(""); }} />
       </div>
     </div>}
     {profileOpen && <div className="fixed inset-0 z-[100] grid place-items-center bg-black/80 p-4 backdrop-blur-sm" onMouseDown={e => { if(e.target===e.currentTarget) setProfileOpen(false); }}>
@@ -158,14 +174,24 @@ export function MobileNavigation({ hidden = false }: { hidden?: boolean }) {
         </a>
       )}
     </nav>
-    {searchOpen && <div className="fixed inset-0 z-[100] bg-[#0b0d10] px-4 pt-5 text-white">
-      <div className="flex items-center gap-3">
-        <button type="button" aria-label="Back" onClick={()=>{setSearchOpen(false);setQuery("");}}><X size={25}/></button>
-        <div className="relative flex-1">
-          <input autoFocus value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search creators, posts or tags" className="w-full rounded-lg bg-white/10 px-4 py-3 text-sm outline-none" />
-          {query.trim() && <SearchOverlay query={query} onItemSelected={()=>{setSearchOpen(false);setQuery("");}} />}
+    {searchOpen && <div className="fixed inset-0 z-[100] flex min-h-0 flex-col bg-[#0b0d10] text-white lg:hidden"
+      role="dialog" aria-modal="true" aria-label="Search Goon Gram"
+      onKeyDown={event => { if (event.key === "Escape") { setSearchOpen(false); setQuery(""); } }}>
+      <div className="flex shrink-0 items-center gap-3 border-b border-white/10 px-4 pb-4 pt-[calc(14px+env(safe-area-inset-top))]">
+        <button type="button" aria-label="Back" onClick={() => { setSearchOpen(false); setQuery(""); }}
+          className="rounded-full p-1"><X size={23}/></button>
+        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-white/[.09] px-3">
+          <Search size={18} className="shrink-0 text-white/50"/>
+          <input autoFocus aria-label="Search videos, images, creators and niches"
+            value={query} onChange={e => setQuery(e.target.value)}
+            placeholder="Search videos, creators, niches"
+            className="h-11 w-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-white/40"/>
+          {query && <button type="button" onClick={() => setQuery("")} aria-label="Clear search"
+            className="rounded-full p-1 text-white/60"><X size={15}/></button>}
         </div>
       </div>
+      <SearchOverlay query={query} onQueryChange={setQuery}
+        onItemSelected={() => { setSearchOpen(false); setQuery(""); }} />
     </div>}
     {menuOpen && <div className="fixed inset-0 z-[100] text-white lg:hidden" role="dialog" aria-modal="true" aria-label="More options">
       <button type="button" aria-label="Close menu" className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setMenuOpen(false)}/>
