@@ -7,7 +7,7 @@ import { fetchVideoById, fetchWatchSuggestions, registerView } from "@/lib/actio
 import WatchVideoCard from "@/app/components/feed/WatchVideoCard";
 import WatchDesktopShell from "@/app/components/feed/layout/WatchDesktopShell";
 import WatchMobileChrome from "@/app/components/feed/layout/WatchMobileChrome";
-import StaticPageAdPair from "@/app/components/ads/StaticPageAdPair";
+import WatchMonetizedAds from "@/app/components/ads/WatchMonetizedAds";
 import { VerifiedBadgeIcon } from "@/app/components/icons/VerifiedBadgeIcon";
 
 const INITIAL_SUGGESTIONS = 6;
@@ -199,7 +199,7 @@ export default function WatchClient({ mediaId, startAtSeconds = 0 }: { mediaId: 
           </section>
           {/* Same established sponsor zones; unrelated to player playback. */}
           <div className="relative isolate z-0 min-w-0 border-t border-white/10 pt-6 lg:border-t-0 lg:pt-[178px]">
-            <StaticPageAdPair/>
+            <WatchMonetizedAds key={mediaId} mediaId={mediaId} />
           </div>
         </div>
         {Number.isSafeInteger(mediaId) && mediaId > 0 && <WatchRecommendations mediaId={mediaId}/>}
