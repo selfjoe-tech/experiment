@@ -721,9 +721,9 @@ useEffect(() => {
           <p className="text-xs font-semibold uppercase tracking-[.18em] text-white/50">30-second preview</p>
           <h3 className="text-xl font-semibold text-white">Watch the full video</h3>
         </div>
-        <Link href={`/watch/${mediaIdNum}?s=30`} className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 text-sm font-semibold text-black transition-colors hover:bg-white/90">
+        <a href={`/watch/${mediaIdNum}?s=30`} className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 text-sm font-semibold text-black transition-colors hover:bg-white/90">
           Watch full video <ArrowUpRight size={18}/>
-        </Link>
+        </a>
       </div>}
       {/* LIKE BURST OVERLAY */}
       {likeBurstVisible && (
