@@ -13,7 +13,7 @@ import ProfileMenuContent from "@/app/components/profile/ProfileMenuContent";
 
 type Viewer = { username: string | null; avatarUrl: string | null };
 const EMPTY_VIEWER: Viewer = { username: null, avatarUrl: null };
-const UPLOAD_URL = "https://upload.goongram.com/upload";
+const UPLOAD_URL = "/upload";
 
 function useViewer() {
   const [viewer, setViewer] = useState<Viewer>(EMPTY_VIEWER);

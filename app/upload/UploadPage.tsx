@@ -46,8 +46,14 @@ export default function UploadPage() {
   const router = useRouter();
   const sp = useSearchParams();
 
+  // Only accept same-site destinations, never external post-upload redirects.
+  const requestedRedirect = sp.get("redirect");
   const redirect =
-    sp.get("redirect") || "https://upskirtcandy.com/";
+    requestedRedirect?.startsWith("/") &&
+    !requestedRedirect.startsWith("//") &&
+    !requestedRedirect.includes("\\")
+      ? requestedRedirect
+      : "/";
 
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -369,7 +375,7 @@ export default function UploadPage() {
             setVideoUrl(null);
 
             router.push(
-              "https://upskirtcandy.com/"
+              redirect
             );
           } catch (err: any) {
             console.error(err);
@@ -436,7 +442,7 @@ export default function UploadPage() {
             setImageFiles([]);
 
             router.push(
-              "https://upskirtcandy.com/"
+              redirect
             );
           } catch (err: any) {
             console.error(err);
@@ -614,7 +620,7 @@ export default function UploadPage() {
           <p className="flex gap-2 text-sm text-white/70 mt-2 px-1">
             Users who are verified get more views and interaction.
 
-            <a href="https://upskirtcandy.com/verify">
+            <a href="/verify">
               <button
                 className="underline underline-offset-4 font-medium"
                 style={{ color: ACCENT }}

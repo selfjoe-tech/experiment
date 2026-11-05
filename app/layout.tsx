@@ -4,6 +4,7 @@ import "./globals.css";
 import NextTopLoader from "nextjs-toploader";
 import JuicyAdsLoader from "@/app/components/ads/JuicyAdsLoader";
 import SitewideAd from "@/app/components/ads/SitewideAd";
+import AdultAgeGate from "@/app/components/age/AdultAgeGate";
 
 
 const geistSans = Geist({
@@ -162,9 +163,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
 
         <SiteJsonLd />
-        <JuicyAdsLoader />
-        <SitewideAd />
-        {children}
+        <AdultAgeGate>
+          <JuicyAdsLoader />
+          <SitewideAd />
+          {children}
+        </AdultAgeGate>
       </body>
     </html>
   );
