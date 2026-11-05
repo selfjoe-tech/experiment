@@ -91,7 +91,7 @@ export default function ReelsPage() {
 
       {/* Advertisements remain outside the Reel video scroller. */}
       <aside aria-label="Reels advertisements"
-        className="fixed inset-x-0 bottom-[calc(61px+env(safe-area-inset-bottom))] z-20 h-[138px] overflow-hidden border-t border-white/10 bg-[#0b0d10] px-2 pt-1 lg:inset-x-auto lg:bottom-auto lg:right-0 lg:top-[180px] lg:z-10 lg:h-auto lg:w-[340px] lg:overflow-visible lg:border-0 lg:bg-transparent lg:px-1 lg:pt-0">
+        className="fixed isolate inset-x-0 bottom-[calc(61px+env(safe-area-inset-bottom))] z-[1] h-[138px] overflow-hidden border-t border-white/10 bg-[#0b0d10] px-2 pt-1 lg:inset-x-auto lg:bottom-auto lg:right-0 lg:top-[180px] lg:z-[1] lg:h-auto lg:w-[340px] lg:overflow-visible lg:border-0 lg:bg-transparent lg:px-1 lg:pt-0">
         <StaticPageAdPair compactOnMobile />
       </aside>
 
