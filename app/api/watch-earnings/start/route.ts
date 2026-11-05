@@ -28,13 +28,26 @@ export async function POST(request: Request) {
     // Several defensive limits in addition to the atomic daily uniqueness
     // enforced by Postgres at credit time.
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const [{ count: visitorCount }, { count: networkCount }] = await Promise.all([
+    const [{ count: visitorCount, error: visitorError }, { count: networkCount, error: networkError }] = await Promise.all([
       admin.from("watch_monetization_sessions").select("id", { count: "exact", head: true })
         .eq("visitor_hash", identity.visitorHash).eq("status", "credited").gte("created_at", since),
       admin.from("watch_monetization_sessions").select("id", { count: "exact", head: true })
         .eq("network_hash", identity.networkHash).eq("status", "credited").gte("created_at", since),
     ]);
+    if (visitorError || networkError) throw visitorError || networkError;
     if ((visitorCount ?? 0) >= 20 || (networkCount ?? 0) >= 60) {
+      return NextResponse.json({ eligible: false });
+    }
+    // Prevent an attacker from accumulating unlimited uncredited sessions.
+    const recent = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const [{ count: visitorStarts, error: visitorStartsError }, { count: networkStarts, error: networkStartsError }] = await Promise.all([
+      admin.from("watch_monetization_sessions").select("id", { count: "exact", head: true })
+        .eq("visitor_hash", identity.visitorHash).gte("created_at", recent),
+      admin.from("watch_monetization_sessions").select("id", { count: "exact", head: true })
+        .eq("network_hash", identity.networkHash).gte("created_at", recent),
+    ]);
+    if (visitorStartsError || networkStartsError) throw visitorStartsError || networkStartsError;
+    if ((visitorStarts ?? 0) >= 12 || (networkStarts ?? 0) >= 40) {
       return NextResponse.json({ eligible: false });
     }
     const date = new Intl.DateTimeFormat("en-CA", {
