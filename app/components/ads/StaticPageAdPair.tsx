@@ -60,7 +60,7 @@ function StaticAd({ zone, compactOnMobile }: { zone: Zone; compactOnMobile: bool
 
 export default function StaticPageAdPair({ compactOnMobile = false }: { compactOnMobile?: boolean } = {}) {
   return (
-    <aside aria-label="Sponsored advertisements" className="w-full min-w-0">
+    <aside aria-label="Sponsored advertisements" className="relative isolate z-0 w-full min-w-0">
       <div className="flex w-full flex-nowrap items-stretch gap-3 overflow-x-auto overscroll-x-contain pb-3 snap-x snap-mandatory [scrollbar-width:thin]">
         {ZONES.map(zone => <StaticAd key={zone.id} zone={zone} compactOnMobile={compactOnMobile} />)}
       </div>
