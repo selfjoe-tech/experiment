@@ -264,7 +264,7 @@ export default function PostCard({ post, viewerId }: { post: HomePost; viewerId:
       {previewEnded && post.type === "video" && videoDuration > 30 && <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-black/75 px-5 text-center backdrop-blur-sm">
         <span className="text-xs font-semibold uppercase tracking-[.16em] text-white/60">Preview complete</span>
         <h3 className="text-xl font-semibold text-white">Keep watching</h3>
-        <a href={`/watch/${post.id}`} className="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-white/90">
+        <a href={`/watch/${post.id}?s=30`} className="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-white/90">
           Watch full video <ArrowUpRight size={18}/>
         </a>
       </div>}
