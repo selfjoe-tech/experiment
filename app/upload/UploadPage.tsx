@@ -57,6 +57,7 @@ export default function UploadPage() {
 
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [progressLabel, setProgressLabel] = useState("Preparing upload…");
   const [processingError, setProcessingError] =
     useState<string | null>(null);
 
@@ -285,12 +286,13 @@ export default function UploadPage() {
         processing={processing}
         progress={progress}
         processingError={processingError}
-        processingLabel="Processing video…"
+        processingLabel={progressLabel}
         onCancel={() => setPostFlow(null)}
         onSubmit={async (formValues) => {
           setProcessing(true);
           setProcessingError(null);
           setProgress(0);
+          setProgressLabel("Preparing upload…");
 
           try {
             const originalClip =
@@ -305,11 +307,7 @@ export default function UploadPage() {
 
             
 
-            setProgress(5);
-
-            const processedFile: File = originalClip.file
-
-            setProgress(78);
+            const processedFile: File = originalClip.file;
 
             /*
              * Because the video is no longer trimmed,
@@ -347,14 +345,11 @@ export default function UploadPage() {
                    * video duration when processing/uploading.
                    * No selection duration is used here.
                    */
-                  onUploadProgress: (pct) =>
-                    setProgress(
-                      78 +
-                        Math.round(
-                          (pct / 100) *
-                            20
-                        )
-                    ),
+                  onUploadProgress: setProgress,
+                  onStageChange: stage => setProgressLabel(
+                    stage === "preparing" ? "Preparing upload…" :
+                    stage === "uploading" ? "Uploading video…" : "Saving video…"
+                  ),
                 }
               );
 
@@ -364,6 +359,8 @@ export default function UploadPage() {
             );
 
             setProgress(100);
+            setProgressLabel("Upload complete");
+            await new Promise(resolve => window.setTimeout(resolve, 2000));
 
             setPostFlow(null);
             setVideoFile(null);
@@ -408,8 +405,12 @@ export default function UploadPage() {
         processing={processing}
         progress={progress}
         processingError={processingError}
-        processingLabel="Processing video…"
+        processingLabel={progressLabel}
         onSubmit={async (formValues: any) => {
+          setProcessing(true);
+          setProcessingError(null);
+          setProgress(0);
+          setProgressLabel("Preparing images…");
           try {
             const {
               successes,
@@ -419,10 +420,16 @@ export default function UploadPage() {
                 postFlow.images.files,
                 {
                   title: undefined,
-                  description:
-                    formValues.description,
-                  audience:
-                    formValues.audience,
+                  description: formValues.description,
+                  audience: formValues.audience,
+                  tags: formValues.tags ?? [],
+                },
+                {
+                  onUploadProgress: setProgress,
+                  onStageChange: stage => setProgressLabel(
+                    stage === "preparing" ? "Preparing images…" :
+                    stage === "uploading" ? "Uploading images…" : "Saving images…"
+                  ),
                 }
               );
 
@@ -438,6 +445,13 @@ export default function UploadPage() {
               );
             }
 
+            if (failures.length) {
+              throw new Error(`${failures.length} image(s) failed while ${successes.length} succeeded. Re-select only the failed files to avoid duplicates.`);
+            }
+
+            setProgress(100);
+            setProgressLabel("Upload complete");
+            await new Promise(resolve => window.setTimeout(resolve, 2000));
             setPostFlow(null);
             setImageFiles([]);
 
@@ -446,11 +460,10 @@ export default function UploadPage() {
             );
           } catch (err: any) {
             console.error(err);
-
-            alert(
-              err?.message ??
-                "Image upload failed, please try again."
-            );
+            setProcessingError(err?.message ?? "Image upload failed.");
+            throw err;
+          } finally {
+            setProcessing(false);
           }
         }}
       />
