@@ -187,7 +187,7 @@ export async function adminMarkPayoutPaid(requestId: string) {
   await requireAdmin();
   const supabase = getSupabaseAdmin();
   const id = String(requestId || "").trim();
-  if (!/^\\d+$/.test(id)) return { ok: false, error: "Invalid payout request id." };
+  if (!/^[0-9]+$/.test(id)) return { ok: false, error: "Invalid payout request id." };
 
   const audit = await supabase.rpc("get_payout_ledger_summary", { p_ids: [Number(id)] });
   if (audit.error) return { ok: false, error: audit.error.message };
