@@ -11,6 +11,7 @@ import type { SortKey } from "@/app/components/explore/SortDropdown";
 import { getUserMedia } from "@/app/components/explore/data";
 import VirtualizedSquareGrid from "@/app/components/media/VirtualizedSquareGrid";
 import GridVideoPreview from "@/app/components/media/GridVideoPreview";
+import InlineContentAd from "@/app/components/ads/InlineContentAd";
 
 import {
   FullscreenImageOverlay,
@@ -186,65 +187,56 @@ export default function UserGrid({ username, tab, sortBy, onVideoClick }: Props)
   const tileChrome =
     "overflow-hidden rounded-sm bg-white/[.04] transition-opacity duration-200 hover:opacity-85";
 
-  if (items.length === 0 && (loading || hasMore)) {
-    return <div className="grid grid-cols-3 gap-1 sm:grid-cols-4" aria-label="Loading profile posts">
-      {Array.from({length: 12}, (_, i) => <div key={i} className="aspect-square animate-pulse rounded-sm bg-white/[.055]"/>)}
-    </div>;
-  }
+  const loadingInitial = items.length === 0 && (loading || hasMore);
+  const empty = !loading && items.length === 0 && !hasMore;
+  const adTile = { id: "__stable_profile_ad", type: "ad" as const };
+  const reservedAdCell = <div aria-hidden="true" className="aspect-square h-full w-full bg-[#18191e]" />;
 
-  if (!loading && items.length === 0) {
-    return <div className="grid min-h-56 place-items-center text-sm text-white/50">No uploads yet.</div>;
-  }
-
-  // render per-tab with virtualization (clean + fast)
   return (
     <>
-      {tab === "images" ? (
-        <VirtualizedSquareGrid
-          items={imageItemsOnly}
-          cols={cols}
-          gapPx={4} // gap-1
-          gridClassName="w-full"
-          getKey={(m) => `img-${m.id}`}
-          renderItem={(m, index) => (
-            <button
-              type="button"
-              onClick={() => {
-                setOverlayIndex(index);
+      <div className="relative w-full">
+        {/* Ad stays mounted outside the virtualized tile renderer. */}
+        <div className="absolute left-0 top-0 z-10 aspect-square overflow-hidden rounded-[2px]"
+          style={{ width: `calc((100% - ${4 * (cols - 1)}px) / ${cols})` }}>
+          <InlineContentAd variant="tile" />
+        </div>
+        {loadingInitial ? (
+          <div className="grid grid-cols-3 gap-1 lg:grid-cols-4" aria-label="Loading profile posts">
+            {reservedAdCell}
+            {Array.from({ length: 11 }, (_, i) => <div key={i} className="aspect-square animate-pulse rounded-sm bg-white/[.055]" />)}
+          </div>
+        ) : empty ? (
+          <div className="grid grid-cols-3 gap-1 lg:grid-cols-4">
+            {reservedAdCell}
+            <div className="col-span-2 grid min-h-40 place-items-center text-sm text-white/50 lg:col-span-3">No uploads yet.</div>
+          </div>
+        ) : tab === "images" ? (
+          <VirtualizedSquareGrid
+            items={[adTile, ...imageItemsOnly]} cols={cols} gapPx={4} gridClassName="w-full"
+            getKey={(m) => m.type === "ad" ? "ad-placeholder" : `img-${m.id}`}
+            renderItem={(m, index) => m.type === "ad" ? reservedAdCell : (
+              <button type="button" onClick={() => {
+                setOverlayIndex(index - 1);
                 setImageOverlayOpen(true);
-              }}
-              className={`w-full h-full ${tileChrome}`}
-            >
-              <LazyImage src={m.src} alt={m.alt ?? ""} className="w-full h-full object-cover" />
-            </button>
-          )}
-        />
-      ) : (
-        <VirtualizedSquareGrid
-          items={mediaItems}
-          cols={cols}
-          gapPx={4} // gap-1
-          gridClassName="w-full"
-          getKey={(m) => `media-${m.id}`}
-          renderItem={(m, index) => (
-            <button
-              type="button"
-              className={`w-full h-full ${tileChrome}`}
-              onClick={() => onVideoClick?.(m as any, index, mediaItems)}
-            >
-            <GridVideoPreview
-              src={m.src}
-              cacheKey={`user-media-${m.id}`}
-              className="w-full h-full"
-              hoverPlay
-              mobileLimit={6}
-              mobileMode="still"
-            />
-
-            </button>
-          )}
-        />
-      )}
+              }} className={`w-full h-full ${tileChrome}`}>
+                <LazyImage src={m.src} alt={m.alt ?? ""} className="w-full h-full object-cover" />
+              </button>
+            )}
+          />
+        ) : (
+          <VirtualizedSquareGrid
+            items={[adTile, ...mediaItems]} cols={cols} gapPx={4} gridClassName="w-full"
+            getKey={(m) => m.type === "ad" ? "ad-placeholder" : `media-${m.id}`}
+            renderItem={(m, index) => m.type === "ad" ? reservedAdCell : (
+              <button type="button" className={`w-full h-full ${tileChrome}`}
+                onClick={() => onVideoClick?.(m as any, index - 1, mediaItems)}>
+                <GridVideoPreview src={m.src} cacheKey={`user-media-${m.id}`}
+                  className="w-full h-full" hoverPlay mobileLimit={6} mobileMode="still" />
+              </button>
+            )}
+          />
+        )}
+      </div>
 
       <BottomSentinel ref={sentinelRef} loading={loading} hasMore={hasMore} />
       {error && <div className="mt-2 text-center text-xs text-red-400">{error}</div>}

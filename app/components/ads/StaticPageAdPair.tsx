@@ -22,7 +22,7 @@ declare global {
   }
 }
 
-function StaticAd({ zone }: { zone: Zone }) {
+function StaticAd({ zone, compactOnMobile }: { zone: Zone; compactOnMobile: boolean }) {
   const requested = useRef(false);
 
   useEffect(() => {
@@ -45,7 +45,7 @@ function StaticAd({ zone }: { zone: Zone }) {
       <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-white/55">
         Sponsored
       </div>
-      <div className="h-[300px] w-full overflow-x-auto overflow-y-auto overscroll-contain rounded-sm bg-white/[.025] sm:h-[360px]">
+      <div className={`w-full overflow-x-auto overflow-y-auto overscroll-contain rounded-sm bg-white/[.025] ${compactOnMobile ? "h-[96px] lg:h-[300px]" : "h-[300px] sm:h-[360px]"}`}>
         <ins
           id={String(zone.id)}
           data-width="308"
@@ -58,11 +58,11 @@ function StaticAd({ zone }: { zone: Zone }) {
   );
 }
 
-export default function StaticPageAdPair() {
+export default function StaticPageAdPair({ compactOnMobile = false }: { compactOnMobile?: boolean } = {}) {
   return (
     <aside aria-label="Sponsored advertisements" className="w-full min-w-0">
       <div className="flex w-full flex-nowrap items-stretch gap-3 overflow-x-auto overscroll-x-contain pb-3 snap-x snap-mandatory [scrollbar-width:thin]">
-        {ZONES.map(zone => <StaticAd key={zone.id} zone={zone} />)}
+        {ZONES.map(zone => <StaticAd key={zone.id} zone={zone} compactOnMobile={compactOnMobile} />)}
       </div>
     </aside>
   );

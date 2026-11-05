@@ -9,7 +9,6 @@ import React, {
   useState,
 } from "react";
 import VideoCard from "./VideoCard";
-import StaticPageAdPair from "@/app/components/ads/StaticPageAdPair";
 import type { FeedTab, Video } from "./types";
 import {
   fetchTrendingVideosBatch,
@@ -40,8 +39,6 @@ export default function VideoFeed({
   initialVideo,
   withAds = false,
 }: Props) {
-  // The sponsored snap is a permanent sibling of video sections, not a video or playback state.
-  const hasSponsoredSnap = withAds && !initialVideo;
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const lastScrollTop = useRef(0);
 
@@ -81,10 +78,10 @@ export default function VideoFeed({
 
   const openOverlayAtIndex = useCallback(
     (absIndex: number) => {
-      requestScrollToAbsIndex(hasSponsoredSnap && absIndex > 0 ? absIndex + 1 : absIndex);
+      requestScrollToAbsIndex(absIndex);
       setOverlayOpen((prev) => !prev);
     },
-    [requestScrollToAbsIndex, hasSponsoredSnap]
+    [requestScrollToAbsIndex]
   );
 
   const closeOverlay = useCallback(() => {
@@ -223,11 +220,7 @@ export default function VideoFeed({
       const h = cardH || el.clientHeight || window.innerHeight || 1;
 
       const absoluteIndex = Math.round(el.scrollTop / h);
-      // Slide #2 is an advertisement, not a playable or view-counted video.
-      const mediaIndex = hasSponsoredSnap
-        ? absoluteIndex === 1 ? -1 : absoluteIndex > 1 ? absoluteIndex - 1 : 0
-        : absoluteIndex;
-      const idx = clamp(mediaIndex, hasSponsoredSnap ? -1 : 0, Math.max(0, videosLenRef.current - 1));
+      const idx = clamp(absoluteIndex, 0, Math.max(0, videosLenRef.current - 1));
 
       if (idx !== currentIndexRef.current) {
         currentIndexRef.current = idx;
@@ -237,7 +230,7 @@ export default function VideoFeed({
       // Prefetch when close to end
       const len = videosLenRef.current;
       if (!loadingRef.current && hasMoreRef.current && len > 0) {
-        const shouldPrefetch = Math.max(0, mediaIndex) >= len - 1 - PREFETCH_AHEAD;
+        const shouldPrefetch = absoluteIndex >= len - 1 - PREFETCH_AHEAD;
 
         // prevent spamming loadMore while snapping near the end
         if (shouldPrefetch && lastPrefetchLenRef.current !== len) {
@@ -319,9 +312,8 @@ export default function VideoFeed({
 
   const mainClass = overlayOpen
     ? "relative z-[80] h-[100dvh] w-full overflow-y-scroll overscroll-y-contain snap-y snap-mandatory shadow-2xl backdrop-blur"
-    : "relative h-screen snap-y snap-mandatory overflow-y-scroll overscroll-y-contain lg:pt-0 lg:pb-0 lg:pl-[76px] min-[1360px]:pl-[244px] lg:pr-0";
-
-  const sectionHeightClass = overlayOpen ? "h-full" : "h-screen w-full lg:h-[100dvh]";
+    : `relative ${withAds ? "h-[calc(100dvh-199px)] lg:h-screen lg:pr-[340px]" : "h-screen lg:pr-0"} snap-y snap-mandatory overflow-y-scroll overscroll-y-contain lg:pt-0 lg:pb-0 lg:pl-[76px] min-[1360px]:pl-[244px]`;
+  const sectionHeightClass = "h-full w-full";
 
 
   return (
@@ -340,34 +332,12 @@ export default function VideoFeed({
             </div>
           )}
 
-          {videos.slice(0, 1).map((video, index) =>
+          {videos.map((video, index) =>
             <section key={`media-${video.mediaId ?? video.id}`}
               className={`snap-center snap-always flex items-center justify-center w-full ${sectionHeightClass}`}>
-              <VideoCard video={video}
-                onRequestFullscreen={() => openOverlayAtIndex(index)}
+              <VideoCard video={video} onRequestFullscreen={() => openOverlayAtIndex(index)}
                 toggleMute={toggleMute} isMuted={isMuted}
                 loadLevel={index === currentIndex ? "active" : "off"}
-                maximize={!maximize} changeMaxButton={() => setMaximize(prev => !prev)}/>
-            </section>
-          )}
-          {hasSponsoredSnap &&
-            <section key="sponsored-snap" aria-label="Sponsored advertisements"
-              className={`snap-center snap-always flex w-full items-center justify-center bg-[#0b0d10] px-3 ${sectionHeightClass}`}>
-              <div className="w-full max-w-[720px] rounded-2xl border border-white/10 bg-[#111217] p-4 text-white shadow-2xl sm:p-6">
-                <div className="mb-4 flex items-center justify-between">
-                  <span className="text-sm font-semibold text-white/80">Sponsored</span>
-                  <span className="text-xs text-white/45">Scroll to continue</span>
-                </div>
-                <StaticPageAdPair/>
-              </div>
-            </section>}
-          {videos.slice(1).map((video, index) =>
-            <section key={`media-${video.mediaId ?? video.id}`}
-              className={`snap-center snap-always flex items-center justify-center w-full ${sectionHeightClass}`}>
-              <VideoCard video={video}
-                onRequestFullscreen={() => openOverlayAtIndex(index + 1)}
-                toggleMute={toggleMute} isMuted={isMuted}
-                loadLevel={index + 1 === currentIndex ? "active" : "off"}
                 maximize={!maximize} changeMaxButton={() => setMaximize(prev => !prev)}/>
             </section>
           )}

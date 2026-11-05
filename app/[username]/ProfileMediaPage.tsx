@@ -24,7 +24,7 @@ import SortDropdown, { SortKey } from "@/app/components/explore/SortDropdown";
 import type { Video } from "@/app/components/feed/types";
 import FullscreenVideoOverlay from "@/app/components/feed/FullscreenVideoOverlay";
 import UserGrid from "@/app/components/profile/UserGrid";
-import InlineContentAd from "@/app/components/ads/InlineContentAd";
+import StaticPageAdPair from "@/app/components/ads/StaticPageAdPair";
 import { VerifiedBadgeIcon } from "@/app/components/icons/VerifiedBadgeIcon";
 import { verify } from "crypto";
 import { getUserProfileFromCookies, getVerified, getUserIdFromCookies } from "@/lib/actions/auth";
@@ -401,6 +401,11 @@ function isSafeExternalUrl(url: string) {
         </div>
       </div>
 
+      <aside aria-label="Profile advertisements"
+        className="px-3 pb-4 sm:px-6 lg:fixed lg:right-0 lg:top-[186px] lg:z-10 lg:w-[340px] lg:px-1 lg:pb-0">
+        <StaticPageAdPair />
+      </aside>
+
       {/* ===== Tabs + Sort (Explore style) ===== */}
       <div className="sticky top-[58px] z-20 mb-5 flex items-center justify-between gap-3 border-b border-white/10 bg-[#0b0d10]/95 py-3 backdrop-blur-xl lg:top-0">
         <div className="flex w-full justify-center">
@@ -409,14 +414,8 @@ function isSafeExternalUrl(url: string) {
         <SortDropdown value={sortBy} onChange={setSortBy} />
       </div>
 
-      {/* A stable ad outside the GIF/image grid and its sorting/tab state. */}
-      <div className="mb-5 flex justify-center border-b border-white/10 pb-5">
-        <InlineContentAd/>
-      </div>
-
       {/* ===== Grid ===== */}
       <UserGrid
-        key={`${username}:${tab}`}
         username={username}
         tab={tab}
         sortBy={sortBy}

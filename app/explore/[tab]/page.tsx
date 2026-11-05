@@ -5,6 +5,7 @@ import Head from "next/head"; // 👈 NEW
 import { useParams } from "next/navigation";
 import ExploreTabs from "@/app/components/explore/ExploreTabs";
 import ExploreGrid from "@/app/components/explore/ExploreGrid";
+import StaticPageAdPair from "@/app/components/ads/StaticPageAdPair";
 import SortDropdown, { SortKey } from "@/app/components/explore/SortDropdown";
 import FullscreenVideoOverlay from "@/app/components/feed/FullscreenVideoOverlay";
 import { Video } from "@/app/components/feed/types";
@@ -231,6 +232,11 @@ const [initialOverlayIndex, setInitialOverlayIndex] = useState<number | null>(nu
             </div>
             <p className="mt-1 text-[13px] leading-relaxed text-white/45">Discover new videos, creators and communities.</p>
           </header>
+
+          <aside aria-label="Explore advertisements"
+            className="px-3 pb-4 sm:px-6 lg:fixed lg:right-0 lg:top-[186px] lg:z-10 lg:w-[340px] lg:px-1 lg:pb-0">
+            <StaticPageAdPair />
+          </aside>
 
           <div className={`sticky top-[58px] z-30 border-b border-white/10 bg-[#090a0d]/95 px-3 backdrop-blur-xl transition-all duration-200 sm:px-6 lg:top-0 ${hideHeader ? "pointer-events-none -translate-y-full opacity-0" : "translate-y-0 opacity-100"}`}>
             <div className="flex min-w-0 items-center justify-between gap-3">
