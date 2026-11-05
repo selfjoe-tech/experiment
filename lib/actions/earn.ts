@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export type VideoEarning = {
@@ -40,7 +41,7 @@ export type EarnDashboardData = {
 async function authenticatedUser() {
   const client = await createClient();
   const { data: { user }, error } = await client.auth.getUser();
-  if (!user || error) throw new Error("Log in to view your earnings.");
+  if (!user || error) redirect("/auth/login?redirect=%2Fearn");
   return { client, user };
 }
 const amount = (value: unknown) => Number(value ?? 0) || 0;
