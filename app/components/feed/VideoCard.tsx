@@ -721,7 +721,7 @@ useEffect(() => {
           <p className="text-xs font-semibold uppercase tracking-[.18em] text-white/50">30-second preview</p>
           <h3 className="text-xl font-semibold text-white">Watch the full video</h3>
         </div>
-        <Link href={`/watch/${mediaIdNum}`} className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 text-sm font-semibold text-black transition-colors hover:bg-white/90">
+        <Link href={`/watch/${mediaIdNum}?s=30`} className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 text-sm font-semibold text-black transition-colors hover:bg-white/90">
           Watch full video <ArrowUpRight size={18}/>
         </Link>
       </div>}
@@ -742,11 +742,6 @@ useEffect(() => {
 
       {/* Familiar vertical Reels actions, with a cleaner hierarchy. */}
       <div className="absolute bottom-[143px] right-2 z-30 flex flex-col items-center gap-4 text-white sm:right-4">
-        {!isSponsored && <Link href={`/${encodeURIComponent(video.username)}`} aria-label={`View ${video.username}'s profile`}
-          className="relative mb-1 block h-12 w-12 rounded-full border-2 border-white/90 bg-black/30 p-[2px] shadow-lg">
-          <Image src={video.avatar || "/avatar-placeholder.png"} width={48} height={48}
-            alt="" className="h-full w-full rounded-full object-cover"/>
-        </Link>}
         {!isSponsored && <div className="relative flex flex-col items-center">
           <IconCircleButton onClick={handleToggleLike} label={liked ? "Unlike" : "Like"} disabled={likeLoading}>
             <Heart className={`h-8 w-8 drop-shadow-md ${liked ? "fill-[#ff3159] text-[#ff3159]" : "text-white"}`} strokeWidth={1.9}/>
@@ -782,7 +777,9 @@ useEffect(() => {
       {/* Creator and caption remain readable above the media gradient. */}
       <div className="absolute inset-x-3 bottom-3 z-30 space-y-3 pr-[72px] text-white sm:left-6">
         <div className="flex flex-wrap items-center gap-2.5">
-          <Link href={`/${encodeURIComponent(video.username)}`} className="flex min-w-0 items-center gap-2">
+          <Link href={`/${encodeURIComponent(video.username)}`} className="flex min-w-0 items-center gap-2.5">
+            <Image unoptimized src={video.avatar || "/avatar-placeholder.png"} width={36} height={36}
+              alt="" className="h-9 w-9 shrink-0 rounded-full border-2 border-white/80 object-cover shadow-md"/>
             <span className="max-w-[160px] truncate text-sm font-bold drop-shadow-md">@{video.username}</span>
             {video.verified && <VerifiedBadgeIcon/>}
           </Link>
