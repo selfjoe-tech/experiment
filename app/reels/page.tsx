@@ -109,15 +109,26 @@ function ForYouLoginGate({ onBrowseTrending }: { onBrowseTrending: () => void })
     >
       {/* Scrolling is limited to the space below the tabs and above mobile ads. */}
       <div className="h-full overflow-y-auto overscroll-contain px-4 pb-6 pt-[128px] lg:pt-[92px]">
-        <section className="mx-auto w-full max-w-[390px] rounded-2xl border border-white/[.12] bg-[#111216] px-6 py-8 text-center shadow-[0_20px_65px_rgba(0,0,0,.32)] sm:px-9">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-white/25 text-white">
+        <section
+          className="relative isolate mx-auto flex min-h-[445px] w-full max-w-[390px] flex-col justify-end overflow-hidden rounded-2xl border border-white/[.15] bg-[#111216] text-center shadow-[0_20px_65px_rgba(0,0,0,.32)]"
+          style={{
+            // Preserve the original Reels guest-gate background image.
+            backgroundImage: "url('/images/unlock.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-black/10 via-black/45 via-45% to-[#0b0d10]" />
+          <div className="relative z-10 px-6 pb-8 pt-28 sm:px-9">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-white/35 bg-black/35 text-white backdrop-blur-sm">
             <LockKeyhole size={26} strokeWidth={1.5} aria-hidden="true"/>
           </div>
 
           <h1 className="mt-5 text-[23px] font-semibold tracking-[-0.035em] text-white">
             Your For You feed
           </h1>
-          <p className="mx-auto mt-2 max-w-[275px] text-[13px] leading-[1.65] text-white/55">
+          <p className="mx-auto mt-2 max-w-[275px] text-[13px] leading-[1.65] text-white/80">
             Log in to see reels picked for you, follow your favorite creators, and save what you like.
           </p>
 
@@ -137,6 +148,7 @@ function ForYouLoginGate({ onBrowseTrending }: { onBrowseTrending: () => void })
             Continue with Trending
             <ArrowRight size={14} aria-hidden="true"/>
           </button>
+          </div>
         </section>
       </div>
     </main>
