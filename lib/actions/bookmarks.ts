@@ -54,7 +54,7 @@ export async function fetchBookmarkedPostsBatch(page: number, limit = 8) {
       created_at,
       media:media (
         id, media_type, storage_path, title, description, created_at,
-        width, height, like_count, view_count, tags,
+        width, height, duration_seconds, like_count, view_count, tags,
         owner:profiles!media_owner_id_fkey (
           id, username, avatar_url, verified
         )
@@ -69,7 +69,7 @@ export async function fetchBookmarkedPostsBatch(page: number, limit = 8) {
     media: {
       id: number; media_type: string; storage_path: string;
       title: string | null; description: string | null; created_at: string;
-      width: number | null; height: number | null; like_count: number | null;
+      width: number | null; height: number | null; duration_seconds: number | null; like_count: number | null;
       view_count: number | null; tags: string[] | null;
       owner: { id: string; username: string; avatar_url: string | null; verified: boolean | null } | null;
     } | null;
@@ -97,6 +97,7 @@ export async function fetchBookmarkedPostsBatch(page: number, limit = 8) {
       views: Number(item.view_count || 0),
       likedByMe: likedIds.has(item.id),
       createdAt: item.created_at,
+      durationSeconds: item.duration_seconds == null ? null : Number(item.duration_seconds),
       hashtags: item.tags || [],
       width: item.width,
       height: item.height,
