@@ -45,7 +45,17 @@ export function safeJsonLd(data: Record<string, unknown>) {
 }
 export function publicStorageUrl(path: string | null): string | null {
   if (!path) return null;
-  if (/^https:\/\//i.test(path)) return path;
+  if (/^https:\/\//i.test(path)) {
+    try {
+      const url = new URL(path);
+      // Sitemaps and JSON-LD must NEVER publish signed, expiring URLs,
+      // storage API endpoints or URLs with embedded authentication.
+      if (url.username || url.password || url.search || url.hash ||
+          url.hostname.endsWith(".r2.cloudflarestorage.com") ||
+          url.pathname.includes("/storage/v1/object/sign/")) return null;
+      return url.toString();
+    } catch { return null; }
+  }
   if (/^[a-z]+:\/\//i.test(path) || path.startsWith("//")) return null;
   return getSupabaseAdmin().storage.from("media").getPublicUrl(path).data.publicUrl;
 }
