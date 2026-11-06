@@ -117,6 +117,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="icon" href="/favicon.png" />
         <meta name="juicyads-site-verification" content="d154c93bad30202f17ebc96da399812a"></meta>
+        <meta name="google-site-verification" content="dp1vZyGCsv8Y2cnMBWxwkWzR5WplxcyIFFEhl7MV9TU" />
       </head>
 
       <body
