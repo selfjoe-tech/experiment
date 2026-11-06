@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Image from "next/image";
-import { ArrowLeft, ArrowUpRight, Download, Film, Play } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Film, Play } from "lucide-react";
 import DesktopShell from "@/app/components/feed/layout/DesktopShell";
 import MobileChrome from "@/app/components/feed/layout/MobileChrome";
 import InlineContentAd from "@/app/components/ads/InlineContentAd";
