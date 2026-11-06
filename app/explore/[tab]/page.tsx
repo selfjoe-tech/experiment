@@ -223,7 +223,7 @@ const [initialOverlayIndex, setInitialOverlayIndex] = useState<number | null>(nu
         />
       </Head>
 
-      <main className="min-h-[100dvh] bg-[#090a0d] pt-[58px] text-white lg:ml-[76px] lg:mr-[340px] lg:pt-0 min-[1360px]:ml-[244px]">
+      <main className="min-h-[100dvh] bg-[#090a0d] pt-[58px] text-white lg:ml-[76px] lg:mr-[340px] lg:pt-0">
         <div className="mx-auto w-full max-w-[1160px]">
           <header className="px-3 pb-4 pt-7 sm:px-6 sm:pt-10">
             <div className="flex items-center justify-between">
