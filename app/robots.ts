@@ -1,18 +1,15 @@
-// app/robots.ts
 import type { MetadataRoute } from "next";
-
 export default function robots(): MetadataRoute.Robots {
-  const base =
-    (process.env.NEXT_PUBLIC_SITE_URL || "https://goongram.com").replace(/\/$/, "");
-
   return {
-    rules: [
-      {
-        userAgent: "*",
-        allow: "/",
-        disallow: ["/admin", "/api", "/_next"],
-      },
-    ],
-    sitemap: `${base}/sitemap.xml`,
+    rules: [{
+      userAgent: "*",
+      allow: "/",
+      disallow: [
+        "/api/", "/admin/", "/auth/", "/upload", "/verify",
+        "/edit-profile", "/preferences", "/saved", "/liked",
+        "/earn", "/download/", "/watermark",
+      ],
+    }],
+    sitemap: "https://goongram.com/sitemap.xml",
   };
 }
