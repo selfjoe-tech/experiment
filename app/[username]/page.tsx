@@ -1,121 +1,89 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import ProfileMediaPage from "./ProfileMediaPage";
-import { getProfileSeoByUsername } from "@/lib/actions/seo";
 import { notFound } from "next/navigation";
+import ProfileMediaPage from "./ProfileMediaPage";
+import {
+  SEO_BRAND, absoluteSeoUrl, getPublicProfileSeo, getProfilePublicMedia,
+  mediaSeoPath, mediaSeoTitle, publicStorageUrl, safeJsonLd,
+} from "@/lib/server/publicSeo";
 
-
-const SITE_NAME = "Goon Gram";
-const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://goongram.com").replace(/\/$/, "");
-const DEFAULT_OG_IMAGE =
-  "https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png";
-
-function abs(path: string) {
-  return `${SITE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+export const revalidate=300;
+type Params={params:Promise<{username:string}>};
+async function resolveUsername(params:Params["params"]){
+  const raw=(await params).username;
+  try{return decodeURIComponent(raw).trim().toLowerCase();}catch{return "";}
 }
-
-// Your profiles are at `/${username}` (based on your links)
-function profilePath(username: string) {
-  return `/${encodeURIComponent(username)}`;
-}
-
-// Optional: reduce DB hits. Adjust as you like.
-export const revalidate = 300;
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ username: string }>;
-}): Promise<Metadata> {
-  const { username } = await params
-  const raw = username ?? "";
-  const name = decodeURIComponent(raw).trim();
-  const canonical = abs(profilePath(name));
-
-  const prof = await getProfileSeoByUsername(username);
-
-  // If it doesn't exist, don't let Google index random junk URLs
-  if (!prof) {
-    return {
-      title: "Profile not found",
-      description: `This profile does not exist on ${SITE_NAME}.`,
-      alternates: { canonical },
-      robots: { index: false, follow: false },
-    };
-  }
-
-  const title = `${prof.username} | ${SITE_NAME}`;
-  const description = `View ${prof.username}'s profile on ${SITE_NAME}. Discover trending adult GIFs, videos, and creators.`;
-
-  const ogImage = prof.avatarUrl || DEFAULT_OG_IMAGE;
-
-  return {
-    title,
-    description,
-    alternates: { canonical },
-
-    openGraph: {
-      type: "profile",
-      url: canonical,
-      siteName: SITE_NAME,
-      title,
-      description,
-      images: [
-        {
-          url: ogImage,
-          width: 1200,
-          height: 630,
-          alt: `${prof.username} on ${SITE_NAME}`,
-        },
-      ],
-    },
-
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: [ogImage],
-    },
-
-    robots: {
-      index: true,
-      follow: true,
-      googleBot: {
-        index: true,
-        follow: true,
-        "max-image-preview": "large",
-        "max-video-preview": -1,
-        "max-snippet": -1,
-      },
-    },
+export async function generateMetadata({params}:Params):Promise<Metadata>{
+  const username=await resolveUsername(params);
+  const profile=await getPublicProfileSeo(username);
+  if(!profile)return {title:"Creator unavailable",robots:{index:false,follow:false}};
+  const url=absoluteSeoUrl(`/${encodeURIComponent(profile.username)}`);
+  const title=`@${profile.username} · Creator profile`;
+  const description=profile.bio?.trim().slice(0,240)||
+    `See publicly shared videos and images from @${profile.username} on ${SEO_BRAND}.`;
+  const image=profile.avatar_url?.startsWith("https://")?profile.avatar_url:null;
+  return{
+    title,description,
+    alternates:{canonical:url},
+    robots:{index:true,follow:true,googleBot:{"max-image-preview":"large"}},
+    openGraph:{type:"profile",siteName:SEO_BRAND,url,title,description,
+      images:image?[{url:image,alt:`@${profile.username} creator avatar`}]:[]},
+    twitter:{card:image?"summary_large_image":"summary",title,description,
+      images:image?[image]:[]},
   };
 }
-
-function ProfileFallback() {
-  return <div className="mx-auto w-full max-w-4xl px-4 py-8">
-    <div className="mb-9 flex items-center gap-8 animate-pulse">
-      <div className="h-28 w-28 shrink-0 rounded-full bg-white/10"/>
-      <div className="flex-1 space-y-4"><div className="h-5 w-1/3 rounded bg-white/10"/><div className="h-4 w-2/3 rounded bg-white/10"/></div>
-    </div>
-    <div className="grid grid-cols-3 gap-1 sm:grid-cols-4">
-      {Array.from({length: 12},(_,i)=><div key={i} className="aspect-square animate-pulse bg-white/[.055]"/>)}
-    </div>
+function ProfileFallback(){
+  return <div className="mx-auto max-w-4xl px-4 py-8" aria-label="Loading creator profile">
+    <div className="mb-9 h-24 animate-pulse rounded-lg bg-white/[.05]"/>
+    <div className="grid grid-cols-3 gap-1">{Array.from({length:9},(_,i)=>
+      <div key={i} className="aspect-square animate-pulse bg-white/[.04]"/>)}</div>
   </div>;
 }
-
-export default async function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
-
-  const RESERVED = new Set(["sitemap.xml", "robots.txt", "favicon.ico"]);
-
-
-  const { username } = await params
-    const u = username.toLowerCase();
-  if (RESERVED.has(u)) notFound();
-
-  // Keep your UI exactly the same: username is read in the client via useParams()
-  return (
-    <Suspense fallback={<ProfileFallback />}>
-      <ProfileMediaPage />
-    </Suspense>
-  );
+export default async function ProfilePage({params}:Params){
+  const username=await resolveUsername(params);
+  const profile=await getPublicProfileSeo(username);
+  if(!profile)notFound();
+  const recent=await getProfilePublicMedia(profile.id,24);
+  const url=absoluteSeoUrl(`/${encodeURIComponent(profile.username)}`);
+  const json={
+    "@context":"https://schema.org",
+    "@type":"ProfilePage",
+    "@id":url+"#profile",
+    url,
+    dateCreated:profile.created_at,
+    mainEntity:{
+      "@type":"Person",
+      "@id":url+"#creator",
+      name:profile.username,
+      alternateName:"@"+profile.username,
+      identifier:profile.username,
+      url,
+      ...(profile.bio?.trim()?{description:profile.bio.trim()}:{}),
+      ...(profile.avatar_url?.startsWith("https://")?{image:profile.avatar_url}:{}),
+    },
+    ...(recent.length?{hasPart:{"@type":"ItemList",itemListElement:recent.map((item,i)=>({
+      "@type":"ListItem",position:i+1,url:absoluteSeoUrl(mediaSeoPath(item))
+    }))}}:{}),
+  };
+  return <>
+    <Suspense fallback={<ProfileFallback/>}><ProfileMediaPage/></Suspense>
+    <section aria-label={`Public posts from ${profile.username}`}
+      className="mx-auto max-w-[900px] px-4 pb-20 pt-7 text-white lg:ml-[76px]">
+      <h2 className="text-sm font-semibold">Posts from @{profile.username}</h2>
+      <p className="mt-1 text-xs text-white/55">Browse individual public videos and images.</p>
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {recent.map(item=><a key={item.id} href={mediaSeoPath(item)}
+          className="min-w-0 rounded-md border border-white/10 p-2 text-xs hover:bg-white/[.04]">
+          {item.media_type==="image"&&publicStorageUrl(item.storage_path)?
+            <img src={publicStorageUrl(item.storage_path)!} alt={mediaSeoTitle(item)}
+              className="mb-2 aspect-square w-full object-cover" loading="lazy"/>:
+            <span className="mb-2 flex aspect-square items-center justify-center bg-white/[.035] text-white/40">
+              Video
+            </span>}
+          <span className="block truncate">{mediaSeoTitle(item)}</span>
+        </a>)}
+      </div>
+    </section>
+    <script type="application/ld+json" dangerouslySetInnerHTML={{__html:safeJsonLd(json)}}/>
+  </>;
 }
