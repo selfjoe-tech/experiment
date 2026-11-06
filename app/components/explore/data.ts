@@ -51,6 +51,7 @@ type GetItemsForTabArgs = {
 /** Helper to turn a storage_path into a public URL (media bucket) */
 function publicMediaUrl(path: string | null): string | null {
   if (!path) return null;
+  if (/^https:\/\//i.test(path)) return path;
   const { data } = supabase.storage.from("media").getPublicUrl(path);
   return data.publicUrl || null;
 }
