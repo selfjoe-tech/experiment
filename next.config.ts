@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["ffmpeg-static", "nodemailer"],
   outputFileTracingIncludes: {
     "/api/trim-video": ["./node_modules/ffmpeg-static/**"],
+    "/api/admin/seo/backfill": ["./node_modules/ffmpeg-static/**"],
   },
   eslint: {
     ignoreDuringBuilds: true,
