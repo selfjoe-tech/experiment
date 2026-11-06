@@ -5,12 +5,16 @@ import MobileChrome from "@/app/components/feed/layout/MobileChrome";
 import { absolute, BRAND } from "@/lib/seo/public";
 
 export const revalidate=300;
-export const metadata:Metadata={
- title:"Discover creators",
- description:`Browse active public creators sharing videos and images on ${BRAND}.`,
- alternates:{canonical:absolute("/creators")},
- robots:{index:true,follow:true},
-};
+export async function generateMetadata({searchParams}:{searchParams:Promise<{page?:string}>}):Promise<Metadata>{
+ const raw=(await searchParams).page;
+ const page=raw&&/^[1-9][0-9]{0,3}$/.test(raw)?Number(raw):1;
+ return {
+  title: page>1 ? "Discover creators — Page "+page : "Discover creators",
+  description:"Browse active public creators sharing videos and images on Goon Gram.",
+  alternates:{canonical:"https://goongram.com/creators"+(page>1?"?page="+page:"")},
+  robots:{index:true,follow:true},
+ };
+}
 type Props={searchParams:Promise<{page?:string}>};
 export default async function CreatorsDirectory({searchParams}:Props){
  const {page:raw}=await searchParams;
