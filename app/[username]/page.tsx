@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound, permanentRedirect } from "next/navigation";
 import ProfileMediaPage from "./ProfileMediaPage";
-import { createClient } from "@/lib/supabase/server";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { absolute, encodeUsername, getPublicProfile, getPublicCreatorMedia, seoEligibleProfile, publicHttps, publicMediaUrl, safeJsonLd, BRAND, DEFAULT_IMAGE } from "@/lib/seo/public";
 
 export const revalidate = 300;
@@ -11,7 +11,8 @@ const RESERVED = new Set(["sitemap.xml","robots.txt","favicon.ico","api","auth",
 const valid = (s:string) => /^[a-zA-Z0-9._]{1,40}$/.test(s) && !RESERVED.has(s.toLowerCase());
 
 async function movedProfile(username:string):Promise<string|null>{
- const db=await createClient();
+ // Redirect history is private under RLS; perform this lookup only on the server.
+ const db=getSupabaseAdmin();
  const {data}=await db.from("profile_username_redirects").select("profile_id").ilike("old_username",username).maybeSingle();
  if(!data?.profile_id)return null;
  const {data:current}=await db.from("profiles").select("username").eq("id",data.profile_id).maybeSingle();
