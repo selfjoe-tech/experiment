@@ -104,7 +104,7 @@ export default function HomeTimeline() {
     <DesktopShell/>
     <MobileChrome/>
     <div className="h-[58px] lg:hidden" aria-hidden="true"/>
-    <main className="min-h-screen pb-24 pt-0 lg:pl-[76px] lg:pr-4 min-[1360px]:pl-[244px] lg:pt-0">
+    <main className="min-h-screen pb-24 pt-0 lg:pl-[76px] lg:pr-4 lg:pt-0">
       <div className="mx-auto flex w-full max-w-[1200px] flex-col items-center gap-4 px-0 pt-0 sm:px-6 lg:flex-row lg:items-start lg:justify-center lg:gap-6">
         <section className="order-2 min-w-0 w-full max-w-[480px] lg:order-1">
           <div className={`sticky top-[58px] z-30 border-b border-white/10 bg-[#0b0d10]/95 px-4 pb-2 pt-3 backdrop-blur-xl transition-all duration-300 sm:px-0 lg:top-0 ${hideFeedTabs ? "pointer-events-none -translate-y-full opacity-0" : "translate-y-0 opacity-100"}`}>
