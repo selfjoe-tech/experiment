@@ -179,7 +179,7 @@ export default function WatchClient({ mediaId, startAtSeconds = 0 }: { mediaId: 
     <WatchDesktopShell />
     <WatchMobileChrome />
     <div className="h-[58px] lg:hidden" aria-hidden="true"/>
-    <main className="mx-auto min-h-screen w-full max-w-[1600px] px-3 pb-28 pt-5 sm:px-6 lg:pl-[92px] lg:pr-5 lg:pt-8 min-[1360px]:pl-[260px]">
+    <main className="mx-auto min-h-screen w-full max-w-[1600px] px-3 pb-28 pt-5 sm:px-6 lg:pl-[92px] lg:pr-5 lg:pt-8">
       <div className="mx-auto w-full max-w-[1100px]">
         <div className="grid grid-cols-1 items-start gap-7 lg:grid-cols-[minmax(0,1fr)_336px] xl:gap-9">
           <section className="mx-auto w-full min-w-0 max-w-[530px] lg:mx-0">
