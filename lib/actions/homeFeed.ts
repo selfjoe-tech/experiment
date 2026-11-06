@@ -43,6 +43,7 @@ async function viewerId(): Promise<string | null> {
 }
 
 function publicMediaUrl(path: string): string {
+  if (/^https:\/\//i.test(path)) return path;
   return supabase.storage.from("media").getPublicUrl(path).data.publicUrl;
 }
 
