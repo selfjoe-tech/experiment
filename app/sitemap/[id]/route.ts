@@ -1,7 +1,7 @@
 import { sitemapChunk, SITEMAP_KINDS, urlset, xmlResponse, xmlError } from "@/lib/seo/sitemaps";
 import { SITE } from "@/lib/seo/public";
 export const runtime="nodejs";
-export const revalidate=300;
+export const dynamic="force-dynamic";
 type Context={params:Promise<{id:string}>};
 export async function GET(_:Request,{params}:Context){
  const {id}=await params;
