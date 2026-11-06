@@ -1,7 +1,7 @@
 import { SITE } from "@/lib/seo/public";
 import { sitemapCounts, SITEMAP_KINDS, CHUNK_SIZE, xmlResponse, xmlError, escapeXml } from "@/lib/seo/sitemaps";
 export const runtime="nodejs";
-export const revalidate=300;
+export const dynamic="force-dynamic";
 export async function GET(){
  try{
   const counts=await sitemapCounts();
