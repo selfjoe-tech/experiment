@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import DesktopShell from "@/app/components/feed/layout/DesktopShell";
 import MobileChrome from "@/app/components/feed/layout/MobileChrome";
 import { createClient } from "@/lib/supabase/server";
-import { ArrowRight, ArrowUpRight, Check, CircleHelp, ExternalLink } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check } from "lucide-react";
 import WatchLinkExample from "./WatchLinkExample";
 
 export const metadata: Metadata = {
@@ -66,7 +66,7 @@ export default async function MonetizationInfoPage() {
   return <div className="min-h-screen bg-[#0b0d10] text-white">
     <DesktopShell />
     <MobileChrome />
-    <main className="mx-auto w-full max-w-[1200px] px-5 pb-32 pt-[94px] sm:px-9 lg:pl-[108px] lg:pr-8 lg:pt-16 min-[1360px]:pl-[270px]">
+    <main className="mx-auto w-full max-w-[1200px] px-5 pb-32 pt-[94px] sm:px-9 lg:pl-[106px] lg:pr-8 lg:pt-16">
       <div className="mx-auto max-w-[920px]">
         <header className="border-b border-white/10 pb-10 sm:pb-12">
           <h1 className="max-w-3xl text-[clamp(2.8rem,6vw,5.3rem)] font-semibold leading-[1.02] tracking-[-0.065em]">
