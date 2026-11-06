@@ -86,7 +86,9 @@ export async function fetchBookmarkedPostsBatch(page: number, limit = 8) {
     .map(item => ({
       id: Number(item.id),
       type: item.media_type as "video" | "image",
-      src: supabase.storage.from("media").getPublicUrl(item.storage_path).data.publicUrl,
+      src: /^https:\/\//i.test(item.storage_path)
+        ? item.storage_path
+        : supabase.storage.from("media").getPublicUrl(item.storage_path).data.publicUrl,
       title: item.title || "",
       description: item.description || "",
       username: item.owner?.username || "unknown",
