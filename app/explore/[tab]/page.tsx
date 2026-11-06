@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import Head from "next/head"; // 👈 NEW
 import { useParams } from "next/navigation";
 import ExploreTabs from "@/app/components/explore/ExploreTabs";
 import ExploreGrid from "@/app/components/explore/ExploreGrid";
@@ -196,32 +195,7 @@ const [initialOverlayIndex, setInitialOverlayIndex] = useState<number | null>(nu
   // ====== RENDER ======
   return (
     <>
-      <Head>
-        <title>{baseTitle}</title>
-        <meta name="description" content={description} />
-        <link rel="canonical" href={canonical} />
-        <meta name="robots" content="index,follow" />
 
-        {/* Open Graph */}
-        <meta property="og:title" content={baseTitle} />
-        <meta property="og:description" content={description} />
-        <meta property="og:url" content={canonical} />
-        <meta property="og:site_name" content="goongram" />
-        <meta property="og:type" content="website" />
-
-        {/* Twitter */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={baseTitle} />
-        <meta name="twitter:description" content={description} />
-
-        {/* JSON-LD */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(collectionSchema),
-          }}
-        />
-      </Head>
 
       <main className="min-h-[100dvh] bg-[#090a0d] pt-[58px] text-white lg:ml-[76px] lg:mr-[340px] lg:pt-0">
         <div className="mx-auto w-full max-w-[1160px]">
