@@ -20,11 +20,11 @@ export async function generateMetadata(): Promise<Metadata> {
 
     // ✅ Auth pages should not be indexed
     robots: {
-      index: true,
-      follow: true,
+      index: false,
+      follow: false,
       googleBot: {
-        index: true,
-        follow: true,
+        index: false,
+        follow: false,
         "max-image-preview": "none",
         "max-video-preview": 0,
         "max-snippet": 0,

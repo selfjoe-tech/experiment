@@ -35,6 +35,8 @@ jobs:
           grep -c "error TS" ts-diagnostics.txt || true
           echo "New feature diagnostics:"
           grep -E '^(app/components/feed/(PostCard|HomeTimeline|layout/(AppNavigation|DesktopShell|MobileChrome|WatchDesktopShell|WatchMobileChrome))\.tsx|app/(page\.tsx|reels/|post/|saved/)|lib/actions/(homeFeed|bookmarks)\.ts)' ts-diagnostics.txt && exit 1 || true
+          echo "SEO route and utility diagnostics:"
+          grep -E '^(lib/seo/|app/components/seo/PublicMediaDirectory|app/videos/|app/images/|app/indexnow/|app/api/seo/|app/sitemap|app/image/|app/creators/|app/watch/\[id\]/page\.tsx|app/\[username\]/page\.tsx|app/robots\.tsx|app/components/age/AdultAgeGate\.tsx|app/explore/\[tab\]/layout\.tsx|app/explore/\[tab\]/\[tag\]/page\.tsx)' ts-diagnostics.txt && exit 1 || true
           echo "Reels initialization-order diagnostics:"
           if grep -E '^app/components/feed/(VideoCard|VideoFeed)\.tsx.*error TS(2448|2454)' ts-diagnostics.txt; then
             exit 1

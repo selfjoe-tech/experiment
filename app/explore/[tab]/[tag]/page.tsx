@@ -1,76 +1,65 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import ExploreNicheTagClient from "./ExploreNicheTagClient";
+import { createClient } from "@/lib/supabase/server";
+import { absolute, mediaTitle, publicMediaUrl, publicHttps, safeJsonLd } from "@/lib/seo/public";
 
-const SITE_NAME = "Goon Gram";
-const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://goongram.com").replace(/\/$/, "");
-
-function abs(path: string) {
-  return `${SITE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+type Props={params:Promise<{tab:string;tag:string}>};
+type TagPost={id:number;media_type:string;title:string|null;description:string|null;storage_path:string|null;thumbnail_path:string|null};
+const eligibleTabs=["niches","gifs","images"];
+async function getTopic(tab:string,slug:string){
+ if(!eligibleTabs.includes(tab)||!slug||slug.length>100||!/^[\w-]+$/.test(slug))return null;
+ const db=await createClient();
+ const {data:tag}=await db.from("public_seo_tags").select("slug,label").eq("slug",slug).maybeSingle();
+ if(!tag)return null;
+ let q=db.from("public_seo_media").select("id,media_type,title,description,storage_path,thumbnail_path")
+  .overlaps("tags",[tag.slug,tag.label].filter(Boolean)).order("created_at",{ascending:false}).limit(16);
+ if(tab==="gifs")q=q.eq("media_type","video");
+ else if(tab==="images")q=q.eq("media_type","image");
+ else q=q.in("media_type",["video","image"]);
+ const {data}=await q;
+ return {tag,posts:(data??[]) as TagPost[]};
 }
-
-function slugToTitle(slug: string): string {
-  const decoded = decodeURIComponent(slug);
-  return decoded
-    .split("-")
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(" ");
+export async function generateMetadata({params}:Props):Promise<Metadata>{
+ const {tab,tag}=await params;
+ const topic=await getTopic(tab,tag);
+ if(!topic)return {title:"Topic unavailable",robots:{index:false,follow:false}};
+ const canonical=absolute(`/explore/${tab}/${tag}`);
+ const title=`${topic.tag.label} ${tab==="images"?"images":"videos"}`;
+ const description=`Explore public ${topic.tag.label} ${tab==="images"?"images":"videos"} from Goon Gram creators.`;
+ // Index only real, populated topics; do not turn arbitrary searches into doorway pages.
+ const index=topic.posts.length>=1;
+ return {title,description,alternates:{canonical},robots:{index,follow:true},
+  openGraph:{type:"website",url:canonical,title,description},twitter:{card:"summary",title,description}};
 }
-
-function normalizeTab(rawTab: string) {
-  return ["gifs", "images", "creators", "niches"].includes(rawTab) ? rawTab : "niches";
-}
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ tab: string; tag: string }>;
-}): Promise<Metadata> {
-
-  const attribute = await params;
-  const rawTab = attribute?.tab || "niches";
-  const tagSlug = attribute?.tag || "";
-
-  const tab = normalizeTab(rawTab);
-  const nicheTitle = slugToTitle(tagSlug);
-
-  const contentKind = tab === "images" ? "Images" : tab === "gifs" ? "GIFs" : "Videos";
-
-  const title = `${nicheTitle} ${contentKind} | ${SITE_NAME}`;
-  const description = `Watch ${nicheTitle.toLowerCase()} ${contentKind.toLowerCase()} on ${SITE_NAME}. Browse trending, newest and most viewed clips in this niche.`;
-  const canonical = abs(`/explore/${tab}/${tagSlug}`);
-
-  return {
-    title,
-    description,
-    alternates: { canonical },
-    robots: {
-      index: true,
-      follow: true,
-      googleBot: {
-        index: true,
-        follow: true,
-        "max-image-preview": "large",
-        "max-video-preview": -1,
-        "max-snippet": -1,
-      },
-    },
-    openGraph: {
-      type: "website",
-      url: canonical,
-      siteName: SITE_NAME,
-      title,
-      description,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-    },
-  };
-}
-
-export default function ExploreNicheTagPage() {
-  // ✅ no props passed, your UI still uses useParams()
-  return <ExploreNicheTagClient />;
+export default async function ExploreNicheTagPage({params}:Props){
+ const {tab,tag}=await params;
+ const topic=await getTopic(tab,tag);
+ if(!topic)notFound();
+ const canonical=absolute(`/explore/${tab}/${tag}`);
+ const schema=topic.posts.length>=1?{
+  "@context":"https://schema.org","@type":"CollectionPage",name:topic.tag.label,
+  url:canonical,mainEntity:{"@type":"ItemList",itemListElement:topic.posts.map((p,i)=>({
+   "@type":"ListItem",position:i+1,url:absolute(p.media_type==="video"?`/watch/${p.id}`:`/image/${p.id}`),
+  }))},
+ }:null;
+ return <>
+  {schema&&<script type="application/ld+json" dangerouslySetInnerHTML={{__html:safeJsonLd(schema)}}/>}
+  <ExploreNicheTagClient/>
+  {topic.posts.length>0&&<section className="mx-auto max-w-[1000px] px-4 pb-28 pt-8 text-white lg:pl-[100px]">
+   <h2 className="mb-4 text-lg font-semibold">{topic.tag.label} posts</h2>
+   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+    {topic.posts.map(p=>{
+     const href=p.media_type==="video"?`/watch/${p.id}`:`/image/${p.id}`;
+     const img=publicHttps(publicMediaUrl(p.media_type==="video"?p.thumbnail_path:p.storage_path));
+     return <a key={p.id} href={href} className="min-w-0 rounded-lg border border-white/10 p-2 text-sm transition hover:border-white/30">
+      {img?<img src={img} alt={mediaTitle(p.title,p.description,p.media_type,p.id)}
+       loading="lazy" className="mb-2 aspect-square w-full rounded object-cover"/>:
+       <div className="mb-2 flex aspect-square items-center justify-center rounded bg-white/[.06] text-xs">Video</div>}
+      <span className="block truncate text-white/75">{mediaTitle(p.title,p.description,p.media_type,p.id)}</span>
+     </a>;
+    })}
+   </div>
+  </section>}
+ </>;
 }

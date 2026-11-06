@@ -89,6 +89,8 @@ async function getEffectivePreferences(): Promise<Preference[]> {
 
 
 export function buildPublicUrl(path: string): string {
+  // R2-backed uploads persist a complete HTTPS URL instead of a Storage key.
+  if (/^https:\/\//i.test(path)) return path;
   const { data } = supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path);
   return data.publicUrl;
 }

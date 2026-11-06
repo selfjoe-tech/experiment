@@ -1,54 +1,47 @@
-// app/page.tsx (or wherever HomePage lives)
 "use client";
 
-import React, { useEffect, useState } from "react";
-import Image from "next/image";
-
+import { useEffect, useState } from "react";
+import { ArrowRight, LockKeyhole } from "lucide-react";
 import DesktopShell from "@/app/components/feed/layout/DesktopShell";
 import MobileChrome from "@/app/components/feed/layout/MobileChrome";
 import VideoFeed from "@/app/components/feed/VideoFeed";
 import StaticPageAdPair from "@/app/components/ads/StaticPageAdPair";
 import type { FeedTab } from "@/app/components/feed/types";
-import { supabase } from "@/lib/supabaseClient";
 import { getIsLoggedInFromCookies } from "@/lib/actions/auth";
 
 export default function ReelsPage() {
-  // default selected: Trending
   const [activeTab, setActiveTab] = useState<FeedTab>("trending");
   const [isMobileSearching, setIsMobileSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [desktopNavHidden, setDesktopNavHidden] = useState(false);
-
+  const [mobileNavHidden, setMobileNavHidden] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authLoaded, setAuthLoaded] = useState(false);
 
-  // Simple auth check using Supabase
   useEffect(() => {
-
-    (async () => {
-      const LoggedInState = await getIsLoggedInFromCookies();
-      setIsLoggedIn(LoggedInState)
-      setAuthLoaded(true);
-    })();
-
-    
+    let active = true;
+    getIsLoggedInFromCookies()
+      .then(loggedIn => { if (active) setIsLoggedIn(Boolean(loggedIn)); })
+      .catch(() => { if (active) setIsLoggedIn(false); })
+      .finally(() => { if (active) setAuthLoaded(true); });
+    return () => { active = false; };
   }, []);
 
-  const [mobileNavHidden, setMobileNavHidden] = useState(false);
+  function selectTab(tab: FeedTab) {
+    setActiveTab(tab);
+    // Scrolling a Reel can hide the mobile navigation; show it again on tab changes.
+    setMobileNavHidden(false);
+    setDesktopNavHidden(false);
+  }
 
-
-  const showForYouGate =
-    activeTab === "forYou" && authLoaded && !isLoggedIn;
+  const showForYouGate = authLoaded && !isLoggedIn && activeTab === "forYou";
 
   return (
-    <div className="relative min-h-screen bg-black text-white overflow-hidden">
-      {/* Desktop: left nav + top nav + ads column */}
-      <DesktopShell navHidden={desktopNavHidden} />
-
-      {/* Mobile: top bar + bottom navbar */}
+    <div className="relative min-h-screen overflow-hidden bg-black text-white">
+      <DesktopShell navHidden={desktopNavHidden}/>
       <MobileChrome
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={selectTab}
         isSearching={isMobileSearching}
         onSearchOpen={() => setIsMobileSearching(true)}
         onSearchClose={() => {
@@ -57,204 +50,107 @@ export default function ReelsPage() {
         }}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
-          bottomNavHidden={mobileNavHidden} 
-
+        bottomNavHidden={mobileNavHidden}
       />
 
-
-      {/* For you / Trending switch – fixed over the video area */}
-      <div className="pointer-events-none fixed top-[74px] lg:top-5 lg:pr-0 left-1/2 lg:left-[calc(50%-132px)] z-30 -translate-x-1/2">
-        <div className="inline-flex gap-8 text-sm font-medium text-white pointer-events-auto">
-          {(["forYou", "trending"] as FeedTab[]).map((tabKey) => {
-            const label = tabKey === "forYou" ? "For You" : "Trending";
+      {/* Keep tabs fixed above both the Reel feed and the guest sign-in card. */}
+      <div className="pointer-events-none fixed left-1/2 top-[74px] z-30 -translate-x-1/2 lg:left-[calc(50%-132px)] lg:top-5">
+        <nav aria-label="Reels feeds" className="pointer-events-auto inline-flex gap-8 text-sm font-medium text-white">
+          {(["forYou", "trending"] as FeedTab[]).map(tabKey => {
             const active = activeTab === tabKey;
             return (
-              <button
-                key={tabKey}
-                type="button"
-                onClick={() => setActiveTab(tabKey)}
-                className={`pb-1 transition-colors ${
-                  active ? "text-white" : "text-white/70 hover:text-white"
-                }`}
-              >
-                <span>{label}</span>
-                <span
-                  className={`block mt-1 rounded-full ${
-                    active ? "h-[1px] bg-white" : "h-[3px] bg-transparent"
-                  }`}
-                />
+              <button key={tabKey} type="button"
+                onClick={() => selectTab(tabKey)}
+                aria-current={active ? "page" : undefined}
+                className={`border-b-2 pb-2 transition-colors ${active
+                  ? "border-white text-white"
+                  : "border-transparent text-white/60 hover:text-white"}`}>
+                {tabKey === "forYou" ? "For You" : "Trending"}
               </button>
             );
           })}
-        </div>
+        </nav>
       </div>
 
-      {/* Advertisements remain outside the Reel video scroller. */}
+      {/* Existing publisher ad zones remain mounted independently of the selected tab. */}
       <aside aria-label="Reels advertisements"
         className="fixed isolate inset-x-0 bottom-[calc(61px+env(safe-area-inset-bottom))] z-[1] h-[138px] overflow-hidden border-t border-white/10 bg-[#0b0d10] px-2 pt-1 lg:inset-x-auto lg:bottom-auto lg:right-0 lg:top-[180px] lg:z-[1] lg:h-auto lg:w-[340px] lg:overflow-visible lg:border-0 lg:bg-transparent lg:px-1 lg:pt-0">
-        <StaticPageAdPair compactOnMobile />
+        <StaticPageAdPair compactOnMobile/>
       </aside>
 
-      {/* Main area: either the For You gate or the real VideoFeed */}
       {showForYouGate ? (
-        <ForYouLoginGate />
+        <ForYouLoginGate onBrowseTrending={() => selectTab("trending")}/>
       ) : authLoaded ? (
         <VideoFeed
           withAds
           activeTab={activeTab}
-          onTabChange={setActiveTab}
-          onScrollDirectionChange={(direction) => {
-                const hide = direction === "down";
+          onTabChange={selectTab}
+          onScrollDirectionChange={direction => {
+            const hide = direction === "down";
             setDesktopNavHidden(hide);
-            setMobileNavHidden(hide);} // ✅ mobile follows same rule
-
-          }
-          
+            setMobileNavHidden(hide);
+          }}
         />
       ) : (
-        // tiny fallback while auth status loads
-        <div className="flex h-screen items-center justify-center lg:pl-[76px] lg:pr-0">
-          <div className="h-[80vh] w-full max-w-[430px] animate-pulse rounded-lg bg-white/[.05]" aria-label="Loading Reels" />
+        <div className="flex h-screen items-center justify-center lg:pl-[76px]">
+          <div className="h-[72vh] w-full max-w-[430px] animate-pulse rounded-lg bg-white/[.04]"
+            aria-label="Loading Reels"/>
         </div>
       )}
     </div>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* For You login gate                                                 */
-/* ------------------------------------------------------------------ */
-
-function ForYouLoginGate() {
+function ForYouLoginGate({ onBrowseTrending }: { onBrowseTrending: () => void }) {
   return (
-    <main className="relative h-screen lg:pl-[76px] lg:pr-0">
-      <div className="relative h-full flex items-center justify-center">
-        {/* Background image behind the card */}
-
-        {/* Card */}
-        <div className="flex flex-col items-center justify-center relative max-w-sm w-full h-full bg-black/80 border border-white/15 shadow-2xl overflow-hidden"
+    <main
+      aria-label="Sign in to view your For You feed"
+      className="relative z-[2] h-[calc(100dvh-199px-env(safe-area-inset-bottom))] lg:h-[100dvh] lg:pl-[76px] lg:pr-[340px]"
+    >
+      {/* Scrolling is limited to the space below the tabs and above mobile ads. */}
+      <div className="h-full overflow-y-auto overscroll-contain px-4 pb-6 pt-[128px] lg:pt-[92px]">
+        <section
+          className="relative isolate mx-auto flex min-h-[445px] w-full max-w-[390px] flex-col justify-end overflow-hidden rounded-2xl border border-white/[.15] bg-[#111216] text-center shadow-[0_20px_65px_rgba(0,0,0,.32)]"
           style={{
-    // 👈 change this path to match your file in /public
-          backgroundImage: "url('/images/unlock.png')",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-        }}
-        
+            // Preserve the original Reels guest-gate background image.
+            backgroundImage: "url('/images/unlock.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
         >
-          {/* subtle divider line like the screenshot */}
-          <div className="px-6 pt-8 pb-6 text-center">
-            <p className="text-sm text-white mb-6">
-              You must be logged in to view the{" "}
-              <span className="font-semibold">&ldquo;For You&rdquo;</span> feed.
-            </p>
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-black/10 via-black/45 via-45% to-[#0b0d10]" />
+          <div className="relative z-10 px-6 pb-8 pt-28 sm:px-9">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-white/35 bg-black/35 text-white backdrop-blur-sm">
+            <LockKeyhole size={26} strokeWidth={1.5} aria-hidden="true"/>
+          </div>
 
-            <a href="/auth/login">
-              <button
-                type="button"
-                className="w-full rounded-full bg-[pink] text-black font-semibold py-3 text-sm hover:brightness-95 transition"
-              >
-                Log In
-              </button>
+          <h1 className="mt-5 text-[23px] font-semibold tracking-[-0.035em] text-white">
+            Your For You feed
+          </h1>
+          <p className="mx-auto mt-2 max-w-[275px] text-[13px] leading-[1.65] text-white/80">
+            Log in to see reels picked for you, follow your favorite creators, and save what you like.
+          </p>
+
+          <div className="mt-6 space-y-2.5">
+            <a href="/auth/login?redirect=%2Freels"
+              className="flex min-h-11 w-full items-center justify-center rounded-lg bg-white px-4 text-[13px] font-semibold text-black transition hover:bg-white/90">
+              Log in
+            </a>
+            <a href="/auth/signup?redirect=%2Freels"
+              className="flex min-h-11 w-full items-center justify-center rounded-lg border border-white/25 bg-transparent px-4 text-[13px] font-semibold text-white transition hover:bg-white/[.07]">
+              Create account
             </a>
           </div>
 
-          <div className="h-px bg-white/10" />
-
-          <div className="px-6 py-5 text-center space-y-3">
-            <p className="text-xs text-white/70 mb-1">
-              Don&apos;t have an account?
-            </p>
-            <a href="/auth/signup">
-              <button
-                type="button"
-                className="w-full rounded-full border border-white text-sm font-semibold py-3 hover:bg-white/5 transition"
-              >
-                Sign Up
-              </button>
-            </a>
+          <button type="button" onClick={onBrowseTrending}
+            className="mt-5 inline-flex items-center gap-1.5 text-[12px] font-medium text-white/55 transition hover:text-white">
+            Continue with Trending
+            <ArrowRight size={14} aria-hidden="true"/>
+          </button>
           </div>
-        </div>
+        </section>
       </div>
     </main>
   );
 }
-
-
-
-
-
-// "use client";
-
-// import React, { useState } from "react";
-// import DesktopShell from "@/app/components/feed/layout/DesktopShell";
-// import MobileChrome from "@/app/components/feed/layout/MobileChrome";
-// import VideoFeed from "@/app/components/feed/VideoFeed";
-// import type { FeedTab } from "@/app/components/feed/types";
-
-// export default function HomePage() {
-//   // default selected: Trending
-//   const [activeTab, setActiveTab] = useState<FeedTab>("trending");
-//   const [isMobileSearching, setIsMobileSearching] = useState(false);
-//   const [searchQuery, setSearchQuery] = useState("");
-//   const [desktopNavHidden, setDesktopNavHidden] = useState(false);
-
-//   return (
-//     <div className="relative min-h-screen bg-black text-white overflow-hidden">
-//       {/* Desktop: left nav + top nav + ads column */}
-//       <DesktopShell navHidden={desktopNavHidden} />
-
-//       {/* Mobile: top bar + bottom navbar */}
-//       <MobileChrome
-//         activeTab={activeTab}
-//         onTabChange={setActiveTab}
-//         isSearching={isMobileSearching}
-//         onSearchOpen={() => setIsMobileSearching(true)}
-//         onSearchClose={() => {
-//           setIsMobileSearching(false);
-//           setSearchQuery("");
-//         }}
-//         searchQuery={searchQuery}
-//         setSearchQuery={setSearchQuery}
-//       />
-
-//       {/* For you / Trending switch – fixed over the video area */}
-//       <div className="pointer-events-none fixed top-14 lg:top-5 lg:pr-20 left-1/2 z-30 -translate-x-1/2">
-//         <div className="inline-flex gap-8 text-sm font-medium text-white pointer-events-auto">
-//           {(["forYou", "trending"] as FeedTab[]).map((tabKey) => {
-//             const label = tabKey === "forYou" ? "For you" : "Trending";
-//             const active = activeTab === tabKey;
-//             return (
-//               <button
-//                 key={tabKey}
-//                 type="button"
-//                 onClick={() => setActiveTab(tabKey)}
-//                 className={`pb-1 transition-colors ${
-//                   active ? "text-white" : "text-white/70 hover:text-white"
-//                 }`}
-//               >
-//                 <span>{label}</span>
-//                 <span
-//                   className={`block mt-1 rounded-full ${
-//                     active ? "h-[3px] bg-white" : "h-[3px] bg-transparent"
-//                   }`}
-//                 />
-//               </button>
-//             );
-//           })}
-//         </div>
-//       </div>
-
-      
-
-//       {/* Main feed (desktop + mobile) */}
-//       <VideoFeed
-//         activeTab={activeTab}
-//         onTabChange={setActiveTab}
-//         onScrollDirectionChange={(direction) =>
-//           setDesktopNavHidden(direction === "down")
-//         }
-//       />
-//     </div>
-//   );
-// }

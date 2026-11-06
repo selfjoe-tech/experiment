@@ -1,490 +1,74 @@
-// app/watch/[id]/page.tsx
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import WatchClient from "./watch-client";
-import { getWatchOgMeta } from "@/lib/server/watchOgMeta";
+import { getPublicMedia, publicMediaUrl, publicHttps, mediaTitle, absolute, isoDuration, safeJsonLd, BRAND, DEFAULT_IMAGE } from "@/lib/seo/public";
 
-const SITE_URL = ("https://goongram.com").replace(
-  /\/$/,
-  ""
-);
+type Props={params:Promise<{id:string}>;searchParams:Promise<{s?:string|string[]}>};
+const parsed=(id:string)=>/^[1-9][0-9]*$/.test(id)&&Number.isSafeInteger(Number(id))?Number(id):null;
+const titleFor=(m:NonNullable<Awaited<ReturnType<typeof getPublicMedia>>>)=>mediaTitle(m.title,m.description,"video",m.id);
+const excerpt=(m:NonNullable<Awaited<ReturnType<typeof getPublicMedia>>>)=>m.description?.trim()||m.title?.trim()||`Video ${m.id} on ${BRAND}`;
+export const revalidate=300;
 
-const FALLBACK_OG_IMAGE =
-  "https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png";
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ id: number }>;
-}): Promise<Metadata> {
-  const { id } = await params;
-  const mediaId = Number(id);
-
-  // Always return something valid even for bad IDs
-  if (!Number.isFinite(mediaId)) {
-    const canonical = `${SITE_URL}/watch/${encodeURIComponent(String(id))}`;
-    return {
-      title: "Watch video | goongram",
-      description: "Watch videos on goongram.",
-      alternates: { canonical },
-      openGraph: {
-        type: "website",
-        url: canonical,
-        title: "Watch video | goongram",
-        description: "Watch videos on goongram.",
-        siteName: "goongram",
-        images: [{ url: FALLBACK_OG_IMAGE, width: 1200, height: 630 }],
-      },
-      twitter: {
-        card: "summary_large_image",
-        images: [FALLBACK_OG_IMAGE],
-      },
-    };
-  }
-
-  const canonical = `${SITE_URL}/watch/${mediaId}`;
-  const embedUrl = `${SITE_URL}/embed/${mediaId}`;
-  const oembedUrl = `${SITE_URL}/api/oembed?format=json&url=${encodeURIComponent(canonical)}`;
-
-
-  let meta: any = null;
-  try {
-    meta = await getWatchOgMeta(mediaId);
-  } catch {
-    meta = null;
-  }
-
-  const ogImage = meta?.thumbnailUrl || meta?.poster || FALLBACK_OG_IMAGE;
-
-  const baseTitle =
-    meta?.title?.trim() || meta?.description?.slice(0, 80) || "Watch video on goongram";
-
-  const title = `${baseTitle} | goongram`;
-  const description = meta?.description?.trim() || "Watch videos on goongram.";
-
-  const videos = meta?.contentUrl
-    ? [
-        {
-          url: meta.contentUrl,
-          secureUrl: meta.contentUrl,
-          type: "video/mp4",
-          width: 720,
-          height: 1280,
-        },
-        {
-          url: embedUrl,
-          secureUrl: embedUrl,
-          type: "text/html",
-          width: 720,
-          height: 1280,
-        },
-      ]
-    : undefined;
-
-  return {
-    title,
-    description,
-    openGraph: {
-      type: "video.other",
-      url: canonical,
-      title,
-      description,
-      siteName: "Goon Gram",
-      images: [{ url: ogImage, width: 1200, height: 630 }],
-      videos,
-    },
-
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: [ogImage],
-    },
-
-    alternates: {
-      canonical: canonical,
-      types: {
-        "application/json+oembed": oembedUrl,
-      },
-    },
-
-    
-  };
+export async function generateMetadata({params}:Props):Promise<Metadata>{
+ const id=parsed((await params).id);
+ const media=id?await getPublicMedia(id,"video"):null;
+ if(!media)return {title:"Video unavailable",robots:{index:false,follow:false}};
+ const canonical=absolute(`/watch/${media.id}`);
+ const name=titleFor(media),description=excerpt(media);
+ const thumbnail=publicHttps(publicMediaUrl(media.thumbnail_path));
+ const src=publicHttps(publicMediaUrl(media.storage_path));
+ return {
+  title:name,description,
+  alternates:{canonical,types:{"application/json+oembed":absolute(`/api/oembed?format=json&url=${encodeURIComponent(canonical)}`)}},
+  robots:{index:true,follow:true,googleBot:{index:true,follow:true,"max-image-preview":"large","max-video-preview":-1}},
+  openGraph:{type:"video.other",url:canonical,title:name,description,images:[thumbnail||DEFAULT_IMAGE],
+   ...(src?{videos:[{url:src}]}:{})},
+  twitter:{card:"summary_large_image",title:name,description,images:[thumbnail||DEFAULT_IMAGE]},
+ };
 }
 
-
-
-
-
-export default async function WatchPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ s?: string | string[] }>;
-}) {
-  const { id } = await params;
-  const query = await searchParams;
-  const raw = Array.isArray(query.s) ? query.s[0] : query.s;
-  const value = raw && /^[0-9]+(?:[.][0-9]+)?$/.test(raw) ? Number(raw) : 0;
-  const startAtSeconds = Number.isFinite(value) && value >= 0 && value <= 86400 ? value : 0;
-  return <WatchClient mediaId={Number(id)} startAtSeconds={startAtSeconds} />;
+export default async function WatchPage({params,searchParams}:Props){
+ const id=parsed((await params).id);
+ if(!id)notFound();
+ const video=await getPublicMedia(id,"video");
+ if(!video)notFound();
+ const canonical=absolute(`/watch/${id}`);
+ const url=publicHttps(publicMediaUrl(video.storage_path));
+ const thumb=publicHttps(publicMediaUrl(video.thumbnail_path));
+ const duration=isoDuration(video.duration_seconds);
+ const name=titleFor(video),description=excerpt(video);
+ const creator=video.owner?.username;
+ const structured=thumb&&url?{
+  "@context":"https://schema.org","@type":"VideoObject",
+  "@id":canonical+"#video",url:canonical,name,description,thumbnailUrl:[thumb],
+  uploadDate:video.created_at,
+  ...(duration?{duration}:{}),
+  contentUrl:url,embedUrl:absolute(`/embed/${id}`),
+  ...(creator?{creator:{"@type":"Person",name:creator,url:absolute(`/${encodeURIComponent(creator)}`)}}:{}),
+  ...(Number.isFinite(Number(video.view_count))?{interactionStatistic:{
+   "@type":"InteractionCounter",interactionType:{"@type":"WatchAction"},
+   userInteractionCount:Number(video.view_count),
+  }}:{}),
+ }:null;
+ const query=await searchParams;
+ const raw=Array.isArray(query.s)?query.s[0]:query.s;
+ const seconds=raw&&/^[0-9]+(?:[.][0-9]+)?$/.test(raw)?Number(raw):0;
+ const startAtSeconds=Number.isFinite(seconds)&&seconds>=0&&seconds<=86400?seconds:0;
+ return <>
+  {structured&&<script type="application/ld+json" dangerouslySetInnerHTML={{__html:safeJsonLd(structured)}}/>}
+  <WatchClient mediaId={id} startAtSeconds={startAtSeconds}/>
+  <section className="mx-auto max-w-[1100px] px-4 pb-28 pt-6 text-white lg:pl-[92px]">
+   <h1 className="text-lg font-semibold">{name}</h1>
+   <p className="mt-2 max-w-2xl whitespace-pre-line text-sm leading-6 text-white/65">{description}</p>
+   <div className="mt-4 flex flex-wrap gap-3 text-xs text-white/55">
+    {creator&&<a href={`/${encodeURIComponent(creator)}`} className="font-medium text-white/80 hover:underline">By @{creator}</a>}
+    <time dateTime={video.created_at}>Published {new Date(video.created_at).toLocaleDateString("en-US",{dateStyle:"medium"})}</time>
+    {duration&&<span>Full video: {Math.ceil(Number(video.duration_seconds))} seconds</span>}
+   </div>
+   {(video.tags??[]).length>0&&<nav aria-label="Video topics" className="mt-4 flex flex-wrap gap-2">
+    {(video.tags??[]).slice(0,10).map(tag=><a key={tag} href={`/explore/niches/${encodeURIComponent(tag.toLowerCase().replace(/\s+/g,"-"))}`}
+      className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/60 hover:text-white">#{tag}</a>)}
+   </nav>}
+  </section>
+ </>;
 }
-
-
-
-
-
-
-// "use client";
-
-// import React, { useEffect, useState } from "react";
-// import Head from "next/head"; // 👈 NEW
-// import { useParams } from "next/navigation";
-// import DesktopShell from "@/app/components/feed/layout/DesktopShell";
-// import MobileChrome from "@/app/components/feed/layout/MobileChrome";
-// import VideoFeed from "@/app/components/feed/VideoFeed";
-// import type { FeedTab, Video } from "@/app/components/feed/types";
-// import { fetchVideoById, registerView } from "@/lib/actions/mediaFeed";
-// import Link from "next/link";
-// import { getIsLoggedInFromCookies } from "@/lib/actions/auth";
-// import { VideoCardSkeleton } from "@/app/components/skeletons/VideoCardSkeleton ";
-
-// export default function WatchPage() {
-
-  
-//   const params = useParams<{ id: string }>();
-//   const idParam = params?.id;
-//   const mediaId = Number(idParam);
-
-//   const [activeTab, setActiveTab] = useState<FeedTab>("trending");
-//   const [isMobileSearching, setIsMobileSearching] = useState(false);
-//   const [searchQuery, setSearchQuery] = useState("");
-//   const [desktopNavHidden, setDesktopNavHidden] = useState(false);
-
-//   const [initialVideo, setInitialVideo] = useState<Video | null>(null);
-//   const [loading, setLoading] = useState(true);
-//   const [error, setError] = useState<string | null>(null);
-//     const [isLoggedIn, setIsLoggedIn] = useState(false);
-//       const [authLoaded, setAuthLoaded] = useState(false);
-//        useEffect(() => {
-  
-//       (async () => {
-//         const LoggedInState = await getIsLoggedInFromCookies();
-//         setIsLoggedIn(LoggedInState)
-//         setAuthLoaded(true);
-//       })();
-  
-      
-//     }, []);
-
-
-//       const showForYouGate =
-//     activeTab === "forYou" && authLoaded && !isLoggedIn;
-
-//   useEffect(() => {
-//     if (!mediaId || Number.isNaN(mediaId)) {
-//       setError("Invalid video id.");
-//       setLoading(false);
-//       return;
-//     }
-
-//     let cancelled = false;
-
-//     (async () => {
-//       try {
-//         setLoading(true);
-//         setError(null);
-
-//         const v = await fetchVideoById(mediaId);
-//         if (!v) {
-//           if (!cancelled) setError("Video not found.");
-//           return;
-//         }
-
-//         // bump local views once for this watch page
-//         const bumped: Video = {
-//           ...v,
-//           views: (v.views ?? 0) + 1,
-//         };
-
-//         if (!cancelled) {
-//           setInitialVideo(bumped);
-//         }
-
-//         // fire-and-forget DB view registration
-//         registerView(mediaId).catch((err) =>
-//           console.error("registerView (watch) error", err)
-//         );
-//       } catch (err: any) {
-//         if (!cancelled) {
-//           setError(err?.message ?? "Failed to load video.");
-//         }
-//       } finally {
-//         if (!cancelled) setLoading(false);
-//       }
-//     })();
-
-//     return () => {
-//       cancelled = true;
-//     };
-//   }, [mediaId]);
-
-//   if (loading) {
-//     return (
-//       <VideoCardSkeleton />
-//     );
-//   }
-
-//   if (error || !initialVideo) {
-//     return (
-//       <div className="min-h-screen bg-black text-white flex items-center justify-center text-sm">
-//         {error || "Video not found."}
-//       </div>
-//     );
-//   }
-
-//   // ===== SEO FOR THIS VIDEO =====
-//   const anyVideo = initialVideo as any;
-
-//   const baseTitle: string =
-//     anyVideo.title ||
-//     anyVideo.description?.slice(0, 80) ||
-//     "Watch video on goongram";
-
-//   const pageTitle = `${baseTitle} | goongram`;
-//   const description: string =
-//     anyVideo.description ||
-//     "Watch adult video from creators on goongram.";
-
-//   const canonical = `https://goongram.com/watch/${encodeURIComponent(
-//     String(mediaId)
-//   )}`;
-
-//   const thumbnail: string | undefined =
-//     anyVideo.poster || anyVideo.thumbnailUrl || undefined;
-
-//   const uploadDateRaw: string | undefined =
-//     anyVideo.createdAt || anyVideo.uploadDate || undefined;
-
-//   const uploadDateIso = uploadDateRaw
-//     ? new Date(uploadDateRaw).toISOString()
-//     : undefined;
-
-//   const contentUrl: string | undefined =
-//     anyVideo.src || undefined; // URL of the actual video file/stream
-
-//   const creatorUsername: string | undefined = anyVideo.username || undefined;
-//   const creatorUrl = creatorUsername
-//     ? `https://goongram.com/${encodeURIComponent(creatorUsername)}`
-//     : undefined;
-
-//   const viewCount = Number(anyVideo.views ?? 0);
-//   const likeCount = Number(anyVideo.likes ?? 0);
-
-//   const videoSchema: Record<string, any> = {
-//     "@context": "https://schema.org",
-//     "@type": "VideoObject",
-//     name: baseTitle,
-//     description,
-//     url: canonical,
-//     embedUrl: canonical,
-//     ...(thumbnail && { thumbnailUrl: [thumbnail] }),
-//     ...(uploadDateIso && { uploadDate: uploadDateIso }),
-//     ...(contentUrl && { contentUrl }),
-//     publisher: {
-//       "@type": "Organization",
-//       name: "goongram",
-//       url: "https://goongram.com",
-//     },
-//     ...(creatorUsername && {
-//       creator: {
-//         "@type": "Person",
-//         name: creatorUsername,
-//         ...(creatorUrl && { url: creatorUrl }),
-//       },
-//     }),
-//     interactionStatistic: [
-//       {
-//         "@type": "InteractionCounter",
-//         interactionType: { "@type": "WatchAction" },
-//         userInteractionCount: viewCount,
-//       },
-//       {
-//         "@type": "InteractionCounter",
-//         interactionType: { "@type": "LikeAction" },
-//         userInteractionCount: likeCount,
-//       },
-//     ],
-//   };
-
-//   return (
-//     <>
-
-    
-//       <Head>
-//           <link
-//             rel="alternate"
-//             type="application/json+oembed"
-//             href={`https://goongram.com/oembed?format=json&url=${encodeURIComponent(canonical)}`}
-//           />
-
-//           <meta property="og:type" content="video.other" />
-//           <meta property="og:url" content={canonical} />
-//           <meta property="og:video" content={contentUrl} />
-//           <meta property="og:video:type" content="video/mp4" />
-//           <meta property="og:video:width" content="720" />
-//           <meta property="og:video:height" content="1280" />
-
-//         <title>{pageTitle}</title>
-//         <meta name="description" content={description} />
-//         <link rel="canonical" href={canonical} />
-//         <meta name="robots" content="index,follow" />
-
-//         {/* Open Graph */}
-//         <meta property="og:title" content={pageTitle} />
-//         <meta property="og:description" content={description} />
-//         <meta property="og:url" content={canonical} />
-//         <meta property="og:site_name" content="goongram" />
-//         <meta property="og:type" content="video.other" />
-//         {thumbnail && <meta property="og:image" content={thumbnail} />}
-//         {contentUrl && <meta property="og:video" content={contentUrl} />}
-
-//         {/* Twitter */}
-//         <meta name="twitter:card" content="player" />
-//         <meta name="twitter:title" content={pageTitle} />
-//         <meta name="twitter:description" content={description} />
-//         {thumbnail && <meta name="twitter:image" content={thumbnail} />}
-
-//         {/* JSON-LD VideoObject */}
-//         <script
-//           type="application/ld+json"
-//           dangerouslySetInnerHTML={{
-//             __html: JSON.stringify(videoSchema),
-//           }}
-//         />
-//       </Head>
-
-//       <div className="relative min-h-screen bg-black text-white overflow-hidden">
-//         {/* Desktop shell */}
-//         <DesktopShell navHidden={desktopNavHidden} />
-
-//         {/* Mobile chrome */}
-//         <MobileChrome
-//           activeTab={activeTab}
-//           onTabChange={setActiveTab}
-//           isSearching={isMobileSearching}
-//           onSearchOpen={() => setIsMobileSearching(true)}
-//           onSearchClose={() => {
-//             setIsMobileSearching(false);
-//             setSearchQuery("");
-//           }}
-//           searchQuery={searchQuery}
-//           setSearchQuery={setSearchQuery}
-//         />
-
-//         {/* For you / Trending switch – same as home */}
-//         <div className="pointer-events-none fixed top-14 lg:top-5 lg:pr-20 left-1/2 z-30 -translate-x-1/2">
-//           <div className="inline-flex gap-8 text-sm font-medium text-white pointer-events-auto">
-//             {(["forYou", "trending"] as FeedTab[]).map((tabKey) => {
-//               const label = tabKey === "forYou" ? "For you" : "Trending";
-//               const active = activeTab === tabKey;
-//               return (
-//                 <button
-//                   key={tabKey}
-//                   type="button"
-//                   onClick={() => setActiveTab(tabKey)}
-//                   className={`pb-1 transition-colors ${
-//                     active
-//                       ? "text-white"
-//                       : "text-white/70 hover:text-white"
-//                   }`}
-//                 >
-//                   <span>{label}</span>
-//                   <span
-//                     className={`block mt-1 rounded-full ${
-//                       active ? "h-[3px] bg-white" : "h-[3px] bg-transparent"
-//                     }`}
-//                   />
-//                 </button>
-//               );
-//             })}
-//           </div>
-//         </div>
-
-//         {/* Main feed, seeded with initialVideo */}
-//         {showForYouGate ? (
-//                       <ForYouLoginGate />
-//                     ) : authLoaded ? (
-//                       <VideoFeed
-//                         activeTab={activeTab}
-//                         onTabChange={setActiveTab}
-//                         onScrollDirectionChange={(direction) =>
-//                           setDesktopNavHidden(direction === "down")
-//                         }
-//                         initialVideo={initialVideo} // ✅ THIS is the missing piece
-//                       />
-//                     ) : (
-//                       // tiny fallback while auth status loads
-//                       <div className="flex h-screen items-center justify-center lg:pl-[17rem] lg:pr-[21rem]">
-//                         <span className="text-sm text-white/60">Loading…</span>
-//                       </div>
-//                     )}
-//       </div>
-//     </>
-//   );
-// }
-
-// function ForYouLoginGate() {
-//   return (
-//     <main className="relative h-screen lg:pl-[17rem] lg:pr-[21rem] lg:pt-16">
-//       <div className="relative h-full flex items-center justify-center px-3 sm:px-4">
-//         {/* Background image behind the card */}
-
-//         {/* Card */}
-//         <div className="flex flex-col items-center justify-center relative max-w-sm w-full h-full bg-black/80 border border-white/15 shadow-2xl overflow-hidden"
-//           style={{
-//     // 👈 change this path to match your file in /public
-//           backgroundImage: "url('/images/unlock-2.png')",
-//           backgroundSize: "cover",
-//           backgroundPosition: "center",
-//           backgroundRepeat: "no-repeat",
-//         }}
-        
-//         >
-//           {/* subtle divider line like the screenshot */}
-//           <div className="px-6 pt-8 pb-6 text-center">
-//             <p className="text-sm text-white mb-6">
-//               You must be logged in to view the{" "}
-//               <span className="font-semibold">&ldquo;For You&rdquo;</span> feed.
-//             </p>
-
-//             <a href="/auth/login">
-//               <button
-//                 type="button"
-//                 className="w-full rounded-full bg-[pink] text-black font-semibold py-3 text-sm hover:brightness-95 transition"
-//               >
-//                 Log In
-//               </button>
-//             </a>
-//           </div>
-
-//           <div className="h-px bg-white/10" />
-
-//           <div className="px-6 py-5 text-center space-y-3">
-//             <p className="text-xs text-white/70 mb-1">
-//               Don&apos;t have an account?
-//             </p>
-//             <a href="/auth/signup">
-//               <button
-//                 type="button"
-//                 className="w-full rounded-full border border-white text-sm font-semibold py-3 hover:bg-white/5 transition"
-//               >
-//                 Sign Up
-//               </button>
-//             </a>
-//           </div>
-//         </div>
-//       </div>
-//     </main>
-//   );
-// }

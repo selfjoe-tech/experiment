@@ -22,6 +22,8 @@ export type HomePost = {
   views: number;
   likedByMe: boolean;
   createdAt: string;
+  /** Original uploaded video duration, not the 30-second Home feed preview. */
+  durationSeconds: number | null;
   hashtags: string[];
   width: number | null;
   height: number | null;
@@ -41,6 +43,7 @@ async function viewerId(): Promise<string | null> {
 }
 
 function publicMediaUrl(path: string): string {
+  if (/^https:\/\//i.test(path)) return path;
   return supabase.storage.from("media").getPublicUrl(path).data.publicUrl;
 }
 
@@ -58,7 +61,7 @@ export async function fetchHomeFeedBatch(options: {
     .from("media")
     .select(`
       id, media_type, storage_path, title, description, created_at,
-      width, height, like_count, view_count, tags, audience,
+      width, height, duration_seconds, like_count, view_count, tags, audience,
       owner:profiles!media_owner_id_fkey (
         id, username, avatar_url, verified
       )
@@ -111,6 +114,7 @@ export async function fetchHomeFeedBatch(options: {
     created_at: string;
     width: number | null;
     height: number | null;
+    duration_seconds: number | null;
     like_count: number | null;
     view_count: number | null;
     tags: string[] | null;
@@ -149,6 +153,7 @@ export async function fetchHomeFeedBatch(options: {
       views: Number(row.view_count ?? 0),
       likedByMe: likedIds.has(Number(row.id)),
       createdAt: row.created_at,
+      durationSeconds: row.duration_seconds == null ? null : Number(row.duration_seconds),
       hashtags: row.tags ?? [],
       width: row.width,
       height: row.height,
@@ -195,7 +200,7 @@ export async function fetchHomePostById(id: number): Promise<HomePost | null> {
     .from("media")
     .select(`
       id, media_type, storage_path, title, description, created_at,
-      width, height, like_count, view_count, tags,
+      width, height, duration_seconds, like_count, view_count, tags,
       owner:profiles!media_owner_id_fkey (
         id, username, avatar_url, verified
       )
@@ -226,6 +231,7 @@ export async function fetchHomePostById(id: number): Promise<HomePost | null> {
     views: Number(row.view_count ?? 0),
     likedByMe,
     createdAt: row.created_at,
+    durationSeconds: row.duration_seconds == null ? null : Number(row.duration_seconds),
     hashtags: row.tags ?? [],
     width: row.width,
     height: row.height,

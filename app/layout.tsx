@@ -24,7 +24,7 @@ const DEFAULT_TITLE = `${SITE_NAME} | Porn GIFs, Videos & Clips`;
 const DEFAULT_DESCRIPTION =
   "Goon Gram is a short-form adult video and GIF platform. Discover trending creators, niches, and content in a continuous feed.";
 const DEFAULT_OG_IMAGE =
-  "https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png";
+  "https://goongram.com/icons/logo7.png";
 
 const siteJsonLd = {
   "@context": "https://schema.org",
@@ -51,46 +51,18 @@ export async function generateMetadata(): Promise<Metadata> {
 
     description: DEFAULT_DESCRIPTION,
 
-    keywords: [
-      SITE_NAME,
-      "adult gifs",
-      "adult short clips",
-      "nsfw gifs",
-      "adult creator platform",
-      "porn gifs",
-      "upskirt videos",
-      "upskirt creampie",
-      "upskirt",
-      "candy",
-      "redgif",
-      "porn",
-      "pornhub",
-      "xvideos",
-      "creampie",
-      "adult social feed",
-      "short form adult video",
-      "latina",
-      "brunette",
-      "blonde",
-      "ebony",
-      "bbw",
-      "bbc",
-      "cumshot",
-      "throatpie",
-      "step daughter",
-      "step dad",
-      "step brother",
-      "facial",
-      "sub",
-      "dom",
-      "porn gifs",
-      "porn clips"
-    ],
+    // Search engines primarily use page content and links; avoid keyword stuffing.
+    other: { rating: "adult" },
+
 
     // Put arbitrary verification meta tags in metadata (lands in <head>)
     verification: {
+      google: process.env.GOOGLE_SITE_VERIFICATION || undefined,
       other: {
         "juicyads-site-verification": "50181bcfdf34b852dbb8a24813c6930a",
+        ...(process.env.BING_SITE_VERIFICATION
+          ? { "msvalidate.01": process.env.BING_SITE_VERIFICATION }
+          : {}),
       },
     },
 
@@ -106,9 +78,6 @@ export async function generateMetadata(): Promise<Metadata> {
       },
     },
 
-    alternates: {
-      canonical: SITE_URL,
-    },
 
     openGraph: {
       type: "website",
@@ -119,8 +88,6 @@ export async function generateMetadata(): Promise<Metadata> {
       images: [
         {
           url: DEFAULT_OG_IMAGE,
-          width: 1200,
-          height: 630,
           alt: `${SITE_NAME} logo`,
         },
       ],
