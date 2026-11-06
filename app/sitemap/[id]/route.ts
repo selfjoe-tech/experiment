@@ -8,6 +8,8 @@ export async function GET(_:Request,{params}:Context){
  if(id==="static.xml")return xmlResponse(urlset([
   {loc:SITE+"/"},
   {loc:SITE+"/creators"},
+  {loc:SITE+"/videos"},
+  {loc:SITE+"/images"},
   {loc:SITE+"/explore/gifs"},
   {loc:SITE+"/explore/images"},
   {loc:SITE+"/explore/creators"},
