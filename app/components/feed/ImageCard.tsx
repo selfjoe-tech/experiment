@@ -543,6 +543,8 @@ export default function ImageCard({
         open={optionsOpen}
         onClose={() => setOptionsOpen(false)}
         mediaId={mediaId}
+        videoUrl={data?.src || initialSrc || ""}
+        allowEmbed={false}
       />
 
       {/* Comments overlay: dialog on desktop, drawer on mobile */}
