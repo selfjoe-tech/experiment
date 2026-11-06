@@ -23,10 +23,10 @@ export function xmlError(): Response {
 export async function sitemapCounts() {
   const db = getSupabaseAdmin();
   const [profiles,videos,images,niches] = await Promise.all([
-    db.from("profiles").select("id",{head:true,count:"exact"}).not("username","is",null),
-    db.from("media").select("id",{head:true,count:"exact"}).eq("media_type","video").not("storage_path","is",null),
-    db.from("media").select("id",{head:true,count:"exact"}).eq("media_type","image").not("storage_path","is",null),
-    db.from("tags").select("id",{head:true,count:"exact"}).not("slug","is",null),
+    db.from("public_seo_profiles").select("id",{head:true,count:"exact"}),
+    db.from("public_seo_media").select("id",{head:true,count:"exact"}).eq("media_type","video"),
+    db.from("public_seo_media").select("id",{head:true,count:"exact"}).eq("media_type","image"),
+    db.from("public_seo_tags").select("id",{head:true,count:"exact"}),
   ]);
   for(const result of [profiles,videos,images,niches]) if(result.error) throw result.error;
   return {profiles:profiles.count??0,videos:videos.count??0,images:images.count??0,niches:niches.count??0};
@@ -51,37 +51,24 @@ export async function sitemapChunk(kind:SitemapKind,page:number):Promise<string>
   if(!Number.isInteger(page)||page<0)throw new Error("Invalid sitemap chunk");
   const db = getSupabaseAdmin(),from=page*CHUNK_SIZE,to=from+CHUNK_SIZE-1;
   if(kind==="profiles"){
-    const {data,error}=await db.from("profiles").select("id,username,created_at,avatar_url")
-      .not("username","is",null).order("id").range(from,to);
+    const {data,error}=await db.from("public_seo_profiles").select("id,username,created_at,avatar_url")
+      .order("id").range(from,to);
     if(error)throw error;
-    const ids=(data??[]).map(p=>p.id);
-    if(!ids.length)return urlset([]);
-    const {data:posts,error:mediaError}=await db.from("media").select("owner_id")
-      .in("owner_id",ids).in("media_type",["video","image"]).not("storage_path","is",null);
-    if(mediaError)throw mediaError;
-    const active=new Set((posts??[]).map(m=>m.owner_id));
-    return urlset((data??[]).filter(p=>p.username && active.has(p.id)).map(p=>({
+    return urlset((data??[]).filter(p=>p.username).map(p=>({
       loc:SITE+"/"+encodeURIComponent(p.username),lastmod:p.created_at,image:publicHttps(p.avatar_url),
     })));
   }
   if(kind==="niches"){
-    const {data,error}=await db.from("tags").select("slug,created_at")
-      .not("slug","is",null).order("id").range(from,to);
+    const {data,error}=await db.from("public_seo_tags").select("slug,created_at")
+      .order("id").range(from,to);
     if(error)throw error;
-    // Only tags with genuine public content can become indexable landing pages.
-    const slugs=(data??[]).map(t=>t.slug).filter(Boolean);
-    const {data:media,error:mediaError}=slugs.length?await db.from("media")
-      .select("tags").in("media_type",["video","image"]).not("storage_path","is",null)
-      .overlaps("tags",slugs).limit(1000):{data:[],error:null};
-    if(mediaError)throw mediaError;
-    const used=new Set((media??[]).flatMap(m=>m.tags??[]).map(t=>t.toLowerCase()));
-    return urlset((data??[]).filter(t=>used.has(t.slug.toLowerCase())).map(t=>({
+    return urlset((data??[]).map(t=>({
       loc:SITE+"/explore/niches/"+encodeURIComponent(t.slug),lastmod:t.created_at,
     })));
   }
-  const {data,error}=await db.from("media")
+  const {data,error}=await db.from("public_seo_media")
     .select("id,title,description,created_at,storage_path,thumbnail_path,duration_seconds")
-    .eq("media_type",kind==="videos"?"video":"image").not("storage_path","is",null)
+    .eq("media_type",kind==="videos"?"video":"image")
     .order("id").range(from,to);
   if(error)throw error;
   return urlset((data??[]).map(m=>{
