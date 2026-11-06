@@ -87,6 +87,8 @@ export async function generateMetadata(): Promise<Metadata> {
       "porn clips"
     ],
 
+    other: { rating: "adult" },
+
     // Put arbitrary verification meta tags in metadata (lands in <head>)
     verification: {
       other: {
