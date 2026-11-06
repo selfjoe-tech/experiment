@@ -130,6 +130,7 @@ async function insertMediaRow(params: {
   title?: string;
   description?: string;
   durationSeconds?: number | null;
+  thumbnailPath?: string | null;
   tags?: string[];
 }): Promise<InsertedMediaRow> {
   const { data, error } = await supabase
@@ -141,6 +142,7 @@ async function insertMediaRow(params: {
       title: params.title ?? null,
       description: params.description ?? null,
       storage_path: params.storagePath,
+      thumbnail_path: params.thumbnailPath ?? null,
       duration_seconds:
         typeof params.durationSeconds === "number"
           ? params.durationSeconds
@@ -158,6 +160,67 @@ async function insertMediaRow(params: {
   return data as InsertedMediaRow;
 }
 
+/**
+ * Capture a real, public video poster during the existing upload workflow.
+ * Generating it locally avoids an expensive FFmpeg server job or third-party API.
+ * Failure never blocks the underlying video upload.
+ */
+async function captureVideoPoster(file: File): Promise<File | null> {
+  const url = URL.createObjectURL(file);
+  const video = document.createElement("video");
+  video.preload = "auto";
+  video.muted = true;
+  video.playsInline = true;
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(() => reject(new Error("Poster timeout")), 10000);
+      let finished = false;
+      const done = () => {
+        if (finished) return;
+        finished = true;
+        window.clearTimeout(timeout);
+        resolve();
+      };
+      const fail = () => {
+        if (finished) return;
+        finished = true;
+        window.clearTimeout(timeout);
+        reject(new Error("Cannot decode poster frame"));
+      };
+      video.onerror = fail;
+      video.onloadeddata = () => {
+        if (!Number.isFinite(video.duration) || video.duration <= 0.3) return done();
+        try {
+          video.currentTime = Math.min(1, video.duration / 3);
+        } catch { done(); }
+      };
+      video.onseeked = done;
+      video.src = url;
+      video.load();
+    });
+    if (!video.videoWidth || !video.videoHeight) return null;
+    const scale = Math.min(1, 960 / Math.max(video.videoWidth, video.videoHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+    const context = canvas.getContext("2d");
+    if (!context) return null;
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>(resolve =>
+      canvas.toBlob(resolve, "image/jpeg", 0.78));
+    return blob && blob.size > 0
+      ? new File([blob], "video-poster.jpg", { type: "image/jpeg" })
+      : null;
+  } catch (error) {
+    console.warn("Video poster could not be generated:", error);
+    return null;
+  } finally {
+    video.removeAttribute("src");
+    video.load();
+    URL.revokeObjectURL(url);
+  }
+}
+
 // ----------------- VIDEO -----------------
 
 export async function uploadTrimmedVideo(
@@ -172,6 +235,18 @@ export async function uploadTrimmedVideo(
 
   await uploadToStorage(storagePath, clip.file, opts);
 
+  let thumbnailPath: string | null = null;
+  try {
+    const poster = await captureVideoPoster(clip.file);
+    if (poster) {
+      const posterPath = `posters/${ownerId}/${crypto.randomUUID()}.jpg`;
+      await uploadToStorage(posterPath, poster);
+      thumbnailPath = posterPath;
+    }
+  } catch (error) {
+    console.warn("Video poster upload failed; original upload will continue:", error);
+  }
+
   const durationSeconds =
     typeof opts?.durationSeconds === "number"
       ? opts.durationSeconds
@@ -184,6 +259,7 @@ export async function uploadTrimmedVideo(
     title: form.title,
     description: form.description,
     storagePath,
+    thumbnailPath,
     durationSeconds,
     tags: form.tags ?? [],
   });
