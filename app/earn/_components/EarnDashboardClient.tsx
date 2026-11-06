@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, ArrowUpRight, Check, Clock3, Copy, ExternalLink, Play, Wallet, X } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, Clock3, Copy, ExternalLink, Play, X } from "lucide-react";
 import { requestPayout, savePaypalEmail, type EarnDashboardData } from "@/lib/actions/earn";
 
 const money = (value: number) => new Intl.NumberFormat("en-US", {
