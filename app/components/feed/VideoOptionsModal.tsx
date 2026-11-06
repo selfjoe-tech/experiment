@@ -63,7 +63,7 @@ async function forceDownload(url: string, filename: string) {
   a.click();
   a.remove();
 
-  URL.revokeObjectURL(blobUrl);
+  window.setTimeout(() => URL.revokeObjectURL(blobUrl), 30_000);
 }
 
 export default function VideoOptionsModal({
