@@ -23,8 +23,7 @@ const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://goongram.com").re
 const DEFAULT_TITLE = `${SITE_NAME} | Porn GIFs, Videos & Clips`;
 const DEFAULT_DESCRIPTION =
   "Goon Gram is a short-form adult video and GIF platform. Discover trending creators, niches, and content in a continuous feed.";
-const DEFAULT_OG_IMAGE =
-  "https://dzgpkywovaezlaabuxhl.supabase.co/storage/v1/object/public/og-images/brand/logo7.png";
+const DEFAULT_OG_IMAGE = "https://goongram.com/images/logo.png";
 
 const siteJsonLd = {
   "@context": "https://schema.org",
@@ -89,8 +88,6 @@ export async function generateMetadata(): Promise<Metadata> {
       images: [
         {
           url: DEFAULT_OG_IMAGE,
-          width: 1200,
-          height: 630,
           alt: `${SITE_NAME} logo`,
         },
       ],
