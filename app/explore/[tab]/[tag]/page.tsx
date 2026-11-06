@@ -28,7 +28,7 @@ export async function generateMetadata({params}:Props):Promise<Metadata>{
  const title=`${topic.tag.label} ${tab==="images"?"images":"videos"}`;
  const description=`Explore public ${topic.tag.label} ${tab==="images"?"images":"videos"} from Goon Gram creators.`;
  // Index only real, populated topics; do not turn arbitrary searches into doorway pages.
- const index=topic.posts.length>=2;
+ const index=topic.posts.length>=1;
  return {title,description,alternates:{canonical},robots:{index,follow:true},
   openGraph:{type:"website",url:canonical,title,description},twitter:{card:"summary",title,description}};
 }
@@ -37,7 +37,7 @@ export default async function ExploreNicheTagPage({params}:Props){
  const topic=await getTopic(tab,tag);
  if(!topic)notFound();
  const canonical=absolute(`/explore/${tab}/${tag}`);
- const schema=topic.posts.length>=2?{
+ const schema=topic.posts.length>=1?{
   "@context":"https://schema.org","@type":"CollectionPage",name:topic.tag.label,
   url:canonical,mainEntity:{"@type":"ItemList",itemListElement:topic.posts.map((p,i)=>({
    "@type":"ListItem",position:i+1,url:absolute(p.media_type==="video"?`/watch/${p.id}`:`/image/${p.id}`),
