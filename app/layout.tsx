@@ -28,9 +28,12 @@ const DEFAULT_OG_IMAGE =
 
 const siteJsonLd = {
   "@context": "https://schema.org",
-  "@type": "WebSite",
-  name: SITE_NAME,
-  url: SITE_URL,
+  "@graph": [
+    { "@type": "WebSite", "@id": SITE_URL + "/#website", name: SITE_NAME, url: SITE_URL,
+      publisher: { "@id": SITE_URL + "/#organization" } },
+    { "@type": "Organization", "@id": SITE_URL + "/#organization",
+      name: SITE_NAME, url: SITE_URL, logo: SITE_URL + "/icons/logo7.png" },
+  ],
 };
 
 function SiteJsonLd() {
@@ -51,41 +54,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
     description: DEFAULT_DESCRIPTION,
 
-    keywords: [
-      SITE_NAME,
-      "adult gifs",
-      "adult short clips",
-      "nsfw gifs",
-      "adult creator platform",
-      "porn gifs",
-      "upskirt videos",
-      "upskirt creampie",
-      "upskirt",
-      "candy",
-      "redgif",
-      "porn",
-      "pornhub",
-      "xvideos",
-      "creampie",
-      "adult social feed",
-      "short form adult video",
-      "latina",
-      "brunette",
-      "blonde",
-      "ebony",
-      "bbw",
-      "bbc",
-      "cumshot",
-      "throatpie",
-      "step daughter",
-      "step dad",
-      "step brother",
-      "facial",
-      "sub",
-      "dom",
-      "porn gifs",
-      "porn clips"
-    ],
+    // Per-page titles, canonical URLs, and keywords belong to their own routes.
+    other: { rating: "adult" },
 
     // Put arbitrary verification meta tags in metadata (lands in <head>)
     verification: {
@@ -104,10 +74,6 @@ export async function generateMetadata(): Promise<Metadata> {
         "max-video-preview": -1,
         "max-snippet": -1,
       },
-    },
-
-    alternates: {
-      canonical: SITE_URL,
     },
 
     openGraph: {
