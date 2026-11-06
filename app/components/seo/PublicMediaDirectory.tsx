@@ -8,9 +8,9 @@ export default async function PublicMediaDirectory({
  kind, page,
 }: { kind:Kind;page:number }) {
  const db=await createClient(),limit=36;
- const {data,error}=await db.from("media")
-   .select("id,media_type,created_at,storage_path,thumbnail_path,title,description,owner:profiles!media_owner_id_fkey(username)")
-   .eq("media_type",kind).not("storage_path","is",null)
+ const {data,error}=await db.from("public_seo_media")
+   .select("id,media_type,created_at,storage_path,thumbnail_path,title,description,username")
+   .eq("media_type",kind)
    .order("created_at",{ascending:false}).order("id",{ascending:false})
    .range((page-1)*limit,page*limit-1);
  if(error)throw new Error("Media directory temporarily unavailable");
@@ -37,7 +37,7 @@ export default async function PublicMediaDirectory({
       const title=mediaTitle(row.title,row.description,kind,row.id);
       const image=publicHttps(publicMediaUrl(kind==="video"?row.thumbnail_path:row.storage_path));
       const href=absolute(`${kind==="video"?"/watch":"/image"}/${row.id}`);
-      const owner=(row.owner as unknown as {username:string}|null)?.username;
+      const owner=row.username;
       return <article key={row.id} className="min-w-0 overflow-hidden rounded-lg border border-white/[.09] bg-white/[.025]">
        <a href={href} className="block">
         {image?<img src={image} alt={title} loading="lazy" className="aspect-square w-full object-cover"/>:
