@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import ExploreNicheTagClient from "./ExploreNicheTagClient";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import {
@@ -41,6 +42,7 @@ export async function generateMetadata(props:Params):Promise<Metadata> {
 }
 export default async function ExploreNicheTagPage(props:Params) {
   const topic=await resolveTopic(props);
+  if(!topic) notFound();
   const canonical=topic?absoluteSeoUrl(`/explore/${topic.tab}/${topic.tag}`):null;
   const schema=topic?{
     "@context":"https://schema.org",
