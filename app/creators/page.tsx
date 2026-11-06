@@ -17,16 +17,15 @@ export default async function CreatorsDirectory({searchParams}:Props){
  const page=raw&&/^[1-9][0-9]{0,3}$/.test(raw)?Number(raw):1;
  const limit=36;
  const db=await createClient();
- const {data, error}=await db.from("profiles")
+ const {data, error}=await db.from("public_seo_profiles")
   .select("id,username,avatar_url,bio,follower_count,created_at")
-  .not("username","is",null).order("created_at",{ascending:false})
+  .order("created_at",{ascending:false})
   .range((page-1)*limit,page*limit-1);
  if(error)throw new Error("Creator directory unavailable");
  const profiles=data??[];
  const ids=profiles.map(p=>p.id);
- const {data:media}=ids.length?await db.from("media")
-  .select("owner_id").in("owner_id",ids).not("storage_path","is",null)
-  .in("media_type",["video","image"]).limit(1000):{data:[]};
+ const {data:media}=ids.length?await db.from("public_seo_media")
+  .select("owner_id").in("owner_id",ids).limit(1000):{data:[]};
  const active=new Set((media??[]).map(m=>m.owner_id));
  const visible=profiles.filter(p=>p.username&&active.has(p.id));
  return <div className="min-h-screen bg-[#0b0d10] text-white">
