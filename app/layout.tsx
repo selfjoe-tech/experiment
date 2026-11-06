@@ -59,8 +59,12 @@ export async function generateMetadata(): Promise<Metadata> {
 
     // Put arbitrary verification meta tags in metadata (lands in <head>)
     verification: {
+      ...(process.env.GOOGLE_SITE_VERIFICATION
+        ? { google: process.env.GOOGLE_SITE_VERIFICATION } : {}),
       other: {
         "juicyads-site-verification": "50181bcfdf34b852dbb8a24813c6930a",
+        ...(process.env.BING_SITE_VERIFICATION
+          ? { "msvalidate.01": process.env.BING_SITE_VERIFICATION } : {}),
       },
     },
 
