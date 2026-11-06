@@ -386,7 +386,7 @@ function isSafeExternalUrl(url: string) {
       </div>
 
       <aside aria-label="Profile advertisements"
-        className="isolate px-3 pb-4 sm:px-6 lg:fixed lg:right-0 lg:top-[186px] lg:z-[1] lg:w-[340px] lg:px-1 lg:pb-0">
+        className="relative isolate z-[1] mb-4 w-full min-w-0 pb-4 lg:fixed lg:right-2 lg:top-[186px] lg:mb-0 lg:w-[328px] lg:pb-0">
         <StaticPageAdPair />
       </aside>
 
