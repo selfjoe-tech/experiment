@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import WatchClient from "./watch-client";
+import WatchBottomAds from "@/app/components/ads/WatchBottomAds";
 import { getPublicMedia, publicMediaUrl, publicHttps, mediaTitle, absolute, isoDuration, safeJsonLd, BRAND, DEFAULT_IMAGE } from "@/lib/seo/public";
 
 type Props={params:Promise<{id:string}>;searchParams:Promise<{s?:string|string[]}>};
@@ -54,10 +55,10 @@ export default async function WatchPage({params,searchParams}:Props){
  const raw=Array.isArray(query.s)?query.s[0]:query.s;
  const seconds=raw&&/^[0-9]+(?:[.][0-9]+)?$/.test(raw)?Number(raw):0;
  const startAtSeconds=Number.isFinite(seconds)&&seconds>=0&&seconds<=86400?seconds:0;
- return <>
+ return <div className="min-h-screen bg-[#0b0d10] text-white">
   {structured&&<script type="application/ld+json" dangerouslySetInnerHTML={{__html:safeJsonLd(structured)}}/>}
   <WatchClient mediaId={id} startAtSeconds={startAtSeconds}/>
-  <section className="mx-auto max-w-[1100px] px-4 pb-28 pt-6 text-white lg:pl-[92px]">
+  <section className="mx-auto max-w-[1100px] px-4 pb-8 pt-6 text-white lg:pl-[92px]">
    <h1 className="text-lg font-semibold">{name}</h1>
    <p className="mt-2 max-w-2xl whitespace-pre-line text-sm leading-6 text-white/65">{description}</p>
    <div className="mt-4 flex flex-wrap gap-3 text-xs text-white/55">
@@ -70,5 +71,8 @@ export default async function WatchPage({params,searchParams}:Props){
       className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/60 hover:text-white">#{tag}</a>)}
    </nav>}
   </section>
- </>;
+  <div className="mx-auto max-w-[1100px] px-4 pb-24 pt-2 lg:pl-[92px] lg:pb-12">
+   <WatchBottomAds />
+  </div>
+ </div>;
 }

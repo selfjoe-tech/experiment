@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import NextTopLoader from "nextjs-toploader";
 import JuicyAdsLoader from "@/app/components/ads/JuicyAdsLoader";
+import AdDocumentNavigation from "@/app/components/ads/AdDocumentNavigation";
 import SitewideAd from "@/app/components/ads/SitewideAd";
 import AdultAgeGate from "@/app/components/age/AdultAgeGate";
 import UploadStatusProvider from "@/app/components/upload/UploadStatusProvider";
@@ -134,6 +135,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SiteJsonLd />
         <AdultAgeGate>
           <UploadStatusProvider>
+            <AdDocumentNavigation />
             <JuicyAdsLoader />
             <SitewideAd />
             {children}
