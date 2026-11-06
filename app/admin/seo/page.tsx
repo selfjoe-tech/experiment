@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/server/requireAdmin";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { indexNowKey } from "@/lib/server/indexNow";
+import PosterBackfillButton from "./PosterBackfillButton";
 
 export const dynamic="force-dynamic";
 export const metadata:Metadata={title:"SEO monitoring",robots:{index:false,follow:false}};
@@ -44,6 +45,7 @@ export default async function SeoAdminPage(){
         <p className="mt-3 text-2xl font-semibold tabular-nums">{fmt(Number(value))}</p>
       </div>)}
     </div>
+    {missingPosters>0&&<PosterBackfillButton/>}
     <div className="mt-7 border-b border-white/10 pb-6 text-sm">
       <h2 className="font-semibold">Search engine integrations</h2>
       <p className="mt-2 text-white/60">IndexNow: {indexNowKey()?"Configured":"Not configured"}</p>
