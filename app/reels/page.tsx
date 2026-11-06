@@ -63,7 +63,7 @@ export default function ReelsPage() {
 
 
       {/* For you / Trending switch – fixed over the video area */}
-      <div className="pointer-events-none fixed top-[74px] lg:top-5 lg:pr-0 left-1/2 lg:left-[calc(50%-132px)] min-[1360px]:left-[calc(50%-48px)] z-30 -translate-x-1/2">
+      <div className="pointer-events-none fixed top-[74px] lg:top-5 lg:pr-0 left-1/2 lg:left-[calc(50%-132px)] z-30 -translate-x-1/2">
         <div className="inline-flex gap-8 text-sm font-medium text-white pointer-events-auto">
           {(["forYou", "trending"] as FeedTab[]).map((tabKey) => {
             const label = tabKey === "forYou" ? "For You" : "Trending";
@@ -113,7 +113,7 @@ export default function ReelsPage() {
         />
       ) : (
         // tiny fallback while auth status loads
-        <div className="flex h-screen items-center justify-center lg:pl-[76px] lg:pr-0 min-[1360px]:pl-[244px]">
+        <div className="flex h-screen items-center justify-center lg:pl-[76px] lg:pr-0">
           <div className="h-[80vh] w-full max-w-[430px] animate-pulse rounded-lg bg-white/[.05]" aria-label="Loading Reels" />
         </div>
       )}
@@ -127,7 +127,7 @@ export default function ReelsPage() {
 
 function ForYouLoginGate() {
   return (
-    <main className="relative h-screen lg:pl-[76px] min-[1360px]:pl-[244px] lg:pr-0">
+    <main className="relative h-screen lg:pl-[76px] lg:pr-0">
       <div className="relative h-full flex items-center justify-center">
         {/* Background image behind the card */}
 
