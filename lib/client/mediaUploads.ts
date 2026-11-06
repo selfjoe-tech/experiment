@@ -157,6 +157,17 @@ async function insertMediaRow(params: {
     throw new Error(error.message || "Failed to create media record.");
   }
 
+  // This is advisory only: the media row has already been committed.
+  // Discovery failures never roll back uploads or expose publisher credentials.
+  if (typeof window !== "undefined" && data?.id) {
+    void fetch("/api/seo/notify",{
+      method:"POST",
+      credentials:"same-origin",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({kind:"media",id:data.id}),
+      keepalive:true,
+    }).catch(()=>{});
+  }
   return data as InsertedMediaRow;
 }
 
