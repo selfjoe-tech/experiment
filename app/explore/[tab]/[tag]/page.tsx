@@ -10,10 +10,9 @@ const eligibleTabs=["niches","gifs","images"];
 async function getTopic(tab:string,slug:string){
  if(!eligibleTabs.includes(tab)||!slug||slug.length>100||!/^[\w-]+$/.test(slug))return null;
  const db=await createClient();
- const {data:tag}=await db.from("tags").select("slug,label").eq("slug",slug).maybeSingle();
+ const {data:tag}=await db.from("public_seo_tags").select("slug,label").eq("slug",slug).maybeSingle();
  if(!tag)return null;
- let q=db.from("media").select("id,media_type,title,description,storage_path,thumbnail_path")
-  .not("storage_path","is",null)
+ let q=db.from("public_seo_media").select("id,media_type,title,description,storage_path,thumbnail_path")
   .overlaps("tags",[tag.slug,tag.label].filter(Boolean)).order("created_at",{ascending:false}).limit(16);
  if(tab==="gifs")q=q.eq("media_type","video");
  else if(tab==="images")q=q.eq("media_type","image");
