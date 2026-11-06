@@ -89,6 +89,9 @@ async function getEffectivePreferences(): Promise<Preference[]> {
 
 
 export function buildPublicUrl(path: string): string {
+  // Storage records may contain an existing public Cloudflare R2/CDN URL.
+  if (/^https:\/\//i.test(path)) return path;
+  if (/^[a-z]+:\/\//i.test(path) || path.startsWith("//")) return "";
   const { data } = supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path);
   return data.publicUrl;
 }
