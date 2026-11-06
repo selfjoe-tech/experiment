@@ -47,13 +47,18 @@ export type PublicMedia = {
 export async function getPublicMedia(id: number, type?: "video" | "image"): Promise<PublicMedia | null> {
   if (!Number.isSafeInteger(id) || id < 1) return null;
   const db = await createClient();
-  let query = db.from("media")
-    .select("id,media_type,title,description,storage_path,thumbnail_path,duration_seconds,width,height,created_at,tags,audience,view_count,like_count,owner:profiles!media_owner_id_fkey(username,avatar_url)")
-    .eq("id", id).not("storage_path", "is", null);
+  let query = db.from("public_seo_media")
+    .select("id,media_type,title,description,storage_path,thumbnail_path,duration_seconds,width,height,created_at,tags,view_count,username,avatar_url")
+    .eq("id", id);
   if (type) query = query.eq("media_type", type);
   const { data, error } = await query.maybeSingle();
   if (error || !data) return null;
-  return data as unknown as PublicMedia;
+  return {
+    ...data,
+    audience: null,
+    like_count: null,
+    owner: data.username ? {username:data.username,avatar_url:data.avatar_url} : null,
+  } as PublicMedia;
 }
 export type PublicProfile = {
   id: string; username: string; avatar_url: string | null; bio: string | null;
@@ -62,21 +67,20 @@ export type PublicProfile = {
 export async function getPublicProfile(username: string): Promise<PublicProfile | null> {
   if (!username || username.length > 80) return null;
   const db = await createClient();
-  const { data, error } = await db.from("profiles")
+  const { data, error } = await db.from("public_seo_profiles")
     .select("id,username,avatar_url,bio,verified,created_at,follower_count")
     .ilike("username", username).maybeSingle();
   return error ? null : data as PublicProfile | null;
 }
 export async function getPublicCreatorMedia(ownerId: string, limit = 16) {
   const db = await createClient();
-  const { data, error } = await db.from("media")
+  const { data, error } = await db.from("public_seo_media")
     .select("id,media_type,title,description,storage_path,thumbnail_path,created_at")
     .eq("owner_id", ownerId).in("media_type", ["video","image"])
-    .not("storage_path","is",null)
     .order("created_at", { ascending: false }).limit(limit);
   return error ? [] : data ?? [];
 }
 export function seoEligibleProfile(profile: PublicProfile, posts: unknown[]): boolean {
   // An otherwise empty account should not become a thin search landing page.
-  return Boolean(profile.username.trim()) && posts.length > 0;
+  return Boolean(profile.username.trim()) && (posts.length > 0 || (profile.bio?.trim().length ?? 0) >= 12);
 }
