@@ -23,7 +23,8 @@ import {
 } from "../feed/FullscreenImageOverlay";
 import { ExploreGridSkeleton } from "../skeletons/ExploreGridSkeleton";
 import GridVideoPreview from "@/app/components/media/GridVideoPreview";
-import { ExploreGridAd } from "@/app/components/ads/AdPlacements";
+import InlineContentAd from "@/app/components/ads/InlineContentAd";
+import { Eye, Play, UsersRound, Hash, BadgeCheck, Image as ImageIcon } from "lucide-react";
 
 
 // 🔧 UPDATED: add slug + simplify niche variant
@@ -52,6 +53,7 @@ export type ExploreItem =
       name: string;
       avatar: string;
       followers?: number;
+      verified?: boolean;
       score?: number;
       date?: number;
     }
@@ -243,89 +245,118 @@ export default function ExploreGrid({ onVideoClick, tab, sortBy, fetcher }: Prop
     [imageItemsOnly]
   );
 
-  // ✅ nicer tile chrome (bonus)
-  const tileChrome =
-    "rounded-xl overflow-hidden border border-white/10 bg-white/5 hover:border-white/20 transition-colors";
-
-  // The ad lives outside the virtualizer and its tab-specific branches.
-  // Switching tabs/sort, scrolling, or loading another batch must never
-  // destroy the JuicyAds element. Each grid reserves its first square cell.
   const loadingInitial = items.length === 0 && (loading || hasMore);
   const empty = !loading && items.length === 0 && !hasMore;
-  const gap = tab === "niches" || tab === "creators" ? 8 : 4;
-  const sponsoredTile = { id: "__explore_sponsored", type: "ad" as const };
+  const gap = 3;
+  // Placeholder only; the real ad element remains outside the virtualizer.
+  const adTile = { id: "__stable_content_ad", type: "ad" as const };
+  const reservedAdCell = <div aria-hidden="true" className="aspect-square h-full w-full bg-[#18191e]"/>;
+  const tile = "group relative block aspect-square h-full w-full overflow-hidden rounded-[2px] bg-[#18191e] text-left outline-none transition focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-white";
 
-  const reservedAdTile = <div aria-hidden="true" className="h-full w-full rounded-sm bg-white/[.035]"/>;
+  const placeholder = <div className="grid grid-cols-3 gap-[3px] lg:grid-cols-4" aria-label="Loading content">
+    {reservedAdCell}
+    {Array.from({length:11},(_,i)=><div key={i} className="aspect-square animate-pulse bg-white/[.045]"/>)}
+  </div>;
 
   return <div className="w-full">
-    <div className="relative w-full">
-      {/* Visually occupies grid cell 0; mounted outside the virtualizer. */}
-      <div className="absolute left-0 top-0 z-20 aspect-square overflow-hidden"
-        style={{width: `calc((100% - ${gap * (cols - 1)}px) / ${cols})`}}>
-        <ExploreGridAd/>
+    <div className="relative isolate w-full">
+      {/* One real vendor DOM node, never rendered by a virtual row or media map. */}
+      <div className="absolute left-0 top-0 z-[1] aspect-square overflow-hidden rounded-[2px]"
+        style={{ width: `calc((100% - ${gap * (cols - 1)}px) / ${cols})` }}>
+        <InlineContentAd variant="tile"/>
       </div>
-      {loadingInitial ? <ExploreGridSkeleton/> : empty ?
-        <div className="grid min-h-[160px] place-items-center text-sm text-white/60">No items yet.</div> :
+      {loadingInitial ? placeholder : empty ?
+        <div className="grid grid-cols-3 gap-[3px] lg:grid-cols-4">
+          <div className="aspect-square bg-[#18191e]" aria-hidden="true"/>
+          <div className="col-span-2 flex min-h-40 flex-col items-center justify-center gap-2 px-3 text-center lg:col-span-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white/15 text-white/60">
+            <Hash size={22}/>
+          </div>
+          <p className="text-sm font-semibold">Nothing here yet</p>
+          <p className="text-xs text-white/45">New posts and creators will appear here.</p>
+          </div>
+        </div> :
       tab === "creators" ?
-        <div className="grid grid-cols-3 gap-2 lg:grid-cols-4">
-          {reservedAdTile}
-          {creatorItems.map(c => <a
-            href={`/${encodeURIComponent(c.name)}`} key={c.id} className={`block ${tileChrome}`}>
-            <div className="relative">
-              <LazyImage src={c.avatar} alt={c.name} className="aspect-square"/>
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-                <div className="truncate text-sm font-semibold">{c.name}</div>
-                {c.followers ? <div className="text-[11px] text-white/70">{c.followers.toLocaleString()} followers</div> : null}
+        <div className="grid grid-cols-3 gap-[3px] lg:grid-cols-4">
+          {reservedAdCell}
+          {creatorItems.map(c =>
+            <a key={c.id} href={`/${encodeURIComponent(c.name)}`} className={tile}
+              aria-label={`View @${c.name}'s profile`}>
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-[#22232c] via-[#15161b] to-[#29232b] px-2">
+                <div className="h-[43%] max-h-24 aspect-square overflow-hidden rounded-full border-2 border-white/30 p-[2px]">
+                  <LazyImage src={c.avatar} alt="" className="h-full w-full rounded-full object-cover"/>
+                </div>
+                <div className="flex max-w-full items-center justify-center gap-1">
+                  <span className="truncate text-xs font-semibold text-white sm:text-sm">{c.name}</span>
+                  {c.verified && <BadgeCheck size={14} className="shrink-0 text-sky-400"/>}
+                </div>
+                <span className="hidden items-center gap-1 text-[11px] text-white/55 sm:flex">
+                  <UsersRound size={12}/>{(c.followers ?? 0).toLocaleString()} followers
+                </span>
               </div>
-            </div>
-          </a>)}
+              <div className="pointer-events-none absolute inset-0 bg-white/0 transition-colors group-hover:bg-white/[.045]"/>
+            </a>)}
         </div> :
       tab === "niches" ?
         <VirtualizedSquareGrid
-          items={[sponsoredTile, ...nicheItems]}
-          cols={cols} gapPx={8} gridClassName="w-full"
-          getKey={n => n.type === "ad" ? "reserved-ad-cell" : `niche-${n.slug}`}
-          renderItem={n => n.type === "ad" ? reservedAdTile :
-            <a href={`/explore/niches/${encodeURIComponent(n.slug)}`}
-              className={`block h-full w-full ${tileChrome}`}>
-              <div className="relative h-full w-full">
-                <GridVideoPreview src={n.src} cacheKey={`niche-${n.slug}`}
-                  className="h-full w-full" mobileLimit={4} mobileMode="still"/>
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-2">
-                  <div className="truncate text-sm font-semibold text-white/70">{n.name}</div>
-                </div>
+          items={[adTile, ...nicheItems]}
+          cols={cols} gapPx={gap} gridClassName="w-full"
+          getKey={n=>n.type === "ad" ? "ad-placeholder" : `niche-${n.slug}`}
+          renderItem={n=>n.type === "ad" ? reservedAdCell :
+            <a href={`/explore/niches/${encodeURIComponent(n.slug)}`} className={tile}
+              aria-label={`Explore ${n.name}`}>
+              {n.src ?
+                <GridVideoPreview src={n.src} cacheKey={`niche-${n.slug}`} className="h-full w-full" mobileLimit={4} mobileMode="still"/> :
+                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#2b2430] via-[#171920] to-[#272c36]">
+                  <Hash size={34} className="text-white/20"/>
+                </div>}
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"/>
+              <div className="absolute inset-x-0 bottom-0 p-2.5 sm:p-3">
+                <p className="truncate text-[13px] font-bold text-white sm:text-base">#{n.name}</p>
+                <p className="mt-0.5 text-[10px] text-white/65 sm:text-xs">{n.count ?? 0} posts</p>
               </div>
             </a>}
         /> :
       tab === "gifs" ?
         <VirtualizedSquareGrid
-          items={[sponsoredTile, ...mediaItems]}
-          cols={cols} gapPx={4} gridClassName="w-full"
-          getKey={m => m.type === "ad" ? "reserved-ad-cell" : `media-${m.id}`}
-          renderItem={(m, index) => m.type === "ad" ? reservedAdTile :
-            <button type="button" className={`h-full w-full ${tileChrome}`}
-              onClick={() => onVideoClick(m as Video, index - 1, mediaItems)}>
-              <GridVideoPreview src={m.src} cacheKey={`media-${m.id}`}
-                className="h-full w-full" hoverPlay mobileLimit={6} mobileMode="still"/>
+          items={[adTile, ...mediaItems]}
+          cols={cols} gapPx={gap} gridClassName="w-full"
+          getKey={m=>m.type === "ad" ? "ad-placeholder" : `media-${m.id}`}
+          renderItem={(m,index)=>m.type === "ad" ? reservedAdCell :
+            <button type="button" className={tile}
+              aria-label={`Play video, ${m.views ?? 0} views`}
+              onClick={()=>onVideoClick(m as Video,index - 1,mediaItems)}>
+              <GridVideoPreview src={m.src} cacheKey={`media-${m.id}`} className="h-full w-full"
+                hoverPlay mobileLimit={6} mobileMode="still"/>
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/65 to-transparent"/>
+              <div className="pointer-events-none absolute bottom-2 left-2 flex items-center gap-1 text-[11px] font-semibold text-white drop-shadow">
+                <Play size={12} fill="currentColor"/> {(m.views ?? 0).toLocaleString()}
+              </div>
+              <div className="pointer-events-none absolute inset-0 hidden items-center justify-center gap-1.5 bg-black/30 text-sm font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100 sm:flex">
+                <Play size={18} fill="currentColor"/> Watch
+              </div>
             </button>}
         /> :
         <VirtualizedSquareGrid
-          items={[sponsoredTile, ...imageItemsOnly]}
-          cols={cols} gapPx={4} gridClassName="w-full"
-          getKey={m => m.type === "ad" ? "reserved-ad-cell" : `img-${m.id}`}
-          renderItem={(m, index) => m.type === "ad" ? reservedAdTile :
-            <button type="button" className={`h-full w-full ${tileChrome}`}
-              onClick={() => { setOverlayIndex(index - 1); setImageOverlayOpen(true); }}>
+          items={[adTile, ...imageItemsOnly]}
+          cols={cols} gapPx={gap} gridClassName="w-full"
+          getKey={m=>m.type === "ad" ? "ad-placeholder" : `img-${m.id}`}
+          renderItem={(m,index)=>m.type === "ad" ? reservedAdCell :
+            <button type="button" className={tile} aria-label={`View photo, ${m.views ?? 0} views`}
+              onClick={()=>{setOverlayIndex(index - 1);setImageOverlayOpen(true);}}>
               <LazyImage src={m.src} alt={m.alt ?? ""} className="h-full w-full object-cover"/>
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/65 to-transparent"/>
+              <div className="pointer-events-none absolute bottom-2 left-2 flex items-center gap-1 text-[11px] font-semibold text-white drop-shadow">
+                <Eye size={13}/> {(m.views ?? 0).toLocaleString()}
+              </div>
+              <div className="pointer-events-none absolute right-2 top-2 text-white/85 drop-shadow"><ImageIcon size={17}/></div>
             </button>}
         />}
     </div>
-
     {!loadingInitial && !empty && <BottomSentinel ref={sentinelRef} loading={loading} hasMore={hasMore}/>}
-    {error && <div className="mt-2 text-center text-xs text-red-400">{error}</div>}
+    {error && <div role="alert" className="mx-3 my-5 rounded-lg border border-red-400/20 bg-red-400/5 p-3 text-center text-xs text-red-300">{error}</div>}
     <FullscreenImageOverlay open={imageOverlayOpen}
-      onClose={() => setImageOverlayOpen(false)}
-      items={imageOverlayItems} initialIndex={overlayIndex}/>
+      onClose={()=>setImageOverlayOpen(false)} items={imageOverlayItems} initialIndex={overlayIndex}/>
   </div>;
 }
 
@@ -342,13 +373,7 @@ const BottomSentinel = forwardRef<HTMLDivElement, BottomSentinelProps>(
           {Array.from({length: 4},(_,i)=><div key={i} className="aspect-square animate-pulse rounded-md bg-white/[.055]"/>)}
         </div>}
         {!loading && !hasMore && (
-          <div className="text-[15px] text-white/40 text-center">
-            The End! Contribute to the community by{" "}
-            <a href="/upload" className="text-pink-500 underline">
-              uploading
-            </a>{" "}
-            stuff :P
-          </div>
+          <p className="py-5 text-center text-xs text-white/35">You're all caught up.</p>
         )}
       </div>
     );

@@ -75,6 +75,7 @@ type WatchVideoCardProps = {
 
   isMuted?: boolean;
   toggleMute?: () => void;
+  startAtSeconds?: number;
 
   /**
    * Optional controlled maximize state.
@@ -115,6 +116,7 @@ export default function WatchVideoCard({
   video,
   isMuted = true,
   toggleMute,
+  startAtSeconds = 0,
   maximize: controlledMaximize,
   onMaximizeChange,
   onRequestFullscreen,
@@ -566,6 +568,13 @@ export default function WatchVideoCard({
 
     setMetadataLoaded(true);
 
+    if (Number.isFinite(startAtSeconds) && startAtSeconds > 0 &&
+        Number.isFinite(element.duration) && element.duration > startAtSeconds) {
+      element.currentTime = startAtSeconds;
+      setCurrentTime(startAtSeconds);
+      setProgress((startAtSeconds / element.duration) * 100);
+    }
+
     const {
       videoWidth,
       videoHeight,
@@ -573,6 +582,14 @@ export default function WatchVideoCard({
 
     setIsVertical(videoHeight > videoWidth);
   };
+
+  useEffect(() => {
+    const element = videoRef.current;
+    if (!element || element.readyState < 1 || !Number.isFinite(startAtSeconds)) return;
+    if (startAtSeconds > 0 && element.duration > startAtSeconds) {
+      element.currentTime = startAtSeconds;
+    }
+  }, [startAtSeconds, video.src]);
 
   const handleTimeUpdate = () => {
     const element = videoRef.current;
@@ -1027,7 +1044,9 @@ export default function WatchVideoCard({
         flex
         items-center
         justify-center
-        bg-neutral-900
+        bg-[#090a0d]
+        rounded-[22px]
+        ring-1 ring-white/10
         overflow-hidden
         ${maximize ? "fixed inset-0 z-[9999]" : ""}
         ${className}
@@ -1141,13 +1160,14 @@ export default function WatchVideoCard({
       <div
         className="
           absolute
-          right-1
-          bottom-15
+          right-3
+          bottom-[120px]
           z-30
           flex
           flex-col
           items-center
-          gap-4
+          gap-3
+          sm:right-5
         "
       >
         {/* Views */}
@@ -1302,10 +1322,12 @@ export default function WatchVideoCard({
       <div
         className="
           absolute
-          inset-x-3
-          bottom-3
+          inset-x-4
+          bottom-4
           z-30
           space-y-2
+          pr-[60px]
+          sm:inset-x-6
         "
       >
         {/* Creator */}
@@ -1524,8 +1546,8 @@ export default function WatchVideoCard({
               cursor-pointer
               appearance-none
               rounded-full
-              bg-pink-500/40
-              accent-pink-500
+              bg-white/35
+              accent-white
             "
           />
 
@@ -1556,8 +1578,8 @@ export default function WatchVideoCard({
           z-[5]
           h-40
           bg-gradient-to-t
-          from-black
-          via-pink/50
+          from-black/90
+          via-black/40
           to-transparent
         "
       />
@@ -1571,7 +1593,7 @@ export default function WatchVideoCard({
           z-[5]
           h-24
           bg-gradient-to-b
-          from-pink/60
+          from-black/45
           to-transparent
         "
       />

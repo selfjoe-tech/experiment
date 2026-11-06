@@ -44,49 +44,6 @@ function formatCount(n?: number | null): string {
   return num.toString();
 }
 
-function Modal({
-  open,
-  title,
-  children,
-  onClose,
-}: {
-  open: boolean;
-  title: string;
-  children: React.ReactNode;
-  onClose: () => void;
-}) {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-[100]">
-      <button
-        aria-label="Close"
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className="absolute left-1/2 top-1/2 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2">
-        <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#17191d] shadow-[0_30px_100px_rgba(0,0,0,.75)]">
-          <div className="flex items-start justify-between gap-3 p-4 border-b border-white/10">
-            <div className="min-w-0">
-              <div className="text-white font-semibold">{title}</div>
-              <div className="text-xs text-white/60 mt-1">
-                Verified creators can monetize profile traffic.
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="h-9 w-9 inline-flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10"
-            >
-              <X className="h-4 w-4 text-white/80" />
-            </button>
-          </div>
-
-          <div className="p-4">{children}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function ProfilePanel({
   onClose,
   followers = 0,
@@ -114,15 +71,9 @@ export function ProfilePanel({
   const [followCounts, setFollowCounts] = useState<FollowCounts | null>(null);
   const [followCountsLoading, setFollowCountsLoading] = useState(true);
 
-  const [earnModalOpen, setEarnModalOpen] = useState(false);
 
-  const onEarnClick = () => {
-    if (verified) {
-      router.push("/earn");
-    } else {
-      setEarnModalOpen(true);
-    }
-  };
+
+  const onEarnClick = () => router.push("/earn");
 
   // fetch username + avatar + stats from server actions
   useEffect(() => {
@@ -276,7 +227,7 @@ export function ProfilePanel({
       </span>
     ) : (
       <span className="ml-2 inline-flex items-center rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[11px] text-white/70">
-        Not verified
+        Ordinary
       </span>
     )}
   </span>
@@ -315,42 +266,7 @@ export function ProfilePanel({
         </button>
       </div>
 
-      {/* ✅ Not verified modal */}
-      <Modal
-        open={earnModalOpen}
-        title="Monetisation is for verified users"
-        onClose={() => setEarnModalOpen(false)}
-      >
-        <div className="space-y-3">
-          <div className="text-sm text-white/70">
-            To access <b className="text-white">Earn</b> and start getting paid for profile traffic, your account needs to be verified.
-          </div>
 
-          <div className="rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-white/70">
-            Verification helps keep payouts safe and reduces fraud.
-          </div>
-
-          <div className="flex items-center gap-2 pt-1">
-            <button
-              onClick={() => {
-                setEarnModalOpen(false);
-                router.push("/verify");
-              }}
-              className="h-11 flex-1 rounded-2xl font-semibold text-black"
-              style={{ backgroundColor: ACCENT }}
-            >
-              Get verified
-            </button>
-
-            <button
-              onClick={() => setEarnModalOpen(false)}
-              className="h-11 px-4 rounded-2xl border border-white/15 bg-black/30 text-white font-semibold hover:bg-white/5"
-            >
-              Not now
-            </button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }

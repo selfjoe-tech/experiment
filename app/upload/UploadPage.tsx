@@ -30,6 +30,7 @@ import {
 // } from "@/lib/client/watermarkVideo";
 
 import { getUserProfileFromCookies } from "@/lib/actions/auth";
+import { useUploadStatus } from "@/app/components/upload/UploadStatusProvider";
 import OverlayPortal from "@/app/components/ui/OverlayPortal";
 
 const ACCENT = "pink";
@@ -45,12 +46,20 @@ type PostFlow =
 export default function UploadPage() {
   const router = useRouter();
   const sp = useSearchParams();
+  const { startUpload } = useUploadStatus();
 
+  // Only accept same-site destinations, never external post-upload redirects.
+  const requestedRedirect = sp.get("redirect");
   const redirect =
-    sp.get("redirect") || "https://upskirtcandy.com/";
+    requestedRedirect?.startsWith("/") &&
+    !requestedRedirect.startsWith("//") &&
+    !requestedRedirect.includes("\\")
+      ? requestedRedirect
+      : "/";
 
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [progressLabel, setProgressLabel] = useState("Preparing upload…");
   const [processingError, setProcessingError] =
     useState<string | null>(null);
 
@@ -272,183 +281,66 @@ export default function UploadPage() {
   // ============================================================
 
   if (postFlow?.kind === "video") {
-    return (
-      <UploadFlow
-        variant="video"
-        clip={postFlow.clip}
-        processing={processing}
-        progress={progress}
-        processingError={processingError}
-        processingLabel="Processing video…"
-        onCancel={() => setPostFlow(null)}
-        onSubmit={async (formValues) => {
-          setProcessing(true);
-          setProcessingError(null);
-          setProgress(0);
-
-          try {
-            const originalClip =
-              postFlow.clip;
-
-            /*
-             * The video is no longer trimmed.
-             *
-             * The full original video is watermarked
-             * and uploaded as-is.
-             */
-
-            
-
-            setProgress(5);
-
-            const processedFile: File = originalClip.file
-
-            setProgress(78);
-
-            /*
-             * Because the video is no longer trimmed,
-             * start/end represent the full original
-             * video for compatibility with the
-             * existing ClipSelection type.
-             */
-            const finalClip: ClipSelection = {
-              ...originalClip,
-              file: processedFile,
-            };
-
-            const row =
-              await uploadTrimmedVideo(
-                finalClip,
-                {
-                  title:
-                    formValues.description?.slice(
-                      0,
-                      80
-                    ) ?? "",
-
-                  description:
-                    formValues.description ?? "",
-
-                  audience:
-                    formValues.audience,
-
-                  tags:
-                    formValues.tags ?? [],
-                },
-                {
-                  /*
-                   * uploadTrimmedVideo can use the actual
-                   * video duration when processing/uploading.
-                   * No selection duration is used here.
-                   */
-                  onUploadProgress: (pct) =>
-                    setProgress(
-                      78 +
-                        Math.round(
-                          (pct / 100) *
-                            20
-                        )
-                    ),
-                }
-              );
-
-            console.log(
-              "Inserted media row:",
-              row
-            );
-
-            setProgress(100);
-
-            setPostFlow(null);
-            setVideoFile(null);
-
-            if (videoUrl) {
-              URL.revokeObjectURL(videoUrl);
-            }
-
-            setVideoUrl(null);
-
-            router.push(
-              "https://upskirtcandy.com/"
-            );
-          } catch (err: any) {
-            console.error(err);
-
-            const msg =
-              err?.message ??
-              "Upload failed, please try again.";
-
-            setProcessingError(msg);
-
-            throw new Error(msg);
-          } finally {
-            setProcessing(false);
-          }
-        }}
-      />
-    );
+    return <UploadFlow
+      variant="video"
+      clip={postFlow.clip}
+      processing={processing}
+      progress={progress}
+      processingError={processingError}
+      processingLabel={progressLabel}
+      onCancel={() => setPostFlow(null)}
+      onSubmit={async formValues => {
+        // Keep the original File in the root upload manager's task closure:
+        // navigation unmounts this page, but the browser request continues.
+        const clip = postFlow.clip;
+        const started = startUpload("video", async ({ onProgress, onStageChange }) => {
+          await uploadTrimmedVideo(clip, {
+            title: formValues.description?.slice(0, 80) ?? "",
+            description: formValues.description ?? "",
+            audience: formValues.audience,
+            tags: formValues.tags ?? [],
+          }, {
+            onUploadProgress: onProgress,
+            onStageChange,
+          });
+        });
+        if (!started) throw new Error("Another upload is in progress. Finish it before starting a new one.");
+        router.push(redirect);
+      }}
+    />;
   }
 
-  // ============================================================
-  // 3B) UPLOAD FLOW — IMAGES
-  // ============================================================
-
+  // Images use the same background UI and aggregate progress across files.
   if (postFlow?.kind === "images") {
-    return (
-      <UploadFlow
-        variant="images"
-        images={postFlow.images}
-        onCancel={() => setPostFlow(null)}
-        processing={processing}
-        progress={progress}
-        processingError={processingError}
-        processingLabel="Processing video…"
-        onSubmit={async (formValues: any) => {
-          try {
-            const {
-              successes,
-              failures,
-            } =
-              await uploadImagesBatch(
-                postFlow.images.files,
-                {
-                  title: undefined,
-                  description:
-                    formValues.description,
-                  audience:
-                    formValues.audience,
-                }
-              );
-
-            console.log(
-              "Image upload successes:",
-              successes
-            );
-
-            if (failures.length > 0) {
-              console.warn(
-                "Some images failed to upload:",
-                failures
-              );
-            }
-
-            setPostFlow(null);
-            setImageFiles([]);
-
-            router.push(
-              "https://upskirtcandy.com/"
-            );
-          } catch (err: any) {
-            console.error(err);
-
-            alert(
-              err?.message ??
-                "Image upload failed, please try again."
+    return <UploadFlow
+      variant="images"
+      images={postFlow.images}
+      onCancel={() => setPostFlow(null)}
+      processing={processing}
+      progress={progress}
+      processingError={processingError}
+      processingLabel={progressLabel}
+      onSubmit={async formValues => {
+        const files = [...postFlow.images.files];
+        const started = startUpload("images", async ({ onProgress, onStageChange }) => {
+          const { successes, failures } = await uploadImagesBatch(files, {
+            description: formValues.description,
+            audience: formValues.audience,
+            tags: formValues.tags ?? [],
+          }, {
+            onUploadProgress: onProgress,
+            onStageChange,
+          });
+          if (failures.length > 0) {
+            throw new Error(
+              `${failures.length} image(s) failed; ${successes.length} uploaded. Re-select only failed files to avoid duplicates.`
             );
           }
-        }}
-      />
-    );
+        });
+        if (!started) throw new Error("Another upload is in progress. Finish it before starting a new one.");
+        router.push(redirect);
+      }}
+    />;
   }
 
   // ============================================================
@@ -614,7 +506,7 @@ export default function UploadPage() {
           <p className="flex gap-2 text-sm text-white/70 mt-2 px-1">
             Users who are verified get more views and interaction.
 
-            <a href="https://upskirtcandy.com/verify">
+            <a href="/verify">
               <button
                 className="underline underline-offset-4 font-medium"
                 style={{ color: ACCENT }}

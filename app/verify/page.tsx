@@ -386,7 +386,7 @@ export default function VerifyPage() {
                 <ul className="mt-3 space-y-2 text-sm text-white/75 list-disc pl-5">
                   <li>
                     <p className="flex gap-1">
-                      Monetize (earn everytime someone visits your profile) <DollarSign className="bg-yellow-500 rounded-full" />
+                      Earn $0.37 per 1,000 eligible video Watch loads instead of $0.25 <DollarSign className="bg-yellow-500 rounded-full" />
                     </p>
                   </li>
                   <li>

@@ -5,6 +5,7 @@ import Head from "next/head"; // 👈 NEW
 import { useParams } from "next/navigation";
 import ExploreTabs from "@/app/components/explore/ExploreTabs";
 import ExploreGrid from "@/app/components/explore/ExploreGrid";
+import StaticPageAdPair from "@/app/components/ads/StaticPageAdPair";
 import SortDropdown, { SortKey } from "@/app/components/explore/SortDropdown";
 import FullscreenVideoOverlay from "@/app/components/feed/FullscreenVideoOverlay";
 import { Video } from "@/app/components/feed/types";
@@ -222,47 +223,45 @@ const [initialOverlayIndex, setInitialOverlayIndex] = useState<number | null>(nu
         />
       </Head>
 
-      <div className="pt-14 lg:pt-20 lg:ml-[76px] min-[1360px]:ml-[244px] lg:mr-[340px]">
-        <div className="px-3 sm:px-4">
-          {/* Top row: tabs + sort */}
-          <div
-            className={`
-              sticky top-[58px] lg:top-0 z-30 mb-4
-              bg-black/95 backdrop-blur
-              flex items-center justify-between gap-3
-              border-b border-white/10
-              transition-all duration-300
-              ${hideHeader ? "pointer-events-none -translate-y-full opacity-0" : "translate-y-0 opacity-100"}
-            `}
-          >
-            <div className="flex w-full justify-center">
-              <ExploreTabs active={tab} />
+      <main className="min-h-[100dvh] bg-[#090a0d] pt-[58px] text-white lg:ml-[76px] lg:mr-[340px] lg:pt-0">
+        <div className="mx-auto w-full max-w-[1160px]">
+          <header className="px-3 pb-4 pt-7 sm:px-6 sm:pt-10">
+            <div className="flex items-center justify-between">
+              <h1 className="text-[25px] font-bold tracking-[-0.04em] sm:text-[32px]">Explore</h1>
+              <a href="/upload" className="rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold text-white/85 transition hover:bg-white/10">Create</a>
             </div>
+            <p className="mt-1 text-[13px] leading-relaxed text-white/45">Discover new videos, creators and communities.</p>
+          </header>
 
-            <SortDropdown value={sortBy} onChange={setSortBy} />
+          <aside aria-label="Explore advertisements"
+            className="isolate px-3 pb-4 sm:px-6 lg:fixed lg:right-0 lg:top-[186px] lg:z-[1] lg:w-[340px] lg:px-1 lg:pb-0">
+            <StaticPageAdPair />
+          </aside>
+
+          <div className={`sticky top-[58px] z-30 border-b border-white/10 bg-[#090a0d]/95 px-3 backdrop-blur-xl transition-all duration-200 sm:px-6 lg:top-0 ${hideHeader ? "pointer-events-none -translate-y-full opacity-0" : "translate-y-0 opacity-100"}`}>
+            <div className="flex min-w-0 items-center justify-between gap-3">
+              <ExploreTabs active={tab}/>
+              <SortDropdown value={sortBy} onChange={setSortBy}/>
+            </div>
           </div>
 
-          <ExploreGrid
-            tab={tab}
-            sortBy={sortBy}
-            onVideoClick={handleVideoClick}
-          />
-
-          <FullscreenVideoOverlay
-            open={overlayOpen}
-            onClose={() => setOverlayOpen(false)}
-            videos={overlayVideos}
-            initialVideoId={activeVideoId}
-            isLoadingMore={isLoadingMore}
-            toggleMute={toggleMute}
-            isMuted={isMuted}
-            onEndReached={fetchMore}  
-            initialIndex={initialOverlayIndex}
-          />
-
-          
+          <div className="px-[2px] pt-2 sm:px-6 sm:pt-4">
+            <ExploreGrid tab={tab} sortBy={sortBy} onVideoClick={handleVideoClick}/>
+          </div>
         </div>
-      </div>
+
+        <FullscreenVideoOverlay
+          open={overlayOpen}
+          onClose={() => setOverlayOpen(false)}
+          videos={overlayVideos}
+          initialVideoId={activeVideoId}
+          isLoadingMore={isLoadingMore}
+          toggleMute={toggleMute}
+          isMuted={isMuted}
+          onEndReached={fetchMore}
+          initialIndex={initialOverlayIndex}
+        />
+      </main>
     </>
   );
 }

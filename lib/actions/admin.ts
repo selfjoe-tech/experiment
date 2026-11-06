@@ -39,6 +39,13 @@ export type PayoutRequestRow = {
   amount_usd: number;
   status: PayoutStatus;
   created_at: string;
+  paypal_email: string;
+  settlement_friday: string | null;
+  payment_due_date: string | null;
+  paid_at: string | null;
+  qualifying_loads: number;
+  ledger_usd: number;
+  matches_amount: boolean;
 };
 
 function clampPage(n: number) {
@@ -140,7 +147,7 @@ export async function adminGetPayoutRequests(args: {
 
   let q = supabase
     .from("payout_requests")
-    .select("id,user_id,username,verified,amount_usd,status,created_at", { count: "exact" })
+    .select("id,user_id,username,verified,paypal_email,amount_usd,status,created_at,settlement_friday,payment_due_date,paid_at", { count: "exact" })
     .order("created_at", { ascending: false });
 
   if (args.filter === "paid") q = q.eq("status", "paid");
@@ -155,22 +162,45 @@ export async function adminGetPayoutRequests(args: {
   const res = await q.range(from, to);
   if (res.error) throw new Error(res.error.message);
 
-  return {
-    rows: (res.data ?? []) as PayoutRequestRow[],
-    total: res.count ?? 0,
-    page,
-    pageSize,
-  };
+  const ids = (res.data ?? []).map(row => Number(row.id));
+  const summary = ids.length ? await supabase.rpc("get_payout_ledger_summary", { p_ids: ids })
+    : { data: [], error: null };
+  if (summary.error) throw new Error(summary.error.message);
+  const auditMap = new Map(((summary.data ?? []) as Array<{
+    payout_id: number; qualifying_loads: number; ledger_usd: number;
+    matches_amount: boolean;
+  }>).map(item => [String(item.payout_id), item]));
+  const rows = (res.data ?? []).map(row => {
+    const audit = auditMap.get(String(row.id));
+    return {
+      ...row,
+      qualifying_loads: Number(audit?.qualifying_loads ?? 0),
+      ledger_usd: Number(audit?.ledger_usd ?? 0),
+      matches_amount: audit?.matches_amount === true,
+    };
+  }) as PayoutRequestRow[];
+
+  return { rows, total: res.count ?? 0, page, pageSize };
 }
 
 export async function adminMarkPayoutPaid(requestId: string) {
   await requireAdmin();
   const supabase = getSupabaseAdmin();
   const id = String(requestId || "").trim();
-  if (!id) return { ok: false, error: "Missing request id." };
+  if (!/^[0-9]+$/.test(id)) return { ok: false, error: "Invalid payout request id." };
 
-  const res = await supabase.from("payout_requests").update({ status: "paid" }).eq("id", id);
+  const audit = await supabase.rpc("get_payout_ledger_summary", { p_ids: [Number(id)] });
+  if (audit.error) return { ok: false, error: audit.error.message };
+  if (!audit.data?.[0]?.matches_amount) {
+    return { ok: false, error: "Payout cannot be marked paid until the ledger totals reconcile." };
+  }
+
+  // A conditional update prevents duplicate "paid" transitions.
+  const res = await supabase.from("payout_requests")
+    .update({ status: "paid", paid_at: new Date().toISOString() })
+    .eq("id", id).eq("status", "pending").select("id").maybeSingle();
   if (res.error) return { ok: false, error: res.error.message };
+  if (!res.data) return { ok: false, error: "Request has already been paid or no longer exists." };
 
   return { ok: true };
 }

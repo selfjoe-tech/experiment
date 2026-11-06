@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { adminMarkPayoutPaid, type PayoutRequestRow } from "@/lib/actions/admin";
 import { BadgeCheck, CheckCircle2, DollarSign } from "lucide-react";
@@ -81,6 +81,7 @@ export default function PayoutRequestsClient({
   const router = useRouter();
   const sp = useSearchParams();
   const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   const tabs = useMemo(
     () => [
@@ -99,15 +100,24 @@ export default function PayoutRequestsClient({
   };
 
   const onPaid = (id: string) => {
+    setError(null);
     startTransition(async () => {
       const res = await adminMarkPayoutPaid(id);
-      if (!res.ok) return;
+      if (!res.ok) {
+        setError(res.error || "Unable to mark the payout paid.");
+        return;
+      }
       router.refresh();
     });
   };
 
   return (
     <div className="space-y-4">
+      <p className="text-xs leading-5 text-white/60">
+        Check the PayPal address, payout amount, creator ledger and ad-network reports before marking
+        a request paid. Clicking "Paid out" only records a manual payment; it does not send money.
+      </p>
+      {error && <p role="alert" className="rounded-xl border border-rose-500/25 bg-rose-500/10 p-3 text-sm text-rose-200">{error}</p>}
       {/* Filter tabs */}
       <div className="flex flex-wrap gap-2">
         {tabs.map((t) => (
@@ -124,14 +134,17 @@ export default function PayoutRequestsClient({
       </div>
 
       {/* Desktop table */}
-      <div className="hidden md:block rounded-3xl border border-white/10 bg-white/5 overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="hidden md:block rounded-3xl border border-white/10 bg-white/5 overflow-x-auto">
+        <table className="min-w-[1120px] w-full text-sm">
           <thead className="text-white/60">
             <tr className="border-b border-white/10">
               <th className="text-left py-3 px-4">Username</th>
               <th className="text-left py-3 px-4">Verified</th>
               <th className="text-left py-3 px-4">Status</th>
               <th className="text-left py-3 px-4">Requested at</th>
+               <th className="text-left py-3 px-4">PayPal email</th>
+               <th className="text-left py-3 px-4">Pay by</th>
+               <th className="text-left py-3 px-4">Ledger audit</th>
               <th className="text-right py-3 px-4">Amount</th>
               <th className="text-right py-3 px-4">Action</th>
             </tr>
@@ -139,7 +152,7 @@ export default function PayoutRequestsClient({
           <tbody className="text-white">
             {initial.rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-10 text-center text-white/50">
+                <td colSpan={9} className="py-10 text-center text-white/50">
                   No payout requests found.
                 </td>
               </tr>
@@ -164,12 +177,22 @@ export default function PayoutRequestsClient({
                       <Badge tone={isPaid ? "good" : "warn"}>{isPaid ? "paid" : "not paid"}</Badge>
                     </td>
                     <td className="py-3 px-4 text-white/70">{fmtDateTime(r.created_at)}</td>
+                     <td className="max-w-[230px] break-all py-3 px-4 text-xs text-white/75">{r.paypal_email}</td>
+                     <td className="py-3 px-4 text-xs text-white/75">
+                       {r.payment_due_date ? new Date(r.payment_due_date + "T12:00:00Z").toLocaleDateString("en-ZA") : "—"}
+                     </td>
+                    <td className="py-3 px-4 text-xs">
+                      <span className={r.matches_amount ? "text-emerald-300" : "text-amber-300"}>
+                        {r.matches_amount ? "Matched" : "Review needed"}
+                      </span>
+                      <span className="mt-1 block text-white/45">{r.qualifying_loads.toLocaleString()} eligible loads</span>
+                    </td>
                     <td className="py-3 px-4 text-right font-semibold">${money(Number(r.amount_usd ?? 0))}</td>
                     <td className="py-3 px-4">
                       <div className="flex items-center justify-end">
                         <button
                           onClick={() => onPaid(r.id)}
-                          disabled={pending || isPaid}
+                          disabled={pending || isPaid || !r.matches_amount}
                           className="h-9 rounded-xl bg-emerald-400/90 text-black px-3 font-semibold disabled:opacity-60 inline-flex items-center gap-2"
                         >
                           <CheckCircle2 className="h-4 w-4" />
@@ -202,10 +225,15 @@ export default function PayoutRequestsClient({
                   <div>
                     <div className="text-white font-semibold">{r.username}</div>
                     <div className="mt-1 text-xs text-white/60">{fmtDateTime(r.created_at)}</div>
+                     <div className="mt-2 break-all text-xs text-white/75">PayPal: {r.paypal_email}</div>
+                     <div className="mt-1 text-xs text-white/55">Due: {r.payment_due_date ?? "Pending"}</div>
                   </div>
                   <Badge tone={isPaid ? "good" : "warn"}>{isPaid ? "paid" : "not paid"}</Badge>
                 </div>
 
+                <p className={`mt-3 text-xs ${r.matches_amount ? "text-emerald-300" : "text-amber-300"}`}>
+                  Ledger: {r.matches_amount ? "matched" : "requires review"} · {r.qualifying_loads.toLocaleString()} eligible loads
+                </p>
                 <div className="mt-3 flex items-center justify-between rounded-2xl border border-white/10 bg-black/30 p-3">
                   <div className="text-sm text-white/70 inline-flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-white/60" />
@@ -228,7 +256,7 @@ export default function PayoutRequestsClient({
 
                   <button
                     onClick={() => onPaid(r.id)}
-                    disabled={pending || isPaid}
+                    disabled={pending || isPaid || !r.matches_amount}
                     className="h-11 rounded-2xl bg-emerald-400/90 text-black px-4 font-semibold disabled:opacity-60 inline-flex items-center gap-2"
                   >
                     <CheckCircle2 className="h-4 w-4" />

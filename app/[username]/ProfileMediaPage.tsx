@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { trackProfileVisitByUsername } from "@/lib/actions/earn";
+
 
 import {
   Ellipsis,
@@ -24,6 +24,7 @@ import SortDropdown, { SortKey } from "@/app/components/explore/SortDropdown";
 import type { Video } from "@/app/components/feed/types";
 import FullscreenVideoOverlay from "@/app/components/feed/FullscreenVideoOverlay";
 import UserGrid from "@/app/components/profile/UserGrid";
+import StaticPageAdPair from "@/app/components/ads/StaticPageAdPair";
 import { VerifiedBadgeIcon } from "@/app/components/icons/VerifiedBadgeIcon";
 import { verify } from "crypto";
 import { getUserProfileFromCookies, getVerified, getUserIdFromCookies } from "@/lib/actions/auth";
@@ -201,22 +202,6 @@ const handleVideoClick = (video: any, index?: number, currentItems?: any[]) => {
   }
 };
 
-
-useEffect(() => {
-  if (!username) return;
-
-  const w = window as any;
-  w.__pvLastTs ??= {}; // { [username]: lastTimestampMs }
-
-  const now = Date.now();
-  const last = w.__pvLastTs[username] ?? 0;
-
-  // Prevent React Strict Mode (dev) double-fire + accidental duplicate calls
-  if (now - last < 1500) return;
-  w.__pvLastTs[username] = now;
-
-  trackProfileVisitByUsername(username).catch(() => {});
-}, [username]);
 
 
 
@@ -400,6 +385,11 @@ function isSafeExternalUrl(url: string) {
         </div>
       </div>
 
+      <aside aria-label="Profile advertisements"
+        className="isolate px-3 pb-4 sm:px-6 lg:fixed lg:right-0 lg:top-[186px] lg:z-[1] lg:w-[340px] lg:px-1 lg:pb-0">
+        <StaticPageAdPair />
+      </aside>
+
       {/* ===== Tabs + Sort (Explore style) ===== */}
       <div className="sticky top-[58px] z-20 mb-5 flex items-center justify-between gap-3 border-b border-white/10 bg-[#0b0d10]/95 py-3 backdrop-blur-xl lg:top-0">
         <div className="flex w-full justify-center">
@@ -410,7 +400,6 @@ function isSafeExternalUrl(url: string) {
 
       {/* ===== Grid ===== */}
       <UserGrid
-        key={`${username}:${tab}`}
         username={username}
         tab={tab}
         sortBy={sortBy}

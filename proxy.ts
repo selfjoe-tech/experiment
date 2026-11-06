@@ -1,3 +1,4 @@
+import { authCookieOptions } from "./lib/supabase/authCookieOptions";
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminJwt } from "./lib/adminJwt";
@@ -26,6 +27,7 @@ export async function proxy(request: NextRequest) {
     supabaseUrl,
     supabasePublishableKey,
     {
+      cookieOptions: authCookieOptions(request.nextUrl.hostname),
       cookies: {
         getAll() {
           return request.cookies.getAll();

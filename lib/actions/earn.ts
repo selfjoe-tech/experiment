@@ -1,259 +1,149 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { getSupabaseAdmin } from "../supabaseAdmin";
-import { getUserIdFromCookies } from "./auth";
+import { redirect } from "next/navigation";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
-type UserType = "ordinary" | "affiliate";
-
+export type VideoEarning = {
+  mediaId: number;
+  title: string;
+  durationSeconds: number | null;
+  eligible: boolean;
+  eligibleViews: number;
+  earnedUsd: number;
+  unpaidUsd: number;
+};
+export type PayoutHistoryEntry = {
+  id: number;
+  amountUsd: number;
+  status: string;
+  requestedAt: string;
+  settlementFriday: string | null;
+  paymentDueDate: string | null;
+  paidAt: string | null;
+};
 export type EarnDashboardData = {
-  userId: string;
   username: string;
   verified: boolean;
-  paypalEmail: string | null;
-  paypalEmailSetAt: string | null;
-  userType: UserType;
   rate: number;
-  visitsPerDay: Record<string, number>;
+  paypalEmail: string | null;
+  videos: VideoEarning[];
   totalUsd: number;
-  lastPayout: { amountUsd: number; requestedAt: string } | null;
-  hasAffiliateRequest: boolean;
+  lifetimeUsd: number;
+  pendingUsd: number;
+  eligibleViews: number;
+  minPayout: number;
+  canPayout: boolean;
+  payoutBlockReason: string | null;
+  payouts: PayoutHistoryEntry[];
 };
+
+async function authenticatedUser() {
+  const client = await createClient();
+  const { data: { user }, error } = await client.auth.getUser();
+  if (!user || error) redirect("/auth/login?redirect=%2Fearn");
+  return { client, user };
+}
+const amount = (value: unknown) => Number(value ?? 0) || 0;
+
+export async function getEarnDashboard(): Promise<EarnDashboardData> {
+  const { user } = await authenticatedUser();
+  const admin = getSupabaseAdmin();
+
+  const [profileResult, settingsResult, videosResult, payoutsResult] = await Promise.all([
+    admin.from("profiles").select("id,username,verified").eq("id", user.id).single(),
+    admin.from("creator_earnings").select("paypal_email").eq("user_id", user.id).maybeSingle(),
+    admin.rpc("get_creator_video_earnings", { p_creator_id: user.id }),
+    admin.from("payout_requests")
+      .select("id,amount_usd,status,created_at,settlement_friday,payment_due_date,paid_at")
+      .eq("user_id", user.id).order("created_at", { ascending: false }).limit(12),
+  ]);
+  if (profileResult.error) throw new Error(profileResult.error.message);
+  if (settingsResult.error) throw new Error(settingsResult.error.message);
+  if (videosResult.error) throw new Error(videosResult.error.message);
+  if (payoutsResult.error) throw new Error(payoutsResult.error.message);
+
+  const verified = Boolean(profileResult.data?.verified);
+  const rate = verified ? 0.37 : 0.25;
+  const videos: VideoEarning[] = ((videosResult.data ?? []) as Array<{
+    media_id: number; title: string; duration_seconds: number | null;
+    qualified_views: number; earned_usd: number; unpaid_usd: number;
+  }>).map(row => ({
+    mediaId: Number(row.media_id),
+    title: row.title || "Untitled video",
+    durationSeconds: row.duration_seconds === null ? null : amount(row.duration_seconds),
+    eligible: row.duration_seconds !== null && Number(row.duration_seconds) >= 30,
+    eligibleViews: amount(row.qualified_views),
+    earnedUsd: amount(row.earned_usd),
+    unpaidUsd: amount(row.unpaid_usd),
+  }));
+
+  const payouts: PayoutHistoryEntry[] = (payoutsResult.data ?? []).map(row => ({
+    id: Number(row.id), amountUsd: amount(row.amount_usd),
+    status: String(row.status ?? "pending"),
+    requestedAt: String(row.created_at),
+    settlementFriday: row.settlement_friday ?? null,
+    paymentDueDate: row.payment_due_date ?? null,
+    paidAt: row.paid_at ?? null,
+  }));
+  const totalUsd = videos.reduce((sum, video) => sum + video.unpaidUsd, 0);
+  const lifetimeUsd = videos.reduce((sum, video) => sum + video.earnedUsd, 0);
+  const pendingUsd = payouts.filter(p => p.status === "pending")
+    .reduce((sum, payout) => sum + payout.amountUsd, 0);
+  const recent = payouts[0];
+  const nextRequestTime = recent
+    ? new Date(new Date(recent.requestedAt).getTime() + 7 * 24 * 60 * 60 * 1000)
+    : null;
+  const paypalEmail = settingsResult.data?.paypal_email ?? null;
+  const payoutBlockReason =
+    !paypalEmail ? "Add your PayPal email to request a payout." :
+    pendingUsd > 0 ? "Your previous payout request is awaiting manual payment." :
+    nextRequestTime && nextRequestTime.getTime() > Date.now()
+      ? `You can request again from ${nextRequestTime.toLocaleDateString("en-ZA", { timeZone: "Africa/Johannesburg" })}.` :
+    Math.round(totalUsd * 100) / 100 < 30 ? "The minimum payout balance is $30." : null;
+
+  return {
+    username: profileResult.data?.username ?? "",
+    verified, rate, paypalEmail, videos,
+    totalUsd, lifetimeUsd, pendingUsd,
+    eligibleViews: videos.reduce((sum, v) => sum + v.eligibleViews, 0),
+    minPayout: 30,
+    canPayout: payoutBlockReason === null,
+    payoutBlockReason,
+    payouts,
+  };
+}
 
 type RpcResult = {
   ok?: boolean;
   error?: string;
   amountUsd?: number;
   requestedAt?: string;
+  paymentDueDate?: string;
 };
 
-function round2(value: number) {
-  return Math.round(value * 100) / 100;
-}
-
-function computeTotal(
-  visitsPerDay: Record<string, number>,
-  ratePer1k: number,
-  since?: string | null
-) {
-  const cutoff = since ? since.slice(0, 10) : null;
-  let total = 0;
-
-  for (const [day, rawVisits] of Object.entries(visitsPerDay)) {
-    if (cutoff && day < cutoff) continue;
-    const visits = Number(rawVisits) || 0;
-    total += (visits / 1000) * ratePer1k;
-  }
-
-  return round2(total);
-}
-
-async function requireUserClient() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error || !user) {
-    throw new Error("Not authenticated.");
-  }
-
-  return { supabase, user };
-}
-
-export async function getEarnDashboard(): Promise<EarnDashboardData> {
-  const { supabase, user } = await requireUserClient();
-
-  const [profileRes, earnRes, payoutRes, affiliateRes] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("id, username, verified")
-      .eq("id", user.id)
-      .single(),
-    supabase
-      .from("creator_earnings")
-      .select(
-        "user_id, username, paypal_email, paypal_email_set_at, user_type, rate, visits_per_day, last_payout_amount_usd, last_payout_requested_at"
-      )
-      .eq("user_id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("payout_requests")
-      .select("amount_usd, created_at")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("affiliate_requests")
-      .select("id, status")
-      .eq("user_id", user.id)
-      .limit(1)
-      .maybeSingle(),
-  ]);
-
-  if (profileRes.error) throw new Error(profileRes.error.message);
-  if (earnRes.error) throw new Error(earnRes.error.message);
-  if (payoutRes.error) throw new Error(payoutRes.error.message);
-  if (affiliateRes.error) throw new Error(affiliateRes.error.message);
-
-  const profile = profileRes.data;
-  const earn = earnRes.data;
-  const visitsPerDay = (earn?.visits_per_day ?? {}) as Record<string, number>;
-  const userType = (earn?.user_type ?? "ordinary") as UserType;
-  const defaultRate = userType === "affiliate" ? 0.21 : 0.147;
-  const rate = Number(earn?.rate ?? defaultRate);
-  const paypalEmail = earn?.paypal_email ?? null;
-  const paypalEmailSetAt = earn?.paypal_email_set_at ?? null;
-  const totalUsd = computeTotal(visitsPerDay, rate, paypalEmailSetAt);
-
-  const lastPayout =
-    payoutRes.data?.amount_usd != null
-      ? {
-          amountUsd: Number(payoutRes.data.amount_usd),
-          requestedAt: payoutRes.data.created_at,
-        }
-      : earn?.last_payout_amount_usd != null
-      ? {
-          amountUsd: Number(earn.last_payout_amount_usd),
-          requestedAt:
-            earn.last_payout_requested_at ?? new Date().toISOString(),
-        }
-      : null;
-
-  return {
-    userId: user.id,
-    username: profile.username,
-    verified: Boolean(profile.verified),
-    paypalEmail,
-    paypalEmailSetAt,
-    userType,
-    rate,
-    visitsPerDay,
-    totalUsd,
-    lastPayout,
-    hasAffiliateRequest: Boolean(affiliateRes.data),
-  };
-}
-
 export async function savePaypalEmail(email: string, confirmEmail: string) {
-  const { supabase } = await requireUserClient();
-
-  const { data, error } = await supabase.rpc("save_creator_paypal_email", {
-    p_email: email,
-    p_confirm_email: confirmEmail,
+  const { client } = await authenticatedUser();
+  const { data, error } = await client.rpc("save_creator_paypal_email", {
+    p_email: email, p_confirm_email: confirmEmail,
   });
-
-  if (error) {
-    console.error("savePaypalEmail RPC error", error);
-    return { ok: false, error: error.message };
-  }
-
-  const result = data as RpcResult;
-  return result?.ok
+  if (error) return { ok: false, error: "Could not save PayPal email." };
+  const response = data as RpcResult;
+  return response?.ok
     ? { ok: true }
-    : { ok: false, error: result?.error ?? "Could not save PayPal email." };
+    : { ok: false, error: response?.error ?? "Could not save PayPal email." };
 }
 
 export async function requestPayout() {
-  const { supabase } = await requireUserClient();
-
-  const { data, error } = await supabase.rpc("request_creator_payout");
-
-  if (error) {
-    console.error("requestPayout RPC error", error);
-    return { ok: false, error: error.message };
-  }
-
-  const result = data as RpcResult;
-  if (!result?.ok) {
-    return { ok: false, error: result?.error ?? "Could not submit payout request." };
-  }
-
-  return {
-    ok: true,
-    amountUsd: Number(result.amountUsd ?? 0),
-    requestedAt: String(result.requestedAt ?? new Date().toISOString()),
-  };
-}
-
-export async function applyAffiliate() {
-  const { supabase } = await requireUserClient();
-
-  const { data, error } = await supabase.rpc("apply_for_affiliate");
-
-  if (error) {
-    console.error("applyAffiliate RPC error", error);
-    return { ok: false, error: error.message };
-  }
-
-  const result = data as RpcResult;
-  return result?.ok
-    ? { ok: true }
-    : { ok: false, error: result?.error ?? "Could not submit affiliate request." };
-}
-
-/**
- * Public profile visit accounting remains server-side because it updates
- * another creator's private earning counters. The RPC itself is restricted
- * to service_role; ordinary user operations above do not use the Admin client.
- */
-export async function trackProfileVisitByUsername(viewedUsername: string) {
-  const username = String(viewedUsername ?? "").trim();
-  if (!username) return { ok: false, error: "Missing username." };
-
-  const admin = getSupabaseAdmin();
-
-  const { data: profile, error: profileError } = await admin
-    .from("profiles")
-    .select("id, username")
-    .ilike("username", username)
-    .maybeSingle();
-
-  if (profileError) {
-    return { ok: false, error: profileError.message };
-  }
-  if (!profile?.id) {
-    return { ok: true, skipped: true, reason: "not_found" };
-  }
-
-  const viewerId = await getUserIdFromCookies().catch(() => null);
-  if (viewerId && viewerId === profile.id) {
-    return { ok: true, skipped: true, reason: "self" };
-  }
-
-  const { data: earnings, error: earningsError } = await admin
-    .from("creator_earnings")
-    .select("paypal_email_set_at")
-    .eq("user_id", profile.id)
-    .maybeSingle();
-
-  if (earningsError) {
-    return { ok: false, error: earningsError.message };
-  }
-  if (!earnings?.paypal_email_set_at) {
-    return { ok: true, skipped: true, reason: "not_tracking" };
-  }
-
-  const day = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Africa/Johannesburg",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-
-  const { error: incrementError } = await admin.rpc(
-    "increment_creator_daily_visit",
-    {
-      p_user_id: profile.id,
-      p_day: day,
-    }
-  );
-
-  if (incrementError) {
-    return { ok: false, error: incrementError.message };
-  }
-
-  return { ok: true };
+  const { client } = await authenticatedUser();
+  const { data, error } = await client.rpc("request_creator_payout");
+  if (error) return { ok: false, error: "Could not submit a payout request." };
+  const response = data as RpcResult;
+  return response?.ok
+    ? {
+        ok: true, amountUsd: amount(response.amountUsd),
+        requestedAt: String(response.requestedAt || ""),
+        paymentDueDate: String(response.paymentDueDate || ""),
+      }
+    : { ok: false, error: response?.error ?? "Payout request was declined." };
 }

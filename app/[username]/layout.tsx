@@ -26,7 +26,7 @@ export default function ExploreLayout({ children }: { children: React.ReactNode 
         searchQuery={query}
         setSearchQuery={setQuery}
       />
-      <div className="pt-[58px] lg:pt-4 lg:ml-[76px] min-[1360px]:ml-[244px] lg:mr-[340px]">{children}</div>
+      <div className="pt-[58px] lg:pt-4 lg:ml-[76px] lg:mr-[340px]">{children}</div>
     </div>
   );
 }

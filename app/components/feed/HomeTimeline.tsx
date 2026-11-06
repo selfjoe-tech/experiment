@@ -10,12 +10,8 @@ import {
   type HomeFeedMode, type HomePost,
 } from "@/lib/actions/homeFeed";
 import { getUserIdFromCookies } from "@/lib/actions/auth";
-import { DesktopAdRail } from "@/app/components/ads/AdPlacements";
 import { useAutoHideHeader } from "@/app/hooks/useAutoHideHeader";
-
-function HomeAds() {
-  return <DesktopAdRail/>;
-}
+import StaticPageAdPair from "@/app/components/ads/StaticPageAdPair";
 
 function PostSkeleton() {
   return <div className="animate-pulse space-y-3 border-b border-white/10 py-4">
@@ -108,9 +104,9 @@ export default function HomeTimeline() {
     <DesktopShell/>
     <MobileChrome/>
     <div className="h-[58px] lg:hidden" aria-hidden="true"/>
-    <main className="min-h-screen pb-24 pt-0 lg:pl-[76px] lg:pr-[340px] min-[1360px]:pl-[244px] lg:pt-0">
-      <div className="mx-auto flex w-full max-w-[800px] items-start justify-center px-0 pt-0 sm:px-6">
-        <section className="min-w-0 w-full max-w-[480px]">
+    <main className="min-h-screen pb-24 pt-0 lg:pl-[76px] lg:pr-4 lg:pt-0">
+      <div className="mx-auto flex w-full max-w-[1200px] flex-col items-center gap-4 px-0 pt-0 sm:px-6 lg:flex-row lg:items-start lg:justify-center lg:gap-6">
+        <section className="order-2 min-w-0 w-full max-w-[480px] lg:order-1">
           <div className={`sticky top-[58px] z-30 border-b border-white/10 bg-[#0b0d10]/95 px-4 pb-2 pt-3 backdrop-blur-xl transition-all duration-300 sm:px-0 lg:top-0 ${hideFeedTabs ? "pointer-events-none -translate-y-full opacity-0" : "translate-y-0 opacity-100"}`}>
             <div className="flex items-center gap-7 text-sm">
               <button type="button" className={`relative pb-3 font-semibold transition-colors ${mode === "forYou" ? "text-white" : "text-white/45 hover:text-white"}`} onClick={() => setMode("forYou")}>For you{mode==="forYou"&&<span className="absolute inset-x-0 bottom-0 h-[2px] bg-white"/>}</button>
@@ -133,7 +129,11 @@ export default function HomeTimeline() {
             </>}
           </div>
         </section>
-        <HomeAds/>
+        {/* Ads live beside the feed on desktop, in a swipeable row above it on mobile.
+            They never depend on For You / Following, pagination, or post state. */}
+        <div className="order-1 min-w-0 w-full max-w-[700px] border-b border-white/10 px-3 pb-4 pt-[180px] sm:px-0 lg:sticky lg:top-0 lg:order-2 lg:w-[340px] lg:shrink-0 lg:border-b-0 lg:pt-[186px]">
+          <StaticPageAdPair/>
+        </div>
       </div>
     </main>
   </div>;

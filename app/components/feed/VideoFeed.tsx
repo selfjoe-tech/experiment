@@ -8,17 +8,14 @@ import React, {
   useRef,
   useState,
 } from "react";
-import VideoCard, { SponsoredVideoCard } from "./VideoCard";
+import VideoCard from "./VideoCard";
 import type { FeedTab, Video } from "./types";
 import {
   fetchTrendingVideosBatch,
   registerView,
   fetchForYouVideosBatch,
-  fetchRandomAdForFeed,
-  registerAdView,
 } from "@/lib/actions/mediaFeed";
 import { Loader2, LucideLoader } from "lucide-react";
-import { ReelsPauseAd } from "@/app/components/ads/AdPlacements";
 
 const BATCH_SIZE = 3;
 const PREFETCH_AHEAD = 2;
@@ -42,11 +39,6 @@ export default function VideoFeed({
   initialVideo,
   withAds = false,
 }: Props) {
-  // ads
-  const AD_EVERY = 3;
-  const MAX_AD_TRIES = 4;
-  const sinceLastAdRef = useRef(0);
-
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const lastScrollTop = useRef(0);
 
@@ -54,18 +46,10 @@ export default function VideoFeed({
   const [videos, setVideos] = useState<Video[]>([]);
 
   const [isMuted, setIsMuted] = useState(true);
-  const [pausedReelVisible, setPausedReelVisible] = useState(false);
-  const [pauseAdMounted, setPauseAdMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [feedError, setFeedError] = useState<string | null>(null);
-
-  const handleReelPlayback = useCallback((playing: boolean, hasPlayed: boolean, previewEnded: boolean) => {
-    const show = hasPlayed && !playing && !previewEnded;
-    setPausedReelVisible(show);
-    if (show) setPauseAdMounted(true);
-  }, []);
 
   const loadingRef = useRef(false);
   const hasMoreRef = useRef(true);
@@ -73,14 +57,12 @@ export default function VideoFeed({
     hasMoreRef.current = hasMore;
   }, [hasMore]);
 
-  // exclude + ad de-dupe
+  // Track fetched media to avoid duplicates.
   const seenIdsRef = useRef<Set<number>>(new Set());
-  const seenAdIdsRef = useRef<Set<string>>(new Set());
   const forYouBatchCountRef = useRef(0);
 
   // view tracking (so scrolling back doesn’t spam views)
   const viewedMediaIdsRef = useRef<Set<number>>(new Set());
-  const viewedAdIdsRef = useRef<Set<string>>(new Set());
 
   // card height
   const [cardH, setCardH] = useState(0);
@@ -203,51 +185,12 @@ export default function VideoFeed({
         return;
       }
 
-      // inject ads (with de-dupe)
-      const combined: Video[] = [];
-
-      for (const v of batch) {
-        combined.push(v);
-
-        const isAd = !!(v as any)?._isAd;
-        if (isAd) continue;
-
-        sinceLastAdRef.current += 1;
-
-        if (sinceLastAdRef.current >= AD_EVERY) {
-          let pickedAd: Video | null = null;
-
-          for (let tries = 0; tries < MAX_AD_TRIES; tries++) {
-            const candidate = await fetchRandomAdForFeed();
-            const anyC = candidate as any;
-            if (!candidate || !anyC?._isAd) continue;
-
-            const adId = anyC?._adId != null ? String(anyC._adId) : null;
-            if (!adId) continue;
-            if (seenAdIdsRef.current.has(adId)) continue;
-
-            seenAdIdsRef.current.add(adId);
-            pickedAd = candidate;
-            break;
-          }
-
-          if (pickedAd) {
-            combined.push(pickedAd);
-            sinceLastAdRef.current = 0;
-          } else {
-            sinceLastAdRef.current = AD_EVERY - 1;
-          }
-        }
+      // Only creator videos. Sponsored feed cards are disabled.
+      const mediaOnly = batch.filter(v => !(v as any)?._isAd);
+      for (const video of mediaOnly) {
+        if (typeof video.mediaId === "number") seenIdsRef.current.add(video.mediaId);
       }
-
-      // update exclude set (so we don’t refetch session duplicates)
-      for (const v of combined) {
-        const anyV = v as any;
-        if (anyV?._isAd) continue;
-        if (typeof v.mediaId === "number") seenIdsRef.current.add(v.mediaId);
-      }
-
-      setVideos((prev) => [...prev, ...combined]);
+      setVideos(prev => [...prev, ...mediaOnly]);
     } catch (err: any) {
       console.error("loadMore feed error", err);
       setFeedError(err?.message ?? "Failed to load videos.");
@@ -277,11 +220,7 @@ export default function VideoFeed({
       const h = cardH || el.clientHeight || window.innerHeight || 1;
 
       const absoluteIndex = Math.round(el.scrollTop / h);
-      const idx = clamp(
-        absoluteIndex,
-        0,
-        Math.max(0, videosLenRef.current - 1)
-      );
+      const idx = clamp(absoluteIndex, 0, Math.max(0, videosLenRef.current - 1));
 
       if (idx !== currentIndexRef.current) {
         currentIndexRef.current = idx;
@@ -307,18 +246,6 @@ export default function VideoFeed({
     const v = videos[currentIndex];
     if (!v) return;
 
-    const anyV = v as any;
-
-    if (anyV?._isAd) {
-      const adId = anyV?._adId != null ? String(anyV._adId) : null;
-      if (!adId) return;
-      if (viewedAdIdsRef.current.has(adId)) return;
-
-      viewedAdIdsRef.current.add(adId);
-      registerAdView(adId);
-      return;
-    }
-
     const mediaId = v.mediaId;
     if (typeof mediaId !== "number") return;
     if (viewedMediaIdsRef.current.has(mediaId)) return;
@@ -340,12 +267,9 @@ export default function VideoFeed({
     setFeedError(null);
 
     seenIdsRef.current.clear();
-    seenAdIdsRef.current.clear();
     viewedMediaIdsRef.current.clear();
-    viewedAdIdsRef.current.clear();
 
     forYouBatchCountRef.current = 0;
-    sinceLastAdRef.current = 0;
 
     lastScrollTop.current = 0;
     currentIndexRef.current = 0;
@@ -368,9 +292,7 @@ export default function VideoFeed({
     setFeedError(null);
 
     seenIdsRef.current.clear();
-    seenAdIdsRef.current.clear();
     viewedMediaIdsRef.current.clear();
-    viewedAdIdsRef.current.clear();
 
     if (typeof initialVideo.mediaId === "number" && !Number.isNaN(initialVideo.mediaId)) {
       seenIdsRef.current.add(initialVideo.mediaId);
@@ -390,11 +312,9 @@ export default function VideoFeed({
 
   const mainClass = overlayOpen
     ? "relative z-[80] h-[100dvh] w-full overflow-y-scroll overscroll-y-contain snap-y snap-mandatory shadow-2xl backdrop-blur"
-    : `relative h-screen snap-y snap-mandatory overflow-y-scroll overscroll-y-contain lg:pt-0 lg:pb-0 lg:pl-[76px] min-[1360px]:pl-[244px] lg:pr-0 ${withAds ? "lg:pr-[340px]" : ""}`;
+    : `relative ${withAds ? "h-[calc(100dvh-199px)] lg:h-screen lg:pr-[340px]" : "h-screen lg:pr-0"} snap-y snap-mandatory overflow-y-scroll overscroll-y-contain lg:pt-0 lg:pb-0 lg:pl-[76px] min-[1360px]:pl-[244px]`;
+  const sectionHeightClass = "h-full w-full";
 
-  const sectionHeightClass = overlayOpen ? "h-full" : "h-screen w-full lg:h-[100dvh]";
-
-  useEffect(() => { setPausedReelVisible(false); }, [currentIndex, activeTab, overlayOpen]);
 
   return (
     <>
@@ -412,60 +332,17 @@ export default function VideoFeed({
             </div>
           )}
 
-          {videos.map((video, index) => {
-            const anyVideo = video as any;
-            const isAd = !!anyVideo._isAd;
-            const visitUrl: string | undefined = anyVideo._adLandingUrl ?? undefined;
-
-            // ✅ Only one active => only one video mounts (your VideoCard uses this)
-            const loadLevel: "active" | "near" | "off" =
-              index === currentIndex ? "active" : "off";
-
-            const key = isAd
-              ? `ad-${anyVideo._adId ?? video.id}`
-              : `media-${video.mediaId ?? video.id}`;
-
-            const absIndex = index;
-
-            return (
-              <section
-                key={key}
-                className={`snap-center snap-always flex items-center justify-center w-full ${sectionHeightClass}`}
-              >
-                {isAd ? (
-                  <SponsoredVideoCard
-                    video={video}
-                    isMuted={isMuted}
-                    toggleMute={toggleMute}
-                    visitUrl={visitUrl || "/ads"}
-                    loadLevel={loadLevel}
-                    maximize={maximize}
-                    changeMaxButton={() => setMaximize((prev) => !prev)}
-                  />
-                ) : (
-                  <VideoCard
-                    video={video}
-                    onPlaybackChange={handleReelPlayback}
-                    onRequestFullscreen={() => openOverlayAtIndex(absIndex)}
-                    toggleMute={toggleMute}
-                    isMuted={isMuted}
-                    loadLevel={loadLevel}
-                    maximize={!maximize}
-                    changeMaxButton={() => setMaximize((prev) => !prev)}
-                  />
-                )}
-              </section>
-            );
-          })}
+          {videos.map((video, index) =>
+            <section key={`media-${video.mediaId ?? video.id}`}
+              className={`snap-center snap-always flex items-center justify-center w-full ${sectionHeightClass}`}>
+              <VideoCard video={video} onRequestFullscreen={() => openOverlayAtIndex(index)}
+                toggleMute={toggleMute} isMuted={isMuted}
+                loadLevel={index === currentIndex ? "active" : "off"}
+                maximize={!maximize} changeMaxButton={() => setMaximize(prev => !prev)}/>
+            </section>
+          )}
         </main>
       </div>
-      {/* Mount the vendor slot only once, on first pause; subsequent pauses use CSS visibility. */}
-      {pauseAdMounted && <div
-        aria-hidden={!pausedReelVisible}
-        className={`fixed left-1/2 top-[calc(50%+56px)] z-[100] -translate-x-1/2 transition-opacity duration-150 lg:left-[calc(50%-170px)] ${pausedReelVisible ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}>
-        <ReelsPauseAd/>
-      </div>}
     </>
   );
 }
-
