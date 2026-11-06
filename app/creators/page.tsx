@@ -22,12 +22,9 @@ export default async function CreatorsDirectory({searchParams}:Props){
   .order("created_at",{ascending:false})
   .range((page-1)*limit,page*limit-1);
  if(error)throw new Error("Creator directory unavailable");
+ // Eligibility (real biography or public posts) is already enforced by the view.
  const profiles=data??[];
- const ids=profiles.map(p=>p.id);
- const {data:media}=ids.length?await db.from("public_seo_media")
-  .select("owner_id").in("owner_id",ids).limit(1000):{data:[]};
- const active=new Set((media??[]).map(m=>m.owner_id));
- const visible=profiles.filter(p=>p.username&&active.has(p.id));
+ const visible=profiles.filter(p=>Boolean(p.username));
  return <div className="min-h-screen bg-[#0b0d10] text-white">
   <DesktopShell/><MobileChrome/>
   <main className="mx-auto max-w-[1140px] px-4 pb-28 pt-[86px] sm:px-8 lg:pl-[100px] lg:pt-14">
