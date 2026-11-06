@@ -13,6 +13,13 @@ function copyResponseCookies(
 }
 
 export async function proxy(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  // Public sitemaps and robots never require a user session.
+  if (pathname === "/sitemap.xml" || pathname.startsWith("/sitemap/") ||
+      pathname === "/robots.txt") {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -51,14 +58,16 @@ export async function proxy(request: NextRequest) {
   // getClaims() validates the JWT without an additional Auth user lookup.
   await supabase.auth.getClaims();
 
-  const { pathname } = request.nextUrl;
-
-  if (
-    pathname === "/sitemap.xml" ||
-    pathname.startsWith("/sitemap/") ||
-    pathname === "/robots.txt"
-  ) {
-    return supabaseResponse;
+  // X-Robots-Tag protects client-rendered private pages that cannot
+  // export metadata from a server page. Bots can still read the noindex
+  // response rather than being blocked from these paths in robots.txt.
+  const privatePrefixes = [
+    "/admin", "/auth", "/api", "/upload", "/verify", "/earn",
+    "/edit-profile", "/preferences", "/saved", "/liked",
+    "/watermark", "/watermark-lab", "/ads/upload", "/settings",
+  ];
+  if (privatePrefixes.some(p => pathname === p || pathname.startsWith(p + "/"))) {
+    supabaseResponse.headers.set("X-Robots-Tag", "noindex, nofollow");
   }
 
   // Keep the separate admin JWT system intact during this migration.
