@@ -29,6 +29,15 @@ function timeAgo(date: string) {
   return new Date(date).toLocaleDateString();
 }
 
+function remainingTime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return "—:—";
+  const total = Math.ceil(seconds);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const sec = String(total % 60).padStart(2, "0");
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
+}
+
 function commentTotal(comments: CommentNode[]): number {
   return comments.reduce((count, node) => count + 1 + commentTotal(node.replies ?? []), 0);
 }
@@ -42,7 +51,8 @@ export default function PostCard({ post, viewerId }: { post: HomePost; viewerId:
   const [visible, setVisible] = useState(false);
   const [muted, setMuted] = useState(true);
   const [playing, setPlaying] = useState(false);
-  const [videoDuration, setVideoDuration] = useState(0);
+  const [videoDuration, setVideoDuration] = useState(post.durationSeconds ?? 0);
+  const [playedSeconds, setPlayedSeconds] = useState(0);
   const [previewEnded, setPreviewEnded] = useState(false);
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [liked, setLiked] = useState(post.likedByMe);
@@ -155,7 +165,13 @@ export default function PostCard({ post, viewerId }: { post: HomePost; viewerId:
   const timeUpdate = () => {
     const video = videoRef.current;
     if (!video) return;
-    if (video.duration > 30 && video.currentTime >= 30) {
+    const current = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+    const duration = Number.isFinite(video.duration) && video.duration > 0
+      ? video.duration
+      : post.durationSeconds ?? 0;
+    // Count down the ORIGINAL video time, even though the Home preview ends at 30s.
+    setPlayedSeconds(Math.min(30, current));
+    if (duration > 30 && current >= 30) {
       video.currentTime = 30;
       video.pause();
       setPreviewEnded(true);
@@ -227,8 +243,12 @@ export default function PostCard({ post, viewerId }: { post: HomePost; viewerId:
     }
   };
 
+  const originalRemaining = videoDuration > 0
+    ? remainingTime(Math.max(0, videoDuration - playedSeconds))
+    : "—:—";
+
   return <article className="w-full border-b border-white/10 pb-5 pt-3 text-white sm:pb-6">
-    <header className="flex h-[57px] items-center gap-3 px-1">
+    {post.type === "image" && <header className="flex h-[57px] items-center gap-3 px-1">
       <a href={"/" + encodeURIComponent(post.username)} className="shrink-0 rounded-full bg-gradient-to-tr from-amber-400 p-[2px]">
         <Image unoptimized src={post.avatar} width={40} height={40} alt={post.username} className="h-10 w-10 rounded-full border-2 border-[#0b0d10] object-cover" />
       </a>
@@ -240,24 +260,58 @@ export default function PostCard({ post, viewerId }: { post: HomePost; viewerId:
         </div>
       </div>
       {canFollow && !following && <button type="button" onClick={toggleFollow} disabled={followBusy} className="pr-2 text-xs font-semibold text-[#8ea4ff] hover:text-white">{followBusy ? "..." : "Follow"}</button>}
-    </header>
+    </header>}
 
-    <div ref={mediaRef} className="relative mt-2 flex aspect-[4/5] max-h-[650px] w-full items-center justify-center overflow-hidden rounded-md border border-white/[0.06] bg-[#090a0c]" onDoubleClick={doubleClickVideo}>
+    <div ref={mediaRef} className={`relative flex aspect-[4/5] max-h-[650px] w-full items-center justify-center overflow-hidden rounded-md ${post.type === "image" ? "mt-2 bg-[#090a0c]" : "bg-black"}`} onDoubleClick={doubleClickVideo}>
       {post.type === "video" ?
         <video ref={videoRef} src={post.src} loop playsInline muted={muted} preload="metadata"
-          onLoadedMetadata={event => setVideoDuration(event.currentTarget.duration)}
+          onLoadedMetadata={event => {
+            const duration = event.currentTarget.duration;
+            if (Number.isFinite(duration) && duration > 0) setVideoDuration(duration);
+          }}
           onTimeUpdate={timeUpdate}
           onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
           onClick={clickVideo}
-          className="h-full w-full cursor-pointer object-contain" aria-label={post.title || "Video post"} /> :
+          className="absolute inset-0 h-full w-full cursor-pointer object-cover" aria-label={post.title || "Video post"} /> :
         <Image unoptimized src={post.src} alt={post.title || "Image post"} fill sizes="(max-width: 640px) 100vw, 520px" className="object-contain" />}
       {post.type === "video" && <>
+        {/* Creator information and original runtime sit ON the video, not outside it. */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-28 bg-gradient-to-b from-black/65 via-black/20 to-transparent" aria-hidden="true" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 px-3 pt-3 sm:px-4 sm:pt-4">
+          <div className="pointer-events-auto flex min-w-0 items-center gap-2.5">
+            <a href={`/${encodeURIComponent(post.username)}`} aria-label={`Open ${post.username}'s profile`}
+              className="shrink-0 rounded-full border border-white/50 bg-black/25 p-[2px]">
+              <Image unoptimized src={post.avatar} width={36} height={36} alt={post.username}
+                className="h-9 w-9 rounded-full object-cover" />
+            </a>
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-center gap-1.5 text-[12px] font-semibold text-white drop-shadow-md sm:text-[13px]">
+                <a href={`/${encodeURIComponent(post.username)}`} className="truncate hover:underline">{post.username}</a>
+                {post.verified && <span aria-label="Verified creator" className="shrink-0 text-sky-300"><Check size={14}/></span>}
+              </div>
+              <time dateTime={post.createdAt} title={new Date(post.createdAt).toLocaleString()}
+                className="mt-0.5 block text-[11px] text-white/80 drop-shadow-md">
+                {timeAgo(post.createdAt)}
+              </time>
+            </div>
+            {canFollow && !following && <button type="button" onClick={toggleFollow}
+              disabled={followBusy}
+              className="ml-0.5 shrink-0 rounded-md bg-white/15 px-2 py-1 text-[11px] font-semibold text-white backdrop-blur-sm hover:bg-white/25 disabled:opacity-60">
+              {followBusy ? "..." : "Follow"}
+            </button>}
+          </div>
+          <div className="shrink-0 rounded-md bg-black/45 px-2.5 py-1.5 text-[12px] font-semibold tabular-nums text-white backdrop-blur-sm"
+            aria-label={`Original video time remaining: ${originalRemaining}`}
+            title="Time remaining in original video">
+            {originalRemaining}
+          </div>
+        </div>
         {!previewEnded && <button type="button" onClick={toggleVideoPlayback}
-          className="absolute left-4 top-4 rounded-full bg-black/55 p-2.5 text-white/90 backdrop-blur-sm transition hover:scale-105"
+          className="absolute bottom-4 left-4 z-20 rounded-full bg-black/55 p-2.5 text-white/90 backdrop-blur-sm transition hover:scale-105"
           aria-label={playing ? "Pause video" : "Play video"}>
           {playing ? <Pause size={17} fill="currentColor"/> : <Play size={17} fill="currentColor"/>}
         </button>}
-        <button type="button" onClick={() => setMuted(value => !value)} className="absolute bottom-4 right-4 rounded-full bg-black/65 p-2.5 text-white backdrop-blur-sm" aria-label={muted ? "Unmute" : "Mute"}>
+        <button type="button" onClick={() => setMuted(value => !value)} className="absolute bottom-4 right-4 z-20 rounded-full bg-black/65 p-2.5 text-white backdrop-blur-sm" aria-label={muted ? "Unmute" : "Mute"}>
           {muted ? <VolumeX size={17}/> : <Volume2 size={17}/>}
         </button>
       </>}
