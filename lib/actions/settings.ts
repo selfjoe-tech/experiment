@@ -1,6 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { getPublicProfileSeo, absoluteSeoUrl } from "@/lib/server/publicSeo";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { deliverIndexNowBatch } from "@/lib/server/indexNow";
 import { createClient } from "@/lib/supabase/server";
 
 export type SettingsProfile = {
@@ -131,6 +135,26 @@ export async function updateProfileBasicsAction(
 
   revalidatePath("/");
   revalidatePath("/settings");
+  revalidatePath("/creators");
+  revalidatePath("/"+encodeURIComponent(username));
+  if(current.username!==username)
+    revalidatePath("/"+encodeURIComponent(current.username));
+  after(async()=>{
+    try {
+      const profile=await getPublicProfileSeo(username);
+      if(!profile||profile.id!==auth.user.id)return;
+      const admin=getSupabaseAdmin();
+      const url=absoluteSeoUrl("/"+encodeURIComponent(username));
+      const {data,error}=await admin.from("seo_discovery_events").upsert({
+        canonical_url:url,kind:"profile",status:"queued",attempts:0,
+        updated_at:new Date().toISOString(),last_error:null,
+      },{onConflict:"canonical_url"}).select("id").single();
+      if(error)throw error;
+      await deliverIndexNowBatch([data.id]);
+    } catch(error) {
+      console.error("Profile discovery notification failed:",error);
+    }
+  });
   return { success: true };
 }
 

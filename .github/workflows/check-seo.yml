@@ -1,0 +1,40 @@
+name: Verify public SEO implementation
+
+on:
+  push:
+    branches:
+      - feature/public-media-seo-discovery
+  pull_request:
+    branches:
+      - main
+      - feature/video-download-page-pink-scrollbars
+
+permissions:
+  contents: read
+
+jobs:
+  seo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://tkplsmxyouexyirhkqlf.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_CI_PLACEHOLDER
+      NEXT_PUBLIC_SITE_URL: https://goongram.com
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Report existing TypeScript diagnostics and reject SEO regressions
+        run: |
+          npx tsc --noEmit > /tmp/ts-diagnostics.txt 2>&1 || true
+          echo "Total diagnostics: $(grep -c 'error TS' /tmp/ts-diagnostics.txt || true)"
+          if grep -E '^(app/(creators/|images/|watch/\[id\]/page|\[username\]/page|explore/\[tab\]/(layout|\[tag\]/page)|sitemap|api/seo/|layout|robots)|lib/server/publicSeo|lib/client/mediaUploads|proxy\.ts)' /tmp/ts-diagnostics.txt; then
+            exit 1
+          fi
+      - name: Production build
+        run: npm run build

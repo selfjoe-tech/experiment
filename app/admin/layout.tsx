@@ -14,6 +14,7 @@ const links = [
   { href: "/admin/users", label: "Users" },
   { href: "/admin/affiliate-requests", label: "Affiliate requests" },
   { href: "/admin/payout-requests", label: "Payout Requests" },
+  { href: "/admin/seo", label: "SEO" },
 
 
 
