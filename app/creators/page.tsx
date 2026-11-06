@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import DesktopShell from "@/app/components/feed/layout/DesktopShell";
 import MobileChrome from "@/app/components/feed/layout/MobileChrome";
@@ -23,6 +24,7 @@ export default async function CreatorsPage({searchParams}:Args){
   if(error)throw error;
   const creators=data||[];
   const total=count||0;
+  if(page>1 && !creators.length) notFound();
   const schema={
     "@context":"https://schema.org",
     "@type":"CollectionPage",
