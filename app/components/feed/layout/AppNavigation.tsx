@@ -4,8 +4,8 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  Bookmark, Compass, Heart, Home, LogIn, Menu, PlusSquare, Search,
-  Clapperboard, Settings, X, type LucideIcon,
+  Compass, Heart, Home, LogIn, Menu, PlusSquare, Search,
+  Clapperboard, CircleDollarSign, X, type LucideIcon,
 } from "lucide-react";
 import { getUserProfileFromCookies } from "@/lib/actions/auth";
 import SearchOverlay from "@/app/components/search/SearchOverlay";
@@ -32,6 +32,7 @@ const NAV: Array<{ label: string; href: string; icon: LucideIcon }> = [
   { label: "Search", href: "#search", icon: Search },
   { label: "Explore", href: "/explore/gifs", icon: Compass },
   { label: "Reels", href: "/reels", icon: Clapperboard },
+  { label: "Earn", href: "/monetization", icon: CircleDollarSign },
   { label: "Liked", href: "/liked", icon: Heart },
   { label: "Create", href: "#create", icon: PlusSquare },
 ];
@@ -52,35 +53,41 @@ export function DesktopNavigation() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [navExpanded, setNavExpanded] = useState(false);
 
   useEffect(() => { setProfileOpen(false); setSearchOpen(false); }, [pathname]);
 
   return <>
-    <aside className="hidden lg:flex fixed inset-y-0 left-0 z-40 w-[76px] min-[1360px]:w-[244px] flex-col border-r border-white/10 bg-[#0b0d10] px-3 pb-5 pt-8 text-white">
-      <a href="/" className="mb-9 flex min-h-12 items-center justify-center min-[1360px]:justify-start min-[1360px]:px-3" aria-label="Goon Gram home">
-        <Image unoptimized src="/icons/goon.png" width={150} height={65} alt="Goon Gram" className="hidden h-auto max-h-14 w-[145px] object-contain object-left min-[1360px]:block" />
-        <Image unoptimized src="/icons/logo7.png" width={42} height={42} alt="" aria-hidden="true" className="h-10 w-10 object-contain min-[1360px]:hidden" />
+    <aside
+      onMouseEnter={() => setNavExpanded(true)}
+      onMouseLeave={() => setNavExpanded(false)}
+      onFocusCapture={() => setNavExpanded(true)}
+      className={`fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-white/10 bg-[#0b0d10] px-3 pb-5 pt-8 text-white transition-[width,box-shadow] duration-200 ease-out lg:flex ${navExpanded ? "w-[244px] shadow-[20px_0_55px_rgba(0,0,0,.32)]" : "w-[76px]"}`}
+    >
+      <a href="/" className={`mb-9 flex min-h-12 items-center ${navExpanded ? "justify-start px-3" : "justify-center"}`} aria-label="Goon Gram home">
+        <Image unoptimized src="/icons/goon.png" width={150} height={65} alt="Goon Gram" className={`h-auto max-h-14 w-[145px] object-contain object-left ${navExpanded ? "block" : "hidden"}`} />
+        <Image unoptimized src="/icons/logo7.png" width={42} height={42} alt="" aria-hidden="true" className={`h-10 w-10 object-contain ${navExpanded ? "hidden" : "block"}`} />
       </a>
       <nav className="flex flex-1 flex-col gap-1" aria-label="Main navigation">
         {NAV.map(({ label, href, icon: Icon }) => {
-          const selected = isActive(pathname, href);
+          const selected = isActive(pathname, href) || (href === "/monetization" && pathname.startsWith("/earn"));
           const onClick = href === "#search" ? () => setSearchOpen(true) :
                           href === "#create" ? () => setCreateOpen(true) : undefined;
-          const cls = `group flex h-[52px] w-full items-center justify-center min-[1360px]:justify-start gap-4 rounded-xl px-3 text-[15px] transition-all duration-200 hover:bg-white/[0.075] active:scale-[.98] ${selected ? "font-bold text-white" : "font-normal text-white/90"}`;
-          const inner = <><Icon size={25} strokeWidth={selected ? 2.6 : 1.9} className="shrink-0 transition-transform duration-200 group-hover:scale-110" /><span className="hidden min-[1360px]:inline">{label}</span></>;
-          return onClick ? <button key={label} type="button" onClick={onClick} className={cls}>{inner}</button>
-            : <a key={label} href={href} className={cls}>{inner}</a>;
+          const cls = `group flex h-[52px] w-full shrink-0 items-center gap-4 rounded-lg px-3 text-[15px] transition-colors duration-150 hover:bg-white/[.075] ${navExpanded ? "justify-start" : "justify-center"} ${selected ? "font-semibold text-white" : "font-normal text-white/75"}`;
+          const inner = <><Icon size={25} strokeWidth={selected ? 2.5 : 1.8} className="shrink-0" /><span className={navExpanded ? "min-w-0 truncate whitespace-nowrap" : "hidden"}>{label}</span></>;
+          return onClick ? <button key={label} type="button" aria-label={label} onClick={onClick} className={cls}>{inner}</button>
+            : <a key={label} href={href} aria-label={label} aria-current={selected ? "page" : undefined} className={cls}>{inner}</a>;
         })}
         {viewer.username ? (
-          <a href={`/${encodeURIComponent(viewer.username)}`} className="group flex h-[52px] items-center justify-center min-[1360px]:justify-start gap-4 rounded-lg px-3 text-[15px] hover:bg-white/[0.07]">
-            <Avatar src={viewer.avatarUrl} /><span className="hidden min-[1360px]:inline">Profile</span>
+          <a href={`/${encodeURIComponent(viewer.username)}`} className={`group flex h-[52px] items-center gap-4 rounded-lg px-3 text-[15px] hover:bg-white/[0.07] ${navExpanded ? "justify-start" : "justify-center"}`}>
+            <Avatar src={viewer.avatarUrl} /><span className={navExpanded ? "whitespace-nowrap" : "hidden"}>Profile</span>
           </a>
         ) : (
-          <a href="/auth/login" className="group flex h-[52px] items-center gap-4 rounded-lg px-3 text-[15px] hover:bg-white/[0.07]"><LogIn size={25} /><span className="hidden min-[1360px]:inline">Log in</span></a>
+          <a href="/auth/login" className={`group flex h-[52px] items-center gap-4 rounded-lg px-3 text-[15px] hover:bg-white/[0.07] ${navExpanded ? "justify-start" : "justify-center"}`}><LogIn size={25} /><span className={navExpanded ? "whitespace-nowrap" : "hidden"}>Log in</span></a>
         )}
       </nav>
-      <button type="button" onClick={() => setProfileOpen(true)} className="flex h-12 items-center justify-center min-[1360px]:justify-start gap-4 rounded-lg px-3 text-[15px] hover:bg-white/[0.07]">
-        <Menu size={25} strokeWidth={1.9} /><span className="hidden min-[1360px]:inline">More</span>
+      <button type="button" aria-label="More" onClick={() => setProfileOpen(true)} className={`flex h-12 items-center gap-4 rounded-lg px-3 text-[15px] hover:bg-white/[0.07] ${navExpanded ? "justify-start" : "justify-center"}`}>
+        <Menu size={25} strokeWidth={1.9} /><span className={navExpanded ? "whitespace-nowrap" : "hidden"}>More</span>
       </button>
     </aside>
     {searchOpen && <div className="fixed inset-0 z-[90] flex" role="dialog" aria-modal="true" aria-label="Search Goon Gram"
@@ -144,10 +151,10 @@ export function MobileNavigation({ hidden = false }: { hidden?: boolean }) {
   useEffect(() => { setMenuOpen(false); setSearchOpen(false); }, [pathname]);
   const tabs = [
     { href: "/", icon: Home, label: "Home" },
-    { href: "/explore/gifs", icon: Compass, label: "Explore" },
     { href: "/reels", icon: Clapperboard, label: "Reels" },
-    { href: "#create", icon: PlusSquare, label: "Create" },
-    { href: "/liked", icon: Heart, label: "Liked" },
+    { href: "#create", icon: PlusSquare, label: "Upload" },
+    { href: "/explore/gifs", icon: Compass, label: "Explore" },
+    { href: "/monetization", icon: CircleDollarSign, label: "Earn" },
   ];
   return <>
     <header className="fixed inset-x-0 top-0 z-40 flex h-[58px] items-center justify-between gap-1 border-b border-white/10 bg-[#0b0d10]/95 px-2 text-white backdrop-blur-xl sm:px-4 lg:hidden">
@@ -164,15 +171,22 @@ export function MobileNavigation({ hidden = false }: { hidden?: boolean }) {
         </a>
       </div>
     </header>
-    <nav aria-label="Mobile navigation" className={`fixed inset-x-0 bottom-0 z-40 flex h-[calc(61px+env(safe-area-inset-bottom))] items-start justify-around border-t border-white/10 bg-[#0b0d10]/95 pt-3 pb-[env(safe-area-inset-bottom)] text-white backdrop-blur-xl transition-transform duration-300 lg:hidden ${hidden?"translate-y-full":"translate-y-0"}`}>
-      {tabs.map(({href,icon:Icon,label})=> href === "#create" ?
-        <button key={label} type="button" aria-label={label} onClick={() => setCreateOpen(true)} className="grid h-9 w-12 place-items-center">
-          <Icon size={26} strokeWidth={1.9}/>
-        </button> :
-        <a key={label} href={href} aria-label={label} className="grid h-9 w-12 place-items-center">
-          <Icon size={26} strokeWidth={isActive(pathname,href)?2.9:1.8} className="transition-transform active:scale-90"/>
-        </a>
-      )}
+    <nav aria-label="Mobile navigation" className={`fixed inset-x-0 bottom-0 z-40 flex h-[calc(61px+env(safe-area-inset-bottom))] items-start justify-around border-t border-white/10 bg-[#0b0d10]/95 pt-1.5 pb-[env(safe-area-inset-bottom)] text-white backdrop-blur-xl transition-transform duration-300 lg:hidden ${hidden?"translate-y-full":"translate-y-0"}`}>
+      {tabs.map(({href,icon:Icon,label}) => {
+        const selected = isActive(pathname,href) || (href === "/monetization" && pathname.startsWith("/earn"));
+        return href === "#create" ?
+          <button key={label} type="button" aria-label="Upload" title="Upload" onClick={() => setCreateOpen(true)}
+            className="flex h-[48px] w-14 items-center justify-center" >
+            <span className="grid h-10 w-10 place-items-center rounded-xl border border-white/20 bg-white/[.09]">
+              <Icon size={25} strokeWidth={2}/>
+            </span>
+          </button> :
+          <a key={label} href={href} aria-label={label} aria-current={selected ? "page" : undefined}
+            className={`flex h-[49px] w-14 flex-col items-center justify-start gap-0.5 pt-1 ${selected ? "text-white" : "text-white/55"}`}>
+            <Icon size={23} strokeWidth={selected?2.5:1.8} className="shrink-0 transition-transform active:scale-90"/>
+            <span className={`max-w-full truncate text-[10px] leading-[14px] ${selected ? "font-semibold" : "font-normal"}`}>{label}</span>
+          </a>;
+      })}
     </nav>
     {searchOpen && <div className="fixed inset-0 z-[100] flex min-h-0 flex-col bg-[#0b0d10] text-white lg:hidden"
       role="dialog" aria-modal="true" aria-label="Search Goon Gram"
