@@ -106,9 +106,6 @@ export async function generateMetadata(): Promise<Metadata> {
       },
     },
 
-    alternates: {
-      canonical: SITE_URL,
-    },
 
     openGraph: {
       type: "website",
