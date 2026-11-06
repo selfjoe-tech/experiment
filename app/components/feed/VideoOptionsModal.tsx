@@ -22,7 +22,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   mediaId: number | string;
-  videoUrl: string; // Supabase public URL
+  videoUrl?: string; // Used for image downloads; videos have their own download page.
   sharePath?: string;
   allowEmbed?: boolean;
 };
@@ -126,7 +126,8 @@ export default function VideoOptionsModal({
   const iframeSnippet = `<iframe src="${embedUrl}" width="360" height="640" style="border:0;overflow:hidden" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>`;
 
   const fallbackName = `goongram_${idStr}.mp4`;
-  const downloadName = getSupabasePublicFilename(videoUrl, fallbackName);
+  const downloadName = getSupabasePublicFilename(videoUrl || "", fallbackName);
+  const videoDownloadHref = allowEmbed && /^[1-9][0-9]*$/.test(idStr) ? `/download/${idStr}` : null;
 
   const copyText = async (text: string, kind: "embed" | "share") => {
     try {
@@ -258,32 +259,37 @@ export default function VideoOptionsModal({
                 </div>
               </button>
 
-              {/* Download */}
+              {/* Video downloads open an ad-supported page; images retain direct saving. */}
               <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={handleDownload}
-                  disabled={dlLoading}
-                  className="w-full flex items-center justify-between rounded-xl border border-white/10 px-3 py-2.5 hover:bg-white/5 transition disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10">
-                      <Download className="h-4 w-4" />
+                {videoDownloadHref ? (
+                  <a href={videoDownloadHref} onClick={onClose}
+                    className="flex w-full items-center justify-between rounded-xl border border-white/10 px-3 py-2.5 transition hover:bg-white/5">
+                    <span className="flex items-center gap-2">
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10">
+                        <Download className="h-4 w-4"/>
+                      </span>
+                      Download video
                     </span>
-                    <span>{dlLoading ? "Downloading…" : "Download"}</span>
-                  </div>
-                </button>
-
-                {dlError && <p className="text-[11px] text-red-400">{dlError}</p>}
-
-                <a
-                  href={videoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block text-[11px] text-pink-500 underline underline-offset-2 hover:text-white/80"
-                >
-                  Click here if download fails
-                </a>
+                    <span className="text-[11px] text-white/45">Open page</span>
+                  </a>
+                ) : videoUrl ? (
+                  <>
+                    <button type="button" onClick={handleDownload} disabled={dlLoading}
+                      className="flex w-full items-center justify-between rounded-xl border border-white/10 px-3 py-2.5 transition hover:bg-white/5 disabled:opacity-60">
+                      <span className="flex items-center gap-2">
+                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10">
+                          <Download className="h-4 w-4"/>
+                        </span>
+                        {dlLoading ? "Downloading…" : "Download image"}
+                      </span>
+                    </button>
+                    {dlError && <p role="alert" className="text-[11px] text-red-400">{dlError}</p>}
+                    <a href={videoUrl} target="_blank" rel="noopener noreferrer"
+                      className="block text-[11px] text-pink-400 underline underline-offset-2 hover:text-white">
+                      Open file if download fails
+                    </a>
+                  </>
+                ) : null}
               </div>
             </div>
           )}
