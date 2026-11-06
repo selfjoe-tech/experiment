@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import Head from "next/head"; // 👈 NEW
 import { useParams } from "next/navigation";
 import ExploreTabs from "@/app/components/explore/ExploreTabs";
 import ExploreGrid from "@/app/components/explore/ExploreGrid";
@@ -53,41 +52,6 @@ useEffect(() => {
   setActiveVideoId(null);
   setOverlayVideos([]);
 }, [tab, sortBy]);
-
-  // ====== SEO STRINGS ======
-  const tabLabelMap: Record<typeof tab, string> = {
-    gifs: "GIFs",
-    images: "Images",
-    creators: "Creators",
-    niches: "Niches",
-  };
-
-  const tabLabel = tabLabelMap[tab];
-
-  const baseTitle = `Explore ${tabLabel} | goongram`;
-  const description =
-    tab === "gifs"
-      ? "Explore trending and newest adult GIFs on goongram from verified creators and niches."
-      : tab === "images"
-      ? "Browse high quality adult images and loops from goongram creators, sorted by trending, newest and most viewed."
-      : tab === "creators"
-      ? "Discover goongram creators, follow your favourites and explore their GIFs and images."
-      : "Dive into goongram niches, from specific kinks to themed collections, and explore GIFs & videos by category.";
-
-  const canonical = `https://goongram.com/explore/${tab}`;
-
-  const collectionSchema = {
-    "@context": "https://schema.org",
-    "@type": "CollectionPage",
-    name: baseTitle,
-    description,
-    url: canonical,
-    isPartOf: {
-      "@type": "WebSite",
-      name: "goongram",
-      url: "https://goongram.com",
-    },
-  };
 
   function exploreItemToVideo(i: any): Video {
   return {
@@ -196,32 +160,7 @@ const [initialOverlayIndex, setInitialOverlayIndex] = useState<number | null>(nu
   // ====== RENDER ======
   return (
     <>
-      <Head>
-        <title>{baseTitle}</title>
-        <meta name="description" content={description} />
-        <link rel="canonical" href={canonical} />
-        <meta name="robots" content="index,follow" />
 
-        {/* Open Graph */}
-        <meta property="og:title" content={baseTitle} />
-        <meta property="og:description" content={description} />
-        <meta property="og:url" content={canonical} />
-        <meta property="og:site_name" content="goongram" />
-        <meta property="og:type" content="website" />
-
-        {/* Twitter */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={baseTitle} />
-        <meta name="twitter:description" content={description} />
-
-        {/* JSON-LD */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(collectionSchema),
-          }}
-        />
-      </Head>
 
       <main className="min-h-[100dvh] bg-[#090a0d] pt-[58px] text-white lg:ml-[76px] lg:mr-[340px] lg:pt-0">
         <div className="mx-auto w-full max-w-[1160px]">
