@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import ProfileMediaPage from "./ProfileMediaPage";
 import {
   SEO_BRAND, absoluteSeoUrl, getPublicProfileSeo, getProfilePublicMedia,
@@ -42,7 +43,17 @@ function ProfileFallback(){
 export default async function ProfilePage({params}:Params){
   const username=await resolveUsername(params);
   const profile=await getPublicProfileSeo(username);
-  if(!profile)notFound();
+  if(!profile) {
+    const admin=getSupabaseAdmin();
+    const {data:redirectRecord}=await admin.from("profile_username_redirects")
+      .select("profile_id").eq("old_username",username).maybeSingle();
+    if(redirectRecord?.profile_id) {
+      const {data:destination}=await admin.from("public_seo_profiles")
+        .select("username").eq("id",redirectRecord.profile_id).maybeSingle();
+      if(destination?.username) permanentRedirect("/"+encodeURIComponent(destination.username));
+    }
+    notFound();
+  }
   const recent=await getProfilePublicMedia(profile.id,24);
   const url=absoluteSeoUrl(`/${encodeURIComponent(profile.username)}`);
   const json={
