@@ -239,8 +239,6 @@ export default function HistoryClient({ initialTab }: { initialTab: HistoryTab }
                             cacheKey={`history-${post.id}`}
                             className="h-full w-full"
                             hoverPlay
-                            mobileLimit={5}
-                            mobileMode="still"
                           />
                         ) : (
                           <LazyImage src={post.src} alt={post.title || post.description || "Saved image"}
