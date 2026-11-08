@@ -6,6 +6,7 @@ import React, { startTransition, useEffect, useRef, useState } from "react";
 import {
   Eye,
   Heart,
+  Bookmark,
   Maximize2,
   Play,
   Pause,
@@ -36,6 +37,7 @@ import {
   toggleAdLike,
 } from "@/lib/actions/social";
 import VideoOptionsModal from "@/app/components/feed/VideoOptionsModal";
+import { checkMediaBookmarked, toggleMediaBookmark } from "@/lib/actions/bookmarks";
 import { getUserIdFromCookies } from "@/lib/actions/auth";
 import Script from "next/script";
 
@@ -180,6 +182,8 @@ const mediaIdNum = !isSponsored
   const [likes, setLikes] = useState(video.likes);
   const [liked, setLiked] = useState(!!video.likedByMe);
   const [likeLoading, setLikeLoading] = useState(false);
+  const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarkLoading, setBookmarkLoading] = useState(false);
 
   // VIDEO PROGRESS
   const [progress, setProgress] = useState(0);
@@ -335,6 +339,39 @@ useEffect(() => {
       console.error("toggleFollowUser error", err);
     } finally {
       setFollowLoading(false);
+    }
+  };
+
+  // Bookmarks are separate from likes. Keep the current account's saved state.
+  useEffect(() => {
+    if (isSponsored || !currentId || !Number.isSafeInteger(mediaIdNum) || mediaIdNum <= 0) {
+      setBookmarked(false);
+      return;
+    }
+    let active = true;
+    checkMediaBookmarked(mediaIdNum)
+      .then((value) => { if (active) setBookmarked(value); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [currentId, mediaIdNum, isSponsored]);
+
+  const handleToggleBookmark = async () => {
+    if (isSponsored || !Number.isSafeInteger(mediaIdNum) || mediaIdNum <= 0 || bookmarkLoading) return;
+    if (!currentId) {
+      const currentPage = window.location.pathname + window.location.search;
+      window.location.assign(`/auth/login?redirect=${encodeURIComponent(currentPage)}`);
+      return;
+    }
+    const next = !bookmarked;
+    setBookmarked(next);
+    setBookmarkLoading(true);
+    try {
+      setBookmarked(await toggleMediaBookmark(mediaIdNum));
+    } catch (error) {
+      console.warn("Unable to update bookmark", error);
+      setBookmarked(!next);
+    } finally {
+      setBookmarkLoading(false);
     }
   };
 
@@ -760,12 +797,20 @@ useEffect(() => {
           </IconCircleButton>
           <span className="text-xs font-medium drop-shadow-md">{formatAbbrev(totalComments || 0)}</span>
         </div>}
-        {!isSponsored && <div className="flex flex-col items-center">
-          <IconCircleButton onClick={() => setOptionsOpen(true)} label="Share and options">
-            <Send className="h-7 w-7 drop-shadow-md" strokeWidth={1.9}/>
-          </IconCircleButton>
-          <span className="text-[11px] font-medium">Share</span>
-        </div>}
+        {!isSponsored && <div className="flex items-center gap-1.5">
+          <div className="flex flex-col items-center">
+            <IconCircleButton onClick={() => setOptionsOpen(true)} label="Share and options">
+              <Send className="h-7 w-7 drop-shadow-md" strokeWidth={1.9}/>
+            </IconCircleButton>
+            <span className="text-[11px] font-medium">Share</span>
+          </div>
+          <div className="flex flex-col items-center">
+            <IconCircleButton onClick={() => void handleToggleBookmark()} label={bookmarked ? "Remove bookmark" : "Bookmark video"} disabled={bookmarkLoading}>
+              <Bookmark className={`h-7 w-7 drop-shadow-md ${bookmarked ? "fill-white" : ""}`} strokeWidth={1.9}/>
+            </IconCircleButton>
+            <span className="text-[11px] font-medium">{bookmarked ? "Saved" : "Save"}</span>
+          </div>
+        </div>
         {!isSponsored && <IconCircleButton onClick={toggleMute!} label={isMuted ? "Unmute" : "Mute"}>
           {isMuted ? <VolumeX className="h-6 w-6"/> : <Volume2 className="h-6 w-6"/>}
         </IconCircleButton>}
