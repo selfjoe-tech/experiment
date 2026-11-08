@@ -37,7 +37,7 @@ export default function ReelsPage() {
   const showForYouGate = authLoaded && !isLoggedIn && activeTab === "forYou";
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-black text-white">
+    <div className="relative h-[100dvh] overflow-hidden bg-black text-white">
       <DesktopShell navHidden={desktopNavHidden}/>
       <MobileChrome
         activeTab={activeTab}
@@ -72,10 +72,13 @@ export default function ReelsPage() {
         </nav>
       </div>
 
-      {/* Existing publisher ad zones remain mounted independently of the selected tab. */}
-      
+      {/* Keep the existing ad zones outside the Reel scroller. An overlay rail
+          cannot shorten the viewport when it is dismissed in development. */}
+      <div className="absolute inset-x-0 top-[115px] z-[25] lg:fixed lg:inset-x-auto lg:right-2 lg:top-[186px] lg:z-[5] lg:w-[328px]">
         <StaticPageAdPair compactOnMobile/>
+      </div>
 
+      <div className="relative h-full min-h-0">
       {showForYouGate ? (
         <ForYouLoginGate onBrowseTrending={() => selectTab("trending")}/>
       ) : authLoaded ? (
@@ -95,6 +98,7 @@ export default function ReelsPage() {
             aria-label="Loading Reels"/>
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -103,10 +107,10 @@ function ForYouLoginGate({ onBrowseTrending }: { onBrowseTrending: () => void })
   return (
     <main
       aria-label="Sign in to view your For You feed"
-      className="relative z-[2] h-[calc(100dvh-199px-env(safe-area-inset-bottom))] lg:h-[100dvh] lg:pl-[76px] lg:pr-[340px]"
+      className="relative z-[2] h-full lg:pl-[76px] lg:pr-[340px]"
     >
       {/* Scrolling is limited to the space below the tabs and above mobile ads. */}
-      <div className="h-full overflow-y-auto overscroll-contain px-4 pb-6 pt-[128px] lg:pt-[92px]">
+      <div className="h-full overflow-y-auto overscroll-contain px-4 pb-[calc(75px+env(safe-area-inset-bottom))] pt-[128px] lg:pb-6 lg:pt-[92px]">
         <section
           className="relative isolate mx-auto flex min-h-[445px] w-full max-w-[390px] flex-col justify-end overflow-hidden rounded-2xl border border-white/[.15] bg-[#111216] text-center shadow-[0_20px_65px_rgba(0,0,0,.32)]"
           style={{
