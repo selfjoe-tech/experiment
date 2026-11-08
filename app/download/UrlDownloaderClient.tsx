@@ -114,7 +114,7 @@ export default function UrlDownloaderClient() {
             autoComplete="off"
             spellCheck={false}
             value={url}
-            onChange={(event) => { setUrl(event.target.value); setError(""); setDownloadStarted(false); }}
+            onChange={(event) => { setUrl(event.target.value); setInfo(null); setSubmittedUrl(""); setError(""); setDownloadStarted(false); }}
             placeholder="https://x.com/username/status/..."
             required
             className="h-14 min-w-0 flex-1 bg-transparent text-[13px] text-white outline-none placeholder:text-white/35 sm:text-[14px]"
@@ -123,7 +123,7 @@ export default function UrlDownloaderClient() {
             <ClipboardPaste size={17} className="shrink-0 text-white/30" aria-hidden="true" />
           )}
           {url && (
-            <button type="button" onClick={() => { setUrl(""); setInfo(null); setError(""); setDownloadStarted(false); }}
+            <button type="button" onClick={() => { setUrl(""); setInfo(null); setSubmittedUrl(""); setError(""); setDownloadStarted(false); }}
               className="shrink-0 rounded-md px-2 py-1 text-xs text-white/45 transition hover:bg-white/10 hover:text-white">
               Clear
             </button>
