@@ -15,6 +15,7 @@ export async function GET(_:Request,{params}:Context){
   {loc:SITE+"/explore/creators"},
   {loc:SITE+"/explore/niches"},
   {loc:SITE+"/monetization"},
+  {loc:SITE+"/download"},
  ]));
  const match=/^(profiles|videos|images|niches)-(0|[1-9][0-9]*)\.xml$/.exec(id);
  if(!match || !SITEMAP_KINDS.includes(match[1] as typeof SITEMAP_KINDS[number]))return new Response("Not found",{status:404});
