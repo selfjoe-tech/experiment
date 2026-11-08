@@ -810,7 +810,7 @@ useEffect(() => {
             </IconCircleButton>
             <span className="text-[11px] font-medium">{bookmarked ? "Saved" : "Save"}</span>
           </div>
-        </div>
+        </div>}
         {!isSponsored && <IconCircleButton onClick={toggleMute!} label={isMuted ? "Unmute" : "Mute"}>
           {isMuted ? <VolumeX className="h-6 w-6"/> : <Volume2 className="h-6 w-6"/>}
         </IconCircleButton>}
