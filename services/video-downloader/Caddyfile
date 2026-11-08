@@ -1,0 +1,4 @@
+{$DOWNLOAD_DOMAIN} {
+  reverse_proxy downloader:8080
+  encode zstd gzip
+}
