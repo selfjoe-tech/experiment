@@ -399,6 +399,6 @@ export default function PostCard({ post, viewerId }: { post: HomePost; viewerId:
       </DialogContent>
     </Dialog>
 
-    <VideoOptionsModal open={optionsOpen} onClose={() => setOptionsOpen(false)} mediaId={post.id} videoUrl={post.src} sharePath={post.type === "video" ? `/watch/${post.id}` : "/explore/images"} allowEmbed={post.type === "video"}/>
+    <VideoOptionsModal open={optionsOpen} onClose={() => setOptionsOpen(false)} mediaId={post.id} videoUrl={post.src} sharePath={post.type === "video" ? `/watch/${post.id}` : "/explore/images"} allowEmbed={post.type === "video"} allowDownload={post.type !== "video"}/>
   </article>;
 }
