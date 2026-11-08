@@ -25,6 +25,8 @@ type Props = {
   videoUrl?: string; // Used for image downloads; videos have their own download page.
   sharePath?: string;
   allowEmbed?: boolean;
+  /** Disable download actions on discovery/feed cards; watch pages remain enabled. */
+  allowDownload?: boolean;
 };
 
 type Mode = "options" | "share" | "report-step1" | "report-step2" | "report-done";
@@ -73,6 +75,7 @@ export default function VideoOptionsModal({
   videoUrl,
   sharePath,
   allowEmbed = true,
+  allowDownload = true,
 }: Props) {
   const [origin, setOrigin] = useState("");
   const [copied, setCopied] = useState<"embed" | "share" | null>(null);
@@ -259,8 +262,8 @@ export default function VideoOptionsModal({
                 </div>
               </button>
 
-              {/* Video downloads open an ad-supported page; images retain direct saving. */}
-              <div className="space-y-2">
+              {/* Video downloads are only exposed on /watch; image saving remains available. */}
+              {allowDownload && <div className="space-y-2">
                 {videoDownloadHref ? (
                   <a href={videoDownloadHref} onClick={onClose}
                     className="flex w-full items-center justify-between rounded-xl border border-white/10 px-3 py-2.5 transition hover:bg-white/5">
@@ -290,7 +293,7 @@ export default function VideoOptionsModal({
                     </a>
                   </>
                 ) : null}
-              </div>
+              </div>}
             </div>
           )}
 
