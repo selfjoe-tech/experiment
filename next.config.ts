@@ -5,10 +5,7 @@ const nextConfig: NextConfig = {
     matcher: ['/((?!api|_next/static|_next/image|sitemap\\.xml|sitemap/|robots\\.txt|favicon\\.ico).*)'],
 
   htmlLimitedBots: /bot|crawler|spider|facebookexternalhit|Twitterbot|Slackbot|redditbot/i,
-  serverExternalPackages: ["ffmpeg-static", "nodemailer"],
-  outputFileTracingIncludes: {
-    "/api/trim-video": ["./node_modules/ffmpeg-static/**"],
-  },
+  serverExternalPackages: ["nodemailer"],
   eslint: {
     ignoreDuringBuilds: true,
   },

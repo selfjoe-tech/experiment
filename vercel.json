@@ -4,5 +4,11 @@
       "path": "/api/seo/dispatch",
       "schedule": "0 4 * * *"
     }
-  ]
+  ],
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": {
+    "deploymentEnabled": {
+      "feature/**": false
+    }
+  }
 }
