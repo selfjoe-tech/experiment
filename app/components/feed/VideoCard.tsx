@@ -83,6 +83,8 @@ type Props = {
   changeMaxButtin?: () => void;
   changeMaxButton?: () => void;
   fullscreen?: boolean;
+  /** Match the scroll-snap section height (used by full-screen Reels). */
+  fillContainer?: boolean;
 
 
 };
@@ -93,15 +95,17 @@ type LoadLevel = "active" | "near" | "off";
 function VideoCardPlaceholder({
   fullscreen,
   maximize,
+  fillContainer = false,
 }: {
   fullscreen?: boolean;
   maximize: boolean;
+  fillContainer?: boolean;
 }) {
   return (
     <div
       className={`
         relative bg-neutral-900 overflow-hidden
-        ${fullscreen ? "h-full" : maximize ? "h-[100vh]" : "h-[80vh]"}
+        ${fillContainer || fullscreen ? "h-full" : maximize ? "h-[100vh]" : "h-[80vh]"}
         w-full flex items-center justify-center
       `}
     >
@@ -119,6 +123,7 @@ export default function VideoCard(props: Props) {
       <VideoCardPlaceholder
         fullscreen={(props as any).fullscreen}
         maximize={props.maximize}
+        fillContainer={props.fillContainer}
       />
     );
   }
@@ -142,7 +147,8 @@ export function VideoCardActive({
   loadLevel,
   maximize = true,
   changeMaxButton,
-  fullscreen
+  fullscreen,
+  fillContainer = false,
 
 }: Props) {
   const isSponsored = variant === "sponsored";
@@ -667,15 +673,15 @@ useEffect(() => {
     <div
       ref={cardRef}
       className={`
-        relative lg:h-[100vh]
-        ${fullscreen ? "h-full" : "lg:h-[100vh]"}
-        ${fullscreen ? "h-full" : maximize ? "h-[100vh]" : "h-[80vh]" }        
+        relative
+        ${fillContainer ? "h-full" : "lg:h-[100vh]"}
+        ${fillContainer || fullscreen ? "h-full" : maximize ? "h-[100vh]" : "h-[80vh]" }        
         flex items-center justify-center
         bg-neutral-900 shadow-5xl overflow-hidden
 
       `}
     >
-      <div className="relative h-full flex items-center">
+      <div className={`relative h-full flex items-center ${fillContainer ? "w-full justify-center" : ""}`}>
         {/* Skeleton layer */}
         {showSkeleton && (
           <div className="absolute inset-0 bg-neutral-800 animate-pulse" />
@@ -694,9 +700,9 @@ useEffect(() => {
             onPlay={handlePlay}
             onPause={handlePause}
             className={`
-              ${fullscreen ? "h-full" : "h-[100vh]"} w-full
-              ${isVertical ? "h-full w-auto" : "w-full h-full"}
-              object-contain
+              ${fillContainer || fullscreen ? "h-full" : "h-[100vh]"} w-full
+              ${fillContainer ? "max-h-full max-w-full" : isVertical ? "h-full w-auto" : "w-full h-full"}
+              ${fillContainer ? "object-cover lg:object-contain" : "object-contain"}
               transition-opacity duration-300
               ${metadataLoaded ? "opacity-100" : "opacity-0"}
             `}
@@ -741,7 +747,7 @@ useEffect(() => {
       </button>
 
       {/* Familiar vertical Reels actions, with a cleaner hierarchy. */}
-      <div className="absolute bottom-[143px] right-2 z-30 flex flex-col items-center gap-4 text-white sm:right-4">
+      <div className={`absolute right-2 z-30 flex flex-col items-center gap-4 text-white sm:right-4 ${fillContainer ? "bottom-[calc(210px+env(safe-area-inset-bottom))] lg:bottom-[143px]" : "bottom-[143px]"}`}>
         {!isSponsored && <div className="relative flex flex-col items-center">
           <IconCircleButton onClick={handleToggleLike} label={liked ? "Unlike" : "Like"} disabled={likeLoading}>
             <Heart className={`h-8 w-8 drop-shadow-md ${liked ? "fill-[#ff3159] text-[#ff3159]" : "text-white"}`} strokeWidth={1.9}/>
@@ -775,7 +781,7 @@ useEffect(() => {
       </div>
 
       {/* Creator and caption remain readable above the media gradient. */}
-      <div className="absolute inset-x-3 bottom-3 z-30 space-y-3 pr-[72px] text-white sm:left-6">
+      <div className={`absolute inset-x-3 z-30 space-y-3 pr-[72px] text-white sm:left-6 ${fillContainer ? "bottom-[calc(72px+env(safe-area-inset-bottom))] lg:bottom-3" : "bottom-3"}`}>
         <div className="flex flex-wrap items-center gap-2.5">
           <Link href={`/${encodeURIComponent(video.username)}`} className="flex min-w-0 items-center gap-2.5">
             <Image unoptimized src={video.avatar || "/avatar-placeholder.png"} width={36} height={36}
