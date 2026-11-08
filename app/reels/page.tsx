@@ -74,7 +74,7 @@ export default function ReelsPage() {
 
       {/* Keep the existing ad zones outside the Reel scroller. An overlay rail
           cannot shorten the viewport when it is dismissed in development. */}
-      <div className="absolute inset-x-0 top-[115px] z-[25] lg:fixed lg:inset-x-auto lg:right-2 lg:top-[186px] lg:z-[5] lg:w-[328px]">
+      <div className="absolute inset-x-0 top-[115px] z-[55] lg:fixed lg:inset-x-auto lg:right-2 lg:top-[186px] lg:z-[5] lg:w-[328px]">
         <StaticPageAdPair compactOnMobile/>
       </div>
 
