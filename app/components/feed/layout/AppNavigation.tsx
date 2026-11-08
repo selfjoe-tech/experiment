@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Compass, Heart, Home, LogIn, Menu, PlusSquare, Search,
-  Clapperboard, CircleDollarSign, X, type LucideIcon,
+  Clapperboard, CircleDollarSign, Bookmark, X, type LucideIcon,
 } from "lucide-react";
 import { getUserProfileFromCookies } from "@/lib/actions/auth";
 import SearchOverlay from "@/app/components/search/SearchOverlay";
@@ -33,7 +33,7 @@ const NAV: Array<{ label: string; href: string; icon: LucideIcon }> = [
   { label: "Explore", href: "/explore/gifs", icon: Compass },
   { label: "Reels", href: "/reels", icon: Clapperboard },
   { label: "Earn", href: "/monetization", icon: CircleDollarSign },
-  { label: "Liked", href: "/liked", icon: Heart },
+  { label: "History", href: "/history", icon: Bookmark },
   { label: "Create", href: "#create", icon: PlusSquare },
 ];
 
@@ -120,7 +120,7 @@ export function DesktopNavigation() {
         <button type="button" aria-label="Close profile menu" onClick={() => setProfileOpen(false)} className="absolute right-3 top-3 z-10 rounded-full p-2 hover:bg-white/10"><X size={18}/></button>
         <div className="border-b border-white/10 px-5 py-4 text-sm font-semibold">More options</div>
         {viewer.username ? <ProfileMenuContent /> : <div className="p-8 text-center"><p className="mb-5 text-sm text-white/55">Log in to access your account settings.</p><a href="/auth/login" className="rounded-lg bg-pink-500 px-6 py-2.5 text-sm font-semibold">Log in</a></div>}
-        <div className="border-t border-white/10 px-5 py-4 text-sm space-y-3"><a href="/download" onClick={() => setProfileOpen(false)} className="block text-white/75 hover:text-white">Video downloader</a><a href="/ads" onClick={() => setProfileOpen(false)} className="block text-white/70 hover:text-white">Advertise on Goon Gram</a></div>
+        <div className="border-t border-white/10 px-5 py-4 text-sm space-y-3"><a href="/history" onClick={() => setProfileOpen(false)} className="block text-white/75 hover:text-white">History: Liked &amp; bookmarked</a><a href="/download" onClick={() => setProfileOpen(false)} className="block text-white/75 hover:text-white">Video downloader</a><a href="/ads" onClick={() => setProfileOpen(false)} className="block text-white/70 hover:text-white">Advertise on Goon Gram</a></div>
       </div>
     </div>}
     <CreatePrompt open={createOpen} onClose={() => setCreateOpen(false)} loggedIn={!!viewer.username}/>
@@ -219,6 +219,7 @@ export function MobileNavigation({ hidden = false }: { hidden?: boolean }) {
             <a href="/auth/login" onClick={() => setMenuOpen(false)} className="block rounded-lg px-4 py-3 hover:bg-white/10">Log in</a>
             <a href="/explore/gifs" onClick={() => setMenuOpen(false)} className="block rounded-lg px-4 py-3 hover:bg-white/10">Explore</a>
           </>}
+          <a href="/history" onClick={() => setMenuOpen(false)} className="block rounded-lg px-4 py-3 text-white/75 hover:bg-white/10">History: Liked &amp; bookmarked</a>
           <a href="/download" onClick={() => setMenuOpen(false)} className="block rounded-lg px-4 py-3 text-white/75 hover:bg-white/10">Video downloader</a>
           <a href="/ads" onClick={() => setMenuOpen(false)} className="block rounded-lg px-4 py-3 text-white/75 hover:bg-white/10">Advertise</a>
         </div>
