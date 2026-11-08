@@ -47,6 +47,12 @@ jobs:
           if grep -E '^(app/components/ads/StaticPageAdPair|app/components/ui/ContactUs|app/components/feed/VideoOptionsModal|app/components/age/AdultAgeGate)\.tsx.*error TS' ui-ts-diagnostics.txt; then
             exit 1
           fi
+      - name: Check History and Watch CTA TypeScript diagnostics
+        run: |
+          npx tsc --noEmit > history-ts-diagnostics.txt 2>&1 || true
+          if grep -E '^(app/history/|lib/actions/history\\.ts|app/components/feed/(PostCard|VideoCard|WatchVideoCard|layout/AppNavigation)\\.tsx|app/(liked|saved)/page\\.tsx).*error TS' history-ts-diagnostics.txt; then
+            exit 1
+          fi
       - name: Check downloader TypeScript diagnostics
         run: |
           npx tsc --noEmit > downloader-ts-diagnostics.txt 2>&1 || true

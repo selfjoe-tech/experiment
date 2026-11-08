@@ -11,6 +11,7 @@ import React, {
 import {
   Eye,
   Heart,
+  Bookmark,
   Maximize2,
   Play,
   Volume2,
@@ -36,6 +37,7 @@ import {
 } from "@/lib/actions/social";
 
 import VideoOptionsModal from "@/app/components/feed/VideoOptionsModal";
+import { checkMediaBookmarked, toggleMediaBookmark } from "@/lib/actions/bookmarks";
 import { getUserIdFromCookies } from "@/lib/actions/auth";
 
 import {
@@ -211,6 +213,8 @@ export default function WatchVideoCard({
   const [optionsOpen, setOptionsOpen] = useState(false);
 
   const [currentId, setCurrentId] = useState("");
+  const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarkLoading, setBookmarkLoading] = useState(false);
 
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -395,6 +399,38 @@ export default function WatchVideoCard({
       console.error("toggleFollowUser error", error);
     } finally {
       setFollowLoading(false);
+    }
+  };
+
+  // The independent bookmark state is shared with the Home and Reels feeds.
+  useEffect(() => {
+    if (isSponsored || !currentId || !Number.isSafeInteger(mediaIdNum) || mediaIdNum <= 0) {
+      setBookmarked(false);
+      return;
+    }
+    let active = true;
+    checkMediaBookmarked(mediaIdNum)
+      .then(value => { if (active) setBookmarked(value); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [currentId, mediaIdNum, isSponsored]);
+
+  const handleToggleBookmark = async () => {
+    if (isSponsored || !Number.isSafeInteger(mediaIdNum) || mediaIdNum <= 0 || bookmarkLoading) return;
+    if (!currentId) {
+      window.location.assign(`/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+      return;
+    }
+    const next = !bookmarked;
+    setBookmarked(next);
+    setBookmarkLoading(true);
+    try {
+      setBookmarked(await toggleMediaBookmark(mediaIdNum));
+    } catch (error) {
+      console.warn("Unable to update watch bookmark", error);
+      setBookmarked(!next);
+    } finally {
+      setBookmarkLoading(false);
     }
   };
 
@@ -1299,6 +1335,17 @@ export default function WatchVideoCard({
               )}
             </span>
           </div>
+        )}
+
+        {/* Save to History, independently of liking. */}
+        {!isSponsored && (
+          <IconCircleButton
+            label={bookmarked ? "Remove bookmark" : "Bookmark video"}
+            onClick={() => void handleToggleBookmark()}
+            disabled={bookmarkLoading}
+          >
+            <Bookmark className={`h-7 w-7 ${bookmarked ? "fill-white" : ""}`}/>
+          </IconCircleButton>
         )}
 
         {/* More options */}

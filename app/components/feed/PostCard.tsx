@@ -340,6 +340,11 @@ export default function PostCard({ post, viewerId }: { post: HomePost; viewerId:
       </button>
       <button type="button" aria-label="Comments" onClick={() => setCommentsOpen(true)} className="transition-transform hover:scale-110 active:scale-90"><MessageCircle size={26} strokeWidth={1.9}/></button>
       <button type="button" aria-label="Share and post options" onClick={() => setOptionsOpen(true)} className="transition-transform hover:scale-110 active:scale-90"><Send size={25} strokeWidth={1.9}/></button>
+      {post.type === "video" && (
+        <a href={`/watch/${post.id}`} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 text-[12px] font-semibold text-white transition hover:bg-white/20" aria-label="Watch full video">
+          Watch full video <ArrowUpRight size={15} aria-hidden="true"/>
+        </a>
+      )}
       <div className="flex-1"/>
       <button type="button" aria-label={bookmarked ? "Remove bookmark" : "Bookmark"} aria-pressed={bookmarked} disabled={bookmarkBusy} onClick={() => void toggleBookmark()} className="transition-transform hover:scale-110 active:scale-90">
         <Bookmark size={26} strokeWidth={1.9} className={bookmarked ? "fill-white" : ""}/>
