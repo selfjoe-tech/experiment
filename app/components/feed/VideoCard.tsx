@@ -837,6 +837,7 @@ useEffect(() => {
           onClose={() => setOptionsOpen(false)}
           mediaId={mediaIdNum || video.id}
           videoUrl={video.src}
+          allowDownload={false}
         />
         </div>
         
