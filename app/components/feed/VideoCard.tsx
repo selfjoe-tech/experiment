@@ -793,6 +793,11 @@ useEffect(() => {
             className="rounded-md border border-white/75 bg-black/25 px-3 py-1 text-xs font-semibold text-white transition hover:bg-white/20">
             {followLoading ? "..." : isFollowing ? "Following" : "Follow"}
           </button>}
+          {!isSponsored && Number.isSafeInteger(mediaIdNum) && mediaIdNum > 0 && (
+            <Link href={`/watch/${mediaIdNum}`} aria-label="Watch full video" className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-md border border-white/60 bg-black/50 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm transition hover:bg-white/20 sm:text-xs">
+              Watch full video <ArrowUpRight size={13} aria-hidden="true"/>
+            </Link>
+          )}
         </div>
         {isSponsored && <span className="text-xs font-medium text-white/75">Sponsored</span>}
         {(video.description || video.hashtags?.length) && <div className="text-[13px] leading-5 text-white/95 drop-shadow-md">
