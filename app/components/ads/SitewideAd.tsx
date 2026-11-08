@@ -56,7 +56,7 @@ export default function SitewideAd() {
       aria-label="Sponsored advertisement"
       className="
         pointer-events-none fixed isolate
-        right-2 top-[68px] z-[1]
+        right-2 top-[68px] z-[45]
         w-[137px] overflow-hidden
         rounded-lg border border-white/10
         bg-[#101115] p-[5px] shadow-lg

@@ -312,13 +312,13 @@ export default function VideoFeed({
 
   const mainClass = overlayOpen
     ? "relative z-[80] h-[100dvh] w-full overflow-y-scroll overscroll-y-contain snap-y snap-mandatory shadow-2xl backdrop-blur"
-    : `relative ${withAds ? "h-[calc(100dvh-199px)] lg:h-screen lg:pr-[340px]" : "h-screen lg:pr-0"} snap-y snap-mandatory overflow-y-scroll overscroll-y-contain lg:pt-0 lg:pb-0 lg:pl-[76px] min-[1360px]:pl-[244px]`;
+    : `relative ${withAds ? "h-[100dvh] lg:pr-[340px]" : "h-screen lg:pr-0"} snap-y snap-mandatory overflow-y-scroll overscroll-y-contain lg:pt-0 lg:pb-0 lg:pl-[76px] min-[1360px]:pl-[244px]`;
   const sectionHeightClass = "h-full w-full";
 
 
   return (
     <>
-      <div className={overlayOpen ? "fixed inset-0 z-[80] grid place-items-center" : "relative"}>
+      <div className={overlayOpen ? "fixed inset-0 z-[80] grid place-items-center" : withAds ? "relative h-full min-h-0" : "relative"}>
         <main ref={scrollRef} onScroll={handleScroll} className={mainClass}>
           {feedError && (
             <div className="sticky top-0 z-20 bg-red-900/90 text-red-100 text-xs px-4 py-2 text-center">
@@ -335,7 +335,7 @@ export default function VideoFeed({
           {videos.map((video, index) =>
             <section key={`media-${video.mediaId ?? video.id}`}
               className={`snap-center snap-always flex items-center justify-center w-full ${sectionHeightClass}`}>
-              <VideoCard video={video} onRequestFullscreen={() => openOverlayAtIndex(index)}
+              <VideoCard video={video} fillContainer={withAds} onRequestFullscreen={() => openOverlayAtIndex(index)}
                 toggleMute={toggleMute} isMuted={isMuted}
                 loadLevel={index === currentIndex ? "active" : "off"}
                 maximize={!maximize} changeMaxButton={() => setMaximize(prev => !prev)}/>
