@@ -724,7 +724,6 @@ useEffect(() => {
 
       {previewEnded && !isSponsored && duration > 30 && <div className="absolute inset-0 z-[45] flex flex-col items-center justify-center gap-5 bg-black/80 px-6 text-center backdrop-blur-sm">
         <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-[.18em] text-white/50">30-second preview</p>
           <h3 className="text-xl font-semibold text-white">Watch the full video</h3>
         </div>
         <a href={`/watch/${mediaIdNum}?s=30`} className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 text-sm font-semibold text-black transition-colors hover:bg-white/90">

@@ -45,17 +45,17 @@ const steps = [
   {
     number: "02",
     title: "Share the Watch link",
-    description: "Open the full video and copy its goongram.com/watch/… address. This exact page is where eligible revenue is generated.",
+    description: "Open the full video and copy its goongram.com/watch/… address. This exact page is where eligible revenue is generated. Your videos will also been seen on reels to direct traffic to your videos, so we help out too",
   },
   {
     number: "03",
     title: "Qualifying loads earn",
-    description: "A visit can count only after the Watch-page ads finish loading and the traffic passes validation. Simply viewing a Reel does not count.",
+    description: "A visit can count only after the traffic passes validation. A visitor simply viewing a video on reels does not count.",
   },
   {
     number: "04",
     title: "Request a payout",
-    description: "View earnings per video, add a PayPal email and request a manual payout after you reach the minimum.",
+    description: "View earnings per video, add a PayPal email and payout after you reach the minimum payout which is $30.",
   },
 ];
 
@@ -73,8 +73,8 @@ export default async function MonetizationInfoPage() {
             Get paid for your videos.
           </h1>
           <p className="mt-6 max-w-[570px] text-[15px] leading-7 text-white/60 sm:text-[17px]">
-            Publish a video. Share the full Watch link. Earn when qualifying visitors load its ads.
-            Every creator can participate; verification is optional.
+            Publish a video. Earn when visitors watch your videos.
+            Every user can participate.
           </p>
           <div className="mt-7 flex flex-wrap items-center gap-3">
             <a href="/earn" className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-white px-5 text-sm font-semibold text-[#0b0d10] hover:bg-white/90">
@@ -87,28 +87,22 @@ export default async function MonetizationInfoPage() {
         </header>
 
         <section className="border-b border-white/10 py-9 sm:py-12" aria-labelledby="share-heading">
-          <div className="mb-5 flex items-center gap-2 text-[12px] font-medium text-white/50">
-            <Check size={14}/> The link that matters
-          </div>
+          
           <h2 id="share-heading" className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            Share the full video. Not the preview.
+            Share the video.
           </h2>
           <p className="mt-3 max-w-[640px] text-sm leading-6 text-white/60">
             Your monetizable link begins with <span className="font-mono text-white">goongram.com/watch/</span> followed by
-            your video ID. Open a video, choose <span className="font-medium text-white">Watch full video</span>,
-            then copy the address from that page.
+            your video ID. An example of what it looks like:
           </p>
           <WatchLinkExample url={exampleUrl}/>
-          <p className="mt-3 text-xs leading-5 text-white/45">
-            This is an example from a currently eligible video on Goongram, not your personal video link.
-            Your own uploads each have a separate Watch address.
-          </p>
+          
         </section>
 
         <section className="border-b border-white/10 py-10 sm:py-14" aria-labelledby="rates-heading">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <h2 id="rates-heading" className="text-2xl font-semibold tracking-tight sm:text-3xl">Your earning rate</h2>
-            <span className="text-xs text-white/45">USD per 1,000 eligible Watch-page loads</span>
+            <span className="text-xs text-white/45">USD per 1,000 page views</span>
           </div>
           <div className="mt-7 grid gap-px overflow-hidden rounded-xl border border-white/10 bg-white/10 sm:grid-cols-2">
             <div className="bg-[#111317] p-6 sm:p-8">
@@ -153,7 +147,7 @@ export default async function MonetizationInfoPage() {
             <ul className="mt-4 space-y-3 text-sm leading-6 text-white/65">
               <li>Profile visits, image views or short videos</li>
               <li>Reels and Explore previews without opening the full Watch page</li>
-              <li>Blocked, incomplete, duplicate or suspicious ad loads</li>
+              <li>Blocked, incomplete, duplicate or suspicious activity</li>
             </ul>
           </div>
         </section>
@@ -169,23 +163,23 @@ export default async function MonetizationInfoPage() {
             <div>
               <div className="text-[32px] font-semibold tracking-tight">Friday</div>
               <h3 className="mt-1 text-sm font-medium">Weekly processing</h3>
-              <p className="mt-2 text-xs leading-5 text-white/55">Requests made Friday use that Friday. Saturday through Thursday requests move to the next Friday.</p>
+              <p className="mt-2 text-xs leading-5 text-white/55">Requests submitted on Friday are processed for that same Friday. Requests submitted from Saturday to Thursday are scheduled for the following Friday.</p>
             </div>
             <div>
               <div className="text-[32px] font-semibold tracking-tight">3 days</div>
               <h3 className="mt-1 text-sm font-medium">Payment window</h3>
-              <p className="mt-2 text-xs leading-5 text-white/55">Manual PayPal payment is due by the Monday after your scheduled Friday.</p>
+              <p className="mt-2 text-xs leading-5 text-white/55">Payment is due in 2-3 business days. If there are any issues with payment, contact us at contact@goongram.com</p>
             </div>
           </div>
           <p className="mt-6 text-sm leading-6 text-white/60">
             Save your PayPal email in <a href="/earn" className="font-medium text-white underline underline-offset-4">My earnings</a> before
             requesting payment. You can request once every seven days, and a previous pending request must be settled first.
-            You do not need to connect PayPal to Goongram.
+            
           </p>
         </section>
 
         <section className="py-10 sm:py-14" aria-labelledby="faq-heading">
-          <h2 id="faq-heading" className="mb-5 text-2xl font-semibold tracking-tight">Good to know</h2>
+          <h2 id="faq-heading" className="mb-5 text-2xl font-semibold tracking-tight">FAQs</h2>
           <div className="divide-y divide-white/10 border-y border-white/10">
             <details className="group py-5">
               <summary className="cursor-pointer list-none text-sm font-semibold">Do I have to be verified?</summary>
@@ -193,7 +187,7 @@ export default async function MonetizationInfoPage() {
             </details>
             <details className="group py-5">
               <summary className="cursor-pointer list-none text-sm font-semibold">Will sharing my profile or Reels link earn money?</summary>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-white/55">Not directly. Viewers must open your specific full-video URL, such as goongram.com/watch/5, and the Watch-page ad checks must pass.</p>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-white/55">Not directly. Viewers must open your specific full-video URL, such as goongram.com/watch/5</p>
             </details>
             <details className="group py-5">
               <summary className="cursor-pointer list-none text-sm font-semibold">Does a page load always earn?</summary>

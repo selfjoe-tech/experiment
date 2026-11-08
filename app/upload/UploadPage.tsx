@@ -504,7 +504,7 @@ export default function UploadPage() {
           />
 
           <p className="flex gap-2 text-sm text-white/70 mt-2 px-1">
-            Users who are verified get more views and interaction.
+            Users who are verified get more views and interaction and earn more.
 
             <a href="/verify">
               <button
