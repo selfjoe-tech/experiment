@@ -1,0 +1,31 @@
+services:
+  downloader:
+    build: .
+    restart: unless-stopped
+    environment:
+      VIDEO_DOWNLOADER_SECRET: ${VIDEO_DOWNLOADER_SECRET}
+    read_only: true
+    tmpfs:
+      - /tmp:size=750m,mode=1777
+    mem_limit: 1g
+    cpus: "2.0"
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      DOWNLOAD_DOMAIN: ${DOWNLOAD_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - downloader
+volumes:
+  caddy_data:
+  caddy_config:
