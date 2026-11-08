@@ -195,16 +195,16 @@ export default function StaticPageAdPair({
           Connect with us
         </div>
         <div className="grid grid-cols-3 gap-2">
-          <a href="https://x.com/goongram" target="_blank" rel="noopener noreferrer"
+          <a href="https://x.com/gooongram" target="_blank" rel="noopener noreferrer"
             aria-label="Goon Gram on X"
             className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[.045] px-2 py-3 text-[12px] font-medium text-white/85 transition hover:border-white/25 hover:bg-white/10 hover:text-white">
             <XIcon /><span>X</span>
           </a>
-          <a href="https://www.reddit.com/r/goongram/" target="_blank" rel="noopener noreferrer"
+          {/* <a href="https://www.reddit.com/r/goongram/" target="_blank" rel="noopener noreferrer"
             aria-label="Goon Gram on Reddit"
             className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[.045] px-2 py-3 text-[12px] font-medium text-white/85 transition hover:border-white/25 hover:bg-white/10 hover:text-white">
             <RedditIcon /><span>Reddit</span>
-          </a>
+          </a> */}
           <a href="mailto:contact@goongram.com" aria-label="Email Goon Gram"
             className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[.045] px-2 py-3 text-[12px] font-medium text-white/85 transition hover:border-white/25 hover:bg-white/10 hover:text-white">
             <Mail size={21} aria-hidden="true" /><span>Email</span>
