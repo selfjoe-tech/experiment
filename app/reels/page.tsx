@@ -73,10 +73,8 @@ export default function ReelsPage() {
       </div>
 
       {/* Existing publisher ad zones remain mounted independently of the selected tab. */}
-      <aside aria-label="Reels advertisements"
-        className="fixed isolate inset-x-0 bottom-[calc(61px+env(safe-area-inset-bottom))] z-[1] h-[138px] overflow-hidden border-t border-white/10 bg-[#0b0d10] px-2 pt-1 lg:inset-x-auto lg:bottom-auto lg:right-0 lg:top-[180px] lg:z-[1] lg:h-auto lg:w-[340px] lg:overflow-visible lg:border-0 lg:bg-transparent lg:px-1 lg:pt-0">
+      
         <StaticPageAdPair compactOnMobile/>
-      </aside>
 
       {showForYouGate ? (
         <ForYouLoginGate onBrowseTrending={() => selectTab("trending")}/>

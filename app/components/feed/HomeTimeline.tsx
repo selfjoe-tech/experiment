@@ -131,7 +131,7 @@ export default function HomeTimeline() {
         </section>
         {/* Ads live beside the feed on desktop, in a swipeable row above it on mobile.
             They never depend on For You / Following, pagination, or post state. */}
-        <div className="order-1 min-w-0 w-full max-w-[700px] border-b border-white/10 px-3 pb-4 pt-[180px] sm:px-0 lg:sticky lg:top-0 lg:order-2 lg:w-[340px] lg:shrink-0 lg:border-b-0 lg:pt-[186px]">
+        <div className="order-1 min-w-0 w-full max-w-[700px] border-b border-white/10 px-3 pb-4  sm:px-0 lg:sticky lg:top-0 lg:order-2 lg:w-[340px] lg:shrink-0 lg:border-b-0 lg:pt-[186px]">
           <StaticPageAdPair/>
         </div>
       </div>

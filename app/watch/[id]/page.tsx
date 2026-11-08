@@ -58,7 +58,7 @@ export default async function WatchPage({params,searchParams}:Props){
  return <div className="min-h-screen bg-[#0b0d10] text-white">
   {structured&&<script type="application/ld+json" dangerouslySetInnerHTML={{__html:safeJsonLd(structured)}}/>}
   <WatchClient mediaId={id} startAtSeconds={startAtSeconds}/>
-  <section className="mx-auto max-w-[1100px] px-4 pb-8 pt-6 text-white lg:pl-[92px]">
+  {/* <section className="mx-auto max-w-[1100px] px-4 pb-8 pt-6 text-white lg:pl-[92px]">
    <h1 className="text-lg font-semibold">{name}</h1>
    <p className="mt-2 max-w-2xl whitespace-pre-line text-sm leading-6 text-white/65">{description}</p>
    <div className="mt-4 flex flex-wrap gap-3 text-xs text-white/55">
@@ -70,7 +70,7 @@ export default async function WatchPage({params,searchParams}:Props){
     {(video.tags??[]).slice(0,10).map(tag=><a key={tag} href={`/explore/niches/${encodeURIComponent(tag.toLowerCase().replace(/\s+/g,"-"))}`}
       className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/60 hover:text-white">#{tag}</a>)}
    </nav>}
-  </section>
+  </section> */}
   <div className="mx-auto max-w-[1100px] px-4 pb-24 pt-2 lg:pl-[92px] lg:pb-12">
    <WatchBottomAds />
   </div>

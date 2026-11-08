@@ -187,7 +187,6 @@ export default function WatchClient({ mediaId, startAtSeconds = 0 }: { mediaId: 
               <a href="/reels" className="inline-flex items-center gap-2 text-white/70 hover:text-white">
                 <ArrowLeft size={17}/> Reels
               </a>
-              <span className="text-xs text-white/45">Full video</span>
             </div>
             {loading ? <div className="mx-auto aspect-[9/16] w-full max-w-[460px] animate-pulse rounded-[22px] bg-white/[.055]" aria-label="Loading video" /> :
               error || !video ? <div className="mx-auto flex aspect-[9/16] w-full max-w-[460px] items-center justify-center rounded-[22px] border border-white/10 bg-black px-6 text-center text-sm text-white/50">{error || "Video not found."}</div> :
