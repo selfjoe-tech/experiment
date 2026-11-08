@@ -1,6 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
+import { uploadFileToR2 } from "@/lib/client/r2Upload";
 
 const supabase = createClient();
 
@@ -73,53 +74,13 @@ type ProgressOptions = {
   onStageChange?: (stage: "preparing" | "uploading" | "saving") => void;
 };
 
-/** Signed Supabase Storage upload with actual browser byte progress. */
-async function uploadToStorage(path: string, file: File, opts: ProgressOptions = {}): Promise<void> {
+/** Direct Cloudflare R2 browser upload with actual byte progress. */
+async function uploadToStorage(file: File, opts: ProgressOptions = {}): Promise<string> {
   opts.onStageChange?.("preparing");
-  const { data, error } = await supabase.storage.from("media").createSignedUploadUrl(path);
-  if (error || !data) throw new Error(error?.message ?? "Could not authorize upload.");
-
-  const url = new URL(data.signedUrl);
-  const project = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!project || url.origin !== new URL(project).origin ||
-      !url.pathname.startsWith("/storage/v1/object/upload/sign/")) {
-    throw new Error("Unexpected storage upload URL.");
-  }
-
   opts.onStageChange?.("uploading");
-  opts.onUploadProgress?.(0);
-  await new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("PUT", url.toString(), true);
-    xhr.timeout = 180000;
-    xhr.setRequestHeader("x-upsert", "false");
-    const body = new FormData();
-    body.append("cacheControl", "3600");
-    body.append("", file);
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable && event.total > 0) {
-        opts.onUploadProgress?.(Math.min(99, Math.floor(event.loaded / event.total * 99)));
-      }
-    };
-    xhr.onerror = () => reject(new Error("Network error while uploading. Please retry."));
-    xhr.ontimeout = () => reject(new Error("Upload timed out. Please retry."));
-    xhr.onabort = () => reject(new Error("Upload was cancelled."));
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        opts.onUploadProgress?.(99);
-        resolve();
-        return;
-      }
-      let message = `Storage upload failed (HTTP ${xhr.status}).`;
-      try {
-        const body = JSON.parse(xhr.responseText) as { message?: string; error?: string };
-        message = body.message || body.error || message;
-      } catch { /* keep HTTP message */ }
-      reject(new Error(message));
-    };
-    xhr.send(body);
-  });
+  const url = await uploadFileToR2(file, opts.onUploadProgress);
   opts.onStageChange?.("saving");
+  return url;
 }
 
 async function insertMediaRow(params: {
@@ -168,9 +129,7 @@ export async function uploadTrimmedVideo(
   opts?.onUploadProgress?.(0);
 
   const ownerId = await requireCurrentUserId();
-  const storagePath = makeStoragePath("video", ownerId, clip.file);
-
-  await uploadToStorage(storagePath, clip.file, opts);
+  const storagePath = await uploadToStorage(clip.file, opts);
 
   const durationSeconds =
     typeof opts?.durationSeconds === "number"
@@ -202,9 +161,7 @@ export async function uploadSingleImage(
   opts?.onUploadProgress?.(0);
 
   const ownerId = await requireCurrentUserId();
-  const storagePath = makeStoragePath("image", ownerId, file);
-
-  await uploadToStorage(storagePath, file, opts);
+  const storagePath = await uploadToStorage(file, opts);
 
   const row = await insertMediaRow({
     ownerId,
@@ -255,9 +212,8 @@ export async function uploadImagesBatch(
     while (nextIndex < files.length) {
       const i = nextIndex++;
       const file = files[i];
-      const storagePath = makeStoragePath("image", ownerId, file);
       try {
-        await uploadToStorage(storagePath, file, {
+        const storagePath = await uploadToStorage(file, {
           onUploadProgress: pct => report(i, pct),
         });
         report(i, 100);
