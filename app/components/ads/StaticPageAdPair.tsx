@@ -2,7 +2,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { Mail, X } from "lucide-react";
+import { RedditIcon, XIcon } from "@/app/components/ui/ContactUs";
 
 /**
  * Four existing JuicyAds publisher zones.
@@ -134,22 +135,19 @@ export default function StaticPageAdPair({
   const isDevelopment =
     process.env.NODE_ENV === "development";
 
-  // Development only:
-  // Unmount ALL four ads when X is clicked.
-  if (isDevelopment && closed) {
-    return null;
-  }
+  // Dismissing the ad group never removes the social links below it.
+  const adsVisible = !(isDevelopment && closed);
 
   return (
     <aside
       aria-label="Sponsored advertisements"
       className={`
         relative isolate z-0 w-full min-w-0
-        ${isDevelopment ? "pt-8" : ""}
+        ${isDevelopment && adsVisible ? "pt-8" : ""}
       `}
     >
       {/* Development-only close button */}
-      {isDevelopment && (
+      {isDevelopment && adsVisible && (
         <button
           type="button"
           onClick={() => setClosed(true)}
@@ -172,8 +170,8 @@ export default function StaticPageAdPair({
         </button>
       )}
 
-      {/* All four existing advertisements */}
-      <div
+      {/* Keep the four original ad zones mounted as one group until dismissed. */}
+      {adsVisible && <div
         className="
           flex w-full flex-nowrap
           items-stretch gap-3
@@ -189,7 +187,30 @@ export default function StaticPageAdPair({
             compactOnMobile={compactOnMobile}
           />
         ))}
-      </div>
+      </div>}
+
+      {/* Links to the same accounts already used by the site Contact Us panel. */}
+      <nav aria-label="Follow and contact Goon Gram" className="mt-3 w-full min-w-0 border-t border-white/10 pt-3">
+        <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-white/50">
+          Connect with us
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <a href="https://x.com/goongram" target="_blank" rel="noopener noreferrer"
+            aria-label="Goon Gram on X"
+            className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[.045] px-2 py-3 text-[12px] font-medium text-white/85 transition hover:border-white/25 hover:bg-white/10 hover:text-white">
+            <XIcon /><span>X</span>
+          </a>
+          <a href="https://www.reddit.com/r/goongram/" target="_blank" rel="noopener noreferrer"
+            aria-label="Goon Gram on Reddit"
+            className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[.045] px-2 py-3 text-[12px] font-medium text-white/85 transition hover:border-white/25 hover:bg-white/10 hover:text-white">
+            <RedditIcon /><span>Reddit</span>
+          </a>
+          <a href="mailto:contact@goongram.com" aria-label="Email Goon Gram"
+            className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[.045] px-2 py-3 text-[12px] font-medium text-white/85 transition hover:border-white/25 hover:bg-white/10 hover:text-white">
+            <Mail size={21} aria-hidden="true" /><span>Email</span>
+          </a>
+        </div>
+      </nav>
     </aside>
   );
 }
