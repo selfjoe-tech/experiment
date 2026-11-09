@@ -28,8 +28,8 @@ export default function DownloadPage() {
               Download a video with a link.
             </h1>
             <p className="mt-4 max-w-[580px] text-[14px] leading-7 text-white/55 sm:text-[15px]">
-              Save publicly available videos from Goongram, X, Instagram and Redgifs.
-              Paste a link, choose a quality and download to your device.
+              Save public videos from Goongram, X and Redgifs. Instagram and Pornhub
+              are supported when the source exposes an accessible video file.
             </p>
           </header>
 
