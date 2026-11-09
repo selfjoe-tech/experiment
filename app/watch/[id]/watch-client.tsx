@@ -182,15 +182,15 @@ export default function WatchClient({ mediaId, startAtSeconds = 0 }: { mediaId: 
     <main className="mx-auto w-full max-w-[1600px] px-3 pb-8 pt-5 sm:px-6 sm:pb-10 lg:pl-[92px] lg:pr-5 lg:pt-8">
       <div className="mx-auto w-full max-w-[1320px]">
         <div className="grid grid-cols-1 items-start gap-7 lg:grid-cols-[minmax(0,1fr)_336px] xl:gap-10">
-          <section className="mx-auto w-full min-w-0 max-w-[660px]">
+          <section className="mx-auto w-full min-w-0 max-w-[740px]">
             <div className="mb-3 flex items-center justify-between text-sm">
               <a href="/reels" className="inline-flex items-center gap-2 text-white/70 hover:text-white">
                 <ArrowLeft size={17}/> Reels
               </a>
             </div>
-            {loading ? <div className="mx-auto aspect-[9/16] w-full max-w-[610px] animate-pulse rounded-[22px] bg-white/[.055] lg:aspect-[2/3]" aria-label="Loading video" /> :
-              error || !video ? <div className="mx-auto flex aspect-[9/16] w-full max-w-[610px] items-center justify-center rounded-[22px] border border-white/10 bg-black px-6 text-center text-sm text-white/50 lg:aspect-[2/3]">{error || "Video not found."}</div> :
-              <div className="relative mx-auto aspect-[9/16] w-full max-w-[610px] overflow-hidden rounded-[22px] border border-white/10 bg-black shadow-[0_20px_90px_rgba(0,0,0,.55)] lg:aspect-[2/3]">
+            {loading ? <div className="mx-auto aspect-[9/16] w-full max-w-[460px] animate-pulse rounded-[22px] bg-white/[.055] lg:aspect-auto lg:h-[min(74dvh,720px)] lg:max-w-[700px]" aria-label="Loading video" /> :
+              error || !video ? <div className="mx-auto flex aspect-[9/16] w-full max-w-[460px] items-center justify-center rounded-[22px] border border-white/10 bg-black px-6 text-center text-sm text-white/50 lg:aspect-auto lg:h-[min(74dvh,720px)] lg:max-w-[700px]">{error || "Video not found."}</div> :
+              <div className="relative mx-auto aspect-[9/16] w-full max-w-[460px] overflow-hidden rounded-[22px] border border-white/10 bg-black shadow-[0_20px_90px_rgba(0,0,0,.55)] lg:aspect-auto lg:h-[min(74dvh,720px)] lg:max-w-[700px]">
                 <WatchVideoCard key={video.mediaId} video={video}
                   startAtSeconds={startAtSeconds}
                   isMuted={muted} toggleMute={() => setMuted(value => !value)}/>
