@@ -1,7 +1,7 @@
 import "server-only";
 import { parseExternalVideoUrl, type ExternalPlatform, type ExternalVideoInfo, type VideoQuality } from "@/lib/external-download";
 
-export type DownloadSource = { url: string; quality: VideoQuality; label: string };
+export type DownloadSource = { url: string; quality: VideoQuality; label: string; format?: "file" | "hls" };
 export type ResolvedExternalVideo = ExternalVideoInfo & { sources: DownloadSource[] };
 
 export class ExtractorError extends Error {
@@ -33,6 +33,17 @@ function usableMediaUrl(input: unknown, context = ""): string | null {
   const stream = /(?:mime|content_type|format)=video(?:%2[fF]|\/|_)(?:mp4|webm)/i.test(url.search);
   const knownHost = host === "video.twimg.com" || /\.(?:fbcdn\.net|cdninstagram\.com|redgifs\.com|phncdn\.com)$/.test(host) || /(?:cdn|video|media|files|stream)/i.test(host);
   return extension || stream || (knownHost && /\b(video|play|download|hd|sd|media|source|file)\b/i.test(context)) ? url.href : null;
+}
+
+export function isSafeHlsSource(value: unknown): value is string {
+  if (typeof value !== "string" || value.length > 4096) return false;
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    return url.protocol === "https:" && !url.username && !url.password && !url.port &&
+      (host === "phncdn.com" || host.endsWith(".phncdn.com")) &&
+      /\.m3u8$/i.test(url.pathname);
+  } catch { return false; }
 }
 
 function guessQuality(entry: unknown, path = ""): VideoQuality {
@@ -87,7 +98,7 @@ function makeResult(
 ): ResolvedExternalVideo {
   const seen = new Set<string>();
   const sources = input.filter(item => {
-    if (!usableMediaUrl(item.url, "video") || seen.has(item.url)) return false;
+    if (!(item.format === "hls" ? isSafeHlsSource(item.url) : usableMediaUrl(item.url, "video")) || seen.has(item.url)) return false;
     seen.add(item.url);
     return true;
   }).sort((a, b) => (b.quality === "best" ? 2000 : b.quality) - (a.quality === "best" ? 2000 : a.quality)).slice(0, 12);
@@ -200,15 +211,25 @@ async function viaPornhub(url: string): Promise<ResolvedExternalVideo> {
   const sources: DownloadSource[] = [];
   for (const candidate of definitions) {
     const entry = obj(candidate);
-    if (entry.format !== "mp4") continue;
-    const mediaUrl = usableMediaUrl(entry.videoUrl, "video");
-    if (mediaUrl) sources.push({
-      url: mediaUrl, quality: guessQuality(entry),
-      label: String(entry.quality || "MP4"),
-    });
+    const format = String(entry.format || "").toLowerCase();
+    const value = typeof entry.videoUrl === "string" ? entry.videoUrl : "";
+    const pathname = (() => {try{return new URL(value).pathname}catch{return ""}})();
+    const match = /(?:^|[\/_])(?:1080|720|480|360|240)p(?:[_./]|$)/i.exec(pathname);
+    const filenameQuality = match ? guessQuality(null, match[0]) : "best";
+    const quality = filenameQuality !== "best" ? filenameQuality :
+      typeof entry.quality === "number" ? guessQuality(entry) : "best";
+    if (format === "mp4") {
+      const mediaUrl = usableMediaUrl(value, "video");
+      if (mediaUrl) sources.push({url: mediaUrl, quality, label: quality === "best" ? "MP4" : quality + "p", format: "file"});
+    }
+    if (format === "hls" && isSafeHlsSource(value)) {
+      sources.push({url: value, quality, label: quality === "best" ? "HLS" : quality + "p", format: "hls"});
+    }
   }
+  if (sources.length === 0) throw new ExtractorError(
+    "Pornhub did not expose an accessible MP4 or HLS source for this post. It may be unavailable or restricted.");
   return makeResult("pornhub", {
-    title: data.title, uploader: data.author || data.username,
+    title: data.title, uploader: obj(data.provider).username || data.author || data.username,
     duration: data.duration, thumbnail: data.thumb || data.thumbnail,
   }, sources);
 }
