@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import AdDismissButton from "@/app/components/ads/AdDismissButton";
 
 /**
  * The only extra publisher zone: one 266×151 in-content placement per page.
@@ -19,6 +20,7 @@ declare global {
 
 export default function InlineContentAd({ variant = "banner" }: { variant?: "banner" | "tile" }) {
   const requested = useRef(false);
+  const [closed, setClosed] = useState(false);
   const frame = useRef<HTMLDivElement>(null);
   const creative = useRef<HTMLDivElement>(null);
 
@@ -52,11 +54,25 @@ export default function InlineContentAd({ variant = "banner" }: { variant?: "ban
     return () => observer.disconnect();
   }, [variant]);
 
+  if (closed) return null;
+
   return <section aria-label="Sponsored advertisement"
     className={variant === "tile"
       ? "relative isolate z-0 h-full w-full min-w-0 overflow-hidden rounded-[2px] bg-[#18191e]"
       : "relative isolate z-0 mx-auto w-[278px] max-w-full rounded-lg border border-white/10 bg-[#101115] p-[5px]"}>
-    {variant === "banner" && <div className="pb-1 text-[9px] font-medium uppercase tracking-wider text-white/50">Sponsored</div>}
+    {variant === "banner" && (
+      <div className="mb-1 flex min-h-11 items-center justify-between gap-2">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-white/65">Sponsored</span>
+        <AdDismissButton onClick={() => setClosed(true)} />
+      </div>
+    )}
+    {variant === "tile" && (
+      <AdDismissButton
+        onClick={() => setClosed(true)}
+        label="Close sponsored tile"
+        className="absolute right-1 top-1"
+      />
+    )}
     <div ref={frame} className={variant === "tile" ? "relative h-full w-full" : "relative h-[151px] w-[266px] max-w-full"}>
       <div ref={creative}
         className={variant === "tile" ? "absolute left-1/2 top-1/2 origin-center" : "relative"}
