@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import AdDismissButton from "@/app/components/ads/AdDismissButton";
 
 const ZONE = 1130842;
 
@@ -16,7 +16,6 @@ export default function SitewideAd() {
   const requested = useRef(false);
   const [closed, setClosed] = useState(false);
 
-  const isDevelopment = process.env.NODE_ENV === "development";
 
   useEffect(() => {
     if (requested.current) return;
@@ -46,8 +45,8 @@ export default function SitewideAd() {
     }
   }, []);
 
-  // Completely unmount the placement in local development.
-  if (isDevelopment && closed) {
+  // Dismiss immediately in production and development.
+  if (closed) {
     return null;
   }
 
@@ -63,27 +62,15 @@ export default function SitewideAd() {
         lg:right-4 lg:top-4
       "
     >
-      <div className="relative flex items-center justify-between pb-1">
+      <div className="relative flex min-h-11 items-center justify-between gap-1 pb-1">
         <span className="text-[9px] font-medium uppercase tracking-wide text-white/50">
           Sponsored
         </span>
 
-        {isDevelopment && (
-          <button
-            type="button"
-            onClick={() => setClosed(true)}
-            aria-label="Close advertisement"
-            title="Close advertisement"
-            className="
-              pointer-events-auto relative z-20
-              flex h-5 w-5 items-center justify-center
-              rounded bg-white/10 text-white
-              transition-colors hover:bg-white/25
-            "
-          >
-            <X size={14} strokeWidth={2} />
-          </button>
-        )}
+        <AdDismissButton
+          onClick={() => setClosed(true)}
+          label="Close floating advertisement"
+        />
       </div>
 
       <ins
