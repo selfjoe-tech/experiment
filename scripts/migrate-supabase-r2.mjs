@@ -100,8 +100,7 @@ async function r2Head(key) {
 }
 async function uploadOne(obj) {
   const existing = await r2Head(obj.key);
-  if (existing && existing.size === obj.size && obj.size > 0) return { key: obj.key, status: "already-present", size: obj.size };
-  if (dry) return { key: obj.key, status: "would-copy", size: obj.size };
+  if (dry) return { key: obj.key, status: existing ? "already-present-needs-verification" : "would-copy", size: obj.size };
   const sourceUrl = sourceRoot + "/storage/v1/object/authenticated/" + encode(obj.bucket) + "/" + keyPath(obj.key);
   const response = await checkedResponse(await fetch(sourceUrl, { headers: supabaseHeaders() }), "Supabase GET " + obj.key);
   const bytes = Buffer.from(await response.arrayBuffer());
@@ -110,14 +109,26 @@ async function uploadOne(obj) {
   if (bytes.length === 0 || (obj.size && bytes.length !== obj.size)) {
     throw new Error("Source size mismatch: " + obj.key);
   }
+  const sourceDigest = sha(bytes);
+  if (existing && existing.size === bytes.length && existing.type === mime) {
+    const remote = await checkedResponse(await fetch(sign(obj.key, "GET")), "R2 GET " + obj.key);
+    const remoteDigest = sha(Buffer.from(await remote.arrayBuffer()));
+    if (remoteDigest === sourceDigest) {
+      return { key: obj.key, status: "already-present", size: bytes.length, mime, sha256: sourceDigest };
+    }
+  }
   const targetResponse = await fetch(sign(obj.key, "PUT", mime), {
     method: "PUT", body: bytes, headers: { "Content-Type": mime },
   });
   await checkedResponse(targetResponse, "R2 PUT " + obj.key);
   const head = await r2Head(obj.key);
-  if (head?.size !== bytes.length || head?.type !== mime) throw new Error("R2 verification failed: " + obj.key);
-  return { key: obj.key, size: bytes.length, mime, status: "verified" };
+  if (head?.size !== bytes.length || head?.type !== mime) throw new Error("R2 metadata verification failed: " + obj.key);
+  const remote = await checkedResponse(await fetch(sign(obj.key, "GET")), "R2 GET " + obj.key);
+  const remoteDigest = sha(Buffer.from(await remote.arrayBuffer()));
+  if (remoteDigest !== sourceDigest) throw new Error("R2 checksum verification failed: " + obj.key);
+  return { key: obj.key, size: bytes.length, mime, sha256: sourceDigest, status: "verified" };
 }
+
 async function tableRows(table, fields) {
   const rows = [];
   for (let from = 0;; from += 500) {
