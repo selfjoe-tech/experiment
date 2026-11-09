@@ -217,23 +217,10 @@ export default function UrlDownloaderClient() {
         // function, then transfer video bytes using the visitor's browser.
         const data = await postJson("/api/external-download/link", {
           url: target.url, quality,
-        }) as { downloadUrl?: string; filename?: string; fallbackUrl?: string | null; kind?: "hls" | "file" };
+        }) as { downloadUrl?: string; filename?: string; fallbackUrl?: string | null };
         if (!data.downloadUrl) throw new Error("The extractor did not return a video file.");
 
         const filename = data.filename || "goongram-video.mp4";
-        if (data.kind === "hls") {
-          // HLS is remuxed to MP4 by FFmpeg on a Vercel function and streamed
-          // as an attachment, without loading the whole file into browser RAM.
-          const anchor = document.createElement("a");
-          anchor.href = data.downloadUrl;
-          anchor.download = filename;
-          anchor.style.display = "none";
-          document.body.appendChild(anchor);
-          anchor.click();
-          anchor.remove();
-          setDownloadStarted(true);
-          return;
-        }
         const controller = new AbortController();
         abortRef.current = controller;
         try {
@@ -360,7 +347,7 @@ export default function UrlDownloaderClient() {
             </p>
           )}
           {downloadStarted && <p role="status" className="mt-3 text-xs leading-5 text-white/65">
-            Download requested. HLS conversion, when needed, may take additional time.
+            Download request sent to your browser.
           </p>}
           {target.kind === "direct" && <a href={target.url} target="_blank" rel="noopener noreferrer"
             className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-white/60 underline underline-offset-2 hover:text-white">
