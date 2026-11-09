@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import { NextResponse } from "next/server";
 import { parseExternalVideoUrl, type VideoQuality } from "@/lib/external-download";
-import { downloadFilename, ExtractorError, isSafeProxySource, resolveExternalVideo, selectSource } from "@/lib/external-download/resolve";
+import { downloadFilename, ExtractorError, isSafeHlsSource, isSafeProxySource, resolveExternalVideo, selectSource } from "@/lib/external-download/resolve";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,7 +26,7 @@ async function getLink(url: unknown, rawQuality: unknown) {
     // No new downloader environment variables are required.
     const secret = process.env.VIDEO_DOWNLOADER_SECRET || process.env.SUPABASE_SECRET_KEY;
     let fallbackUrl: string | null = null;
-    if (secret && isSafeProxySource(source.url, parsed.platform)) {
+    if (secret && (isSafeProxySource(source.url, parsed.platform) || (parsed.platform === "pornhub" && source.format === "hls" && isSafeHlsSource(source.url)))) {
       const expires = Math.floor(Date.now() / 1000) + 120;
       const message = [parsed.url, String(quality), String(expires)].join("\n");
       const signature = createHmac("sha256", secret).update(message).digest("hex");
@@ -38,7 +38,8 @@ async function getLink(url: unknown, rawQuality: unknown) {
     }
 
     return NextResponse.json({
-      downloadUrl: source.url, filename, fallbackUrl,
+      downloadUrl: source.format === "hls" ? fallbackUrl : source.url,
+      kind: source.format === "hls" ? "hls" : "file", filename, fallbackUrl,
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return NextResponse.json({
