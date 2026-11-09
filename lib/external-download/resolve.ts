@@ -31,7 +31,7 @@ function usableMediaUrl(input: unknown, context = ""): string | null {
   if (/thumbnail|poster|cover|avatar|image|photo|preview/i.test(context)) return null;
   const extension = /\.(mp4|webm|mov|m4v)(?:[?#]|$)/i.test(url.href);
   const stream = /(?:mime|content_type|format)=video(?:%2[fF]|\/|_)(?:mp4|webm)/i.test(url.search);
-  const knownHost = host === "video.twimg.com" || /\.(?:fbcdn\.net|cdninstagram\.com|redgifs\.com|phncdn\.com)$/.test(host) || /(?:cdn|video|media|files|stream)/i.test(host);
+  const knownHost = host === "video.twimg.com" || /\.(?:redgifs\.com|phncdn\.com|phprcdn\.com)$/.test(host) || /(?:cdn|video|media|files|stream)/i.test(host);
   return extension || stream || (knownHost && /\b(video|play|download|hd|sd|media|source|file)\b/i.test(context)) ? url.href : null;
 }
 
@@ -41,7 +41,7 @@ export function isSafeHlsSource(value: unknown): value is string {
     const url = new URL(value);
     const host = url.hostname.toLowerCase();
     return url.protocol === "https:" && !url.username && !url.password && !url.port &&
-      (host === "phncdn.com" || host.endsWith(".phncdn.com")) &&
+      (host === "phncdn.com" || host.endsWith(".phncdn.com") || host === "phprcdn.com" || host.endsWith(".phprcdn.com")) &&
       /\.m3u8$/i.test(url.pathname);
   } catch { return false; }
 }
@@ -227,7 +227,7 @@ async function viaPornhub(url: string): Promise<ResolvedExternalVideo> {
     }
   }
   if (sources.length === 0) throw new ExtractorError(
-    "Pornhub did not expose an accessible MP4 or HLS source for this post. It may be unavailable or restricted.");
+    "Pornhub is not exposing this video to Goongram. It may require a browser challenge or be restricted; try another public link.");
   return makeResult("pornhub", {
     title: data.title, uploader: obj(data.provider).username || data.author || data.username,
     duration: data.duration, thumbnail: data.thumb || data.thumbnail,
@@ -261,7 +261,7 @@ export function isSafeProxySource(input: string, platform: ExternalPlatform) {
   const suffix = (domain: string) => host === domain || host.endsWith("." + domain);
   if (platform === "x") return suffix("twimg.com");
   if (platform === "redgifs") return suffix("redgifs.com");
-  return suffix("phncdn.com");
+  return suffix("phncdn.com") || suffix("phprcdn.com");
 }
 
 export function downloadFilename(platform: ExternalPlatform, input: string) {
