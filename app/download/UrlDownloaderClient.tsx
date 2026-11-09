@@ -272,7 +272,7 @@ export default function UrlDownloaderClient() {
           {status === "inspecting" ? "Checking link..." : "Get video"}
         </button>
         <p className="mt-4 text-[11px] leading-5 text-white/40">
-          Public social-media links are resolved by Goongram's built-in extractors. Videos are downloaded by your browser when the source permits; an on-demand serverless relay is used if required.
+          Goongram resolves public video links using built-in extractors. X and Redgifs are supported. Instagram may block access; Pornhub works only when a direct MP4 exists.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           {EXTERNAL_VIDEO_PLATFORMS.map((site) => (
