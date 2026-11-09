@@ -18,6 +18,37 @@ function pageContainsPublisherAds(pathname: string): boolean {
   return !withoutAds.test(pathname);
 }
 
+
+// A navigation ad break is only eligible on normal content links. Keep it
+// infrequent and separate from authentication, uploads and account actions.
+const AD_BREAK_PATH = "/ad-break";
+const AD_BREAK_CHANCE = 0.25;
+const AD_BREAK_COOLDOWN_MS = 10 * 60 * 1000;
+const AD_BREAK_LAST_SHOWN_KEY = "goongram:last-navigation-ad-break:v1";
+
+function shouldShowNavigationAdBreak(next: URL): boolean {
+  if (next.pathname === AD_BREAK_PATH || next.pathname.startsWith(AD_BREAK_PATH + "/")) {
+    return false;
+  }
+  if (!pageContainsPublisherAds(next.pathname)) return false;
+  if (/^\/(?:ads|privacy|terms|contact|logout|reset-password)(?:\/|$)/.test(next.pathname)) {
+    return false;
+  }
+
+  try {
+    const now = Date.now();
+    const last = Number(window.sessionStorage.getItem(AD_BREAK_LAST_SHOWN_KEY) || "0");
+    if (Number.isFinite(last) && last > 0 &&
+        last <= now && now - last < AD_BREAK_COOLDOWN_MS) return false;
+    if (Math.random() >= AD_BREAK_CHANCE) return false;
+    window.sessionStorage.setItem(AD_BREAK_LAST_SHOWN_KEY, String(now));
+    return true;
+  } catch {
+    // When session storage is disabled, prefer uninterrupted navigation.
+    return false;
+  }
+}
+
 export default function AdDocumentNavigation() {
   const pathname = usePathname();
   const previousPathname = useRef(pathname);
@@ -49,7 +80,15 @@ export default function AdDocumentNavigation() {
 
       event.preventDefault();
       event.stopImmediatePropagation();
-      window.location.assign(next.href);
+
+      // Keep the original URL (including query and hash) as an internal path.
+      // The ad break validates the destination again server-side.
+      if (link.dataset.skipAdBreak !== "true" && shouldShowNavigationAdBreak(next)) {
+        const destination = next.pathname + next.search + next.hash;
+        window.location.assign(AD_BREAK_PATH + "?next=" + encodeURIComponent(destination));
+      } else {
+        window.location.assign(next.href);
+      }
     };
 
     document.addEventListener("click", handleClick, true);
