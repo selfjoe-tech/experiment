@@ -61,9 +61,6 @@ async function postJson(path: string, value: unknown) {
   });
   const data = await response.json().catch(() => null);
   if (!response.ok) {
-    if (response.status === 503) {
-      throw new Error("Social-media post links need an extraction backend because those sites restrict browser access. Goongram links and direct video-file URLs work without one.");
-    }
     throw new Error(data?.error || "Unable to process that video link.");
   }
   return data;
@@ -200,19 +197,31 @@ export default function UrlDownloaderClient() {
         abortRef.current = controller;
         await downloadInBrowser(target.url, target.filename, controller.signal, setProgress);
       } else {
-        // Optional legacy backend for post pages that browsers cannot extract.
-        // This is never called for a Goongram or direct-file URL.
+        // Resolve this public social post on Goongram's existing Vercel
+        // function, then transfer video bytes using the visitor's browser.
         const data = await postJson("/api/external-download/link", {
           url: target.url, quality,
-        }) as { downloadUrl?: string };
-        if (!data.downloadUrl) throw new Error("No downloadable video was returned.");
-        const anchor = document.createElement("a");
-        anchor.href = data.downloadUrl;
-        anchor.rel = "noopener noreferrer";
-        anchor.style.display = "none";
-        document.body.appendChild(anchor);
-        anchor.click();
-        anchor.remove();
+        }) as { downloadUrl?: string; filename?: string; fallbackUrl?: string | null };
+        if (!data.downloadUrl) throw new Error("The extractor did not return a video file.");
+
+        const controller = new AbortController();
+        abortRef.current = controller;
+        const filename = data.filename || "goongram-video.mp4";
+        try {
+          await downloadInBrowser(data.downloadUrl, filename, controller.signal, setProgress);
+        } catch (directError) {
+          if (controller.signal.aborted) throw directError;
+          // Some platform CDNs block cross-origin browser fetches. Only
+          // attempt the restricted signed same-origin relay in that case.
+          const reason = directError instanceof Error ? directError.message : "";
+          const blocked = /Failed to fetch|Load failed|NetworkError|HTTP (401|403|404|429)/i.test(reason);
+          if (!blocked || !data.fallbackUrl) throw directError;
+          setProgress(null);
+          await downloadInBrowser(
+            new URL(data.fallbackUrl, window.location.origin).toString(),
+            filename, controller.signal, setProgress,
+          );
+        }
       }
       setDownloadStarted(true);
     } catch (cause) {
@@ -240,7 +249,7 @@ export default function UrlDownloaderClient() {
         className="rounded-2xl border border-white/10 bg-[#14151a] p-5 shadow-[0_16px_60px_rgba(0,0,0,.28)] sm:p-7">
         <label htmlFor="external-video-url" className="block text-[14px] font-semibold text-white">Video link</label>
         <p className="mt-1 text-[13px] leading-6 text-white/50">
-          Paste a Goongram video link or a direct video-file URL. The download uses your browser and device.
+          Paste a Goongram, X, Instagram, Redgifs or Pornhub video link, or a direct video-file URL.
         </p>
         <div className="mt-5 flex min-w-0 items-center gap-3 rounded-xl border border-white/15 bg-[#0b0d10] px-3.5 focus-within:border-pink-400/70">
           <Link2 className="shrink-0 text-white/45" size={19} />
@@ -248,7 +257,7 @@ export default function UrlDownloaderClient() {
             id="external-video-url" type="url" inputMode="url" autoCapitalize="none"
             autoComplete="off" spellCheck={false} value={url}
             onChange={(event) => resetInput(event.target.value)}
-            placeholder="https://media.goongram.com/videos/video.mp4"
+            placeholder="https://x.com/username/status/123456789"
             required
             className="h-14 min-w-0 flex-1 bg-transparent text-[13px] text-white outline-none placeholder:text-white/35 sm:text-[14px]"
           />
@@ -263,7 +272,7 @@ export default function UrlDownloaderClient() {
           {status === "inspecting" ? "Checking link..." : "Get video"}
         </button>
         <p className="mt-4 text-[11px] leading-5 text-white/40">
-          Direct video URLs and Goongram links work without a server. X, Instagram, Pornhub and Redgifs post pages require an optional extractor backend because browsers cannot reliably access their media streams.
+          Goongram resolves public video links using built-in extractors. X and Redgifs are supported. Instagram may block access; Pornhub works only when a direct MP4 exists.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           {EXTERNAL_VIDEO_PLATFORMS.map((site) => (
@@ -297,7 +306,7 @@ export default function UrlDownloaderClient() {
             <p className="mt-2 text-xs leading-5 text-white/50">
               {target.kind === "goongram" ? "Open the video's download page to save the original file."
                 : target.kind === "direct" ? "Original quality. File bytes are fetched by your browser, not by Goongram's servers."
-                : "Select the quality offered by the extraction service."}
+                : "Choose an available video quality. Media availability depends on the source."}
             </p>
           </div>
         </div>
@@ -315,13 +324,13 @@ export default function UrlDownloaderClient() {
             {status === "downloading" ? <LoaderCircle size={18} className="animate-spin"/> : <ArrowDownToLine size={18}/>}
             {status === "downloading" ? "Downloading..." : target.kind === "goongram" ? "Open download page" : "Download video"}
           </button>
-          {status === "downloading" && target.kind === "direct" && (
+          {status === "downloading" && target.kind !== "goongram" && (
             <p role="status" className="mt-3 text-center text-xs text-white/65">
               {progress !== null ? "Downloaded " + progress + "%" : "Transferring video to your device..."}
             </p>
           )}
           {downloadStarted && <p role="status" className="mt-3 text-xs leading-5 text-white/65">
-            Download request sent to your browser.
+            Video download sent to your browser.
           </p>}
           {target.kind === "direct" && <a href={target.url} target="_blank" rel="noopener noreferrer"
             className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-white/60 underline underline-offset-2 hover:text-white">
