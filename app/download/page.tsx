@@ -7,8 +7,8 @@ import WatchBottomAds from "@/app/components/ads/WatchBottomAds";
 import UrlDownloaderClient from "./UrlDownloaderClient";
 
 export const metadata: Metadata = {
-  title: "Video Downloader for X, Instagram, Pornhub & Redgifs",
-  description: "Download public videos you have permission to save using links from X (Twitter), Instagram, Pornhub and Redgifs.",
+  title: "Download Videos from Goongram and Direct Links",
+  description: "Download Goongram videos and direct video files using your browser, without a separate downloader server.",
   alternates: { canonical: "https://goongram.com/download" },
 };
 
@@ -25,11 +25,11 @@ export default function DownloadPage() {
               <ArrowDownToLine size={23} />
             </div>
             <h1 className="text-[35px] font-semibold leading-[1.08] tracking-[-.045em] sm:text-[48px]">
-              Download videos with a link.
+              Download a video with a link.
             </h1>
             <p className="mt-4 max-w-[580px] text-[14px] leading-7 text-white/55 sm:text-[15px]">
-              Save publicly available videos from X, Instagram, Pornhub and Redgifs.
-              Paste a video link, select its quality and download.
+              Save Goongram videos and direct video files using your device.
+              No separate downloader server is needed.
             </p>
           </header>
 
