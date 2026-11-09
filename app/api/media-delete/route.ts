@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { id, isAd } = await request.json() as { id?: number; isAd?: boolean };
-    if (!Number.isSafeInteger(id) || !id || id < 1 || typeof isAd !== "boolean") {
+    if (typeof id !== "number" || !Number.isSafeInteger(id) || id < 1 || typeof isAd !== "boolean") {
       return NextResponse.json({ error: "Invalid media." }, { status: 400 });
     }
     const table = isAd ? "ads" : "media";
