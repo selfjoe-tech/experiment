@@ -1,4 +1,5 @@
 import "server-only";
+import { inspectWithYtDlp, type YtDlpFormat } from "@/lib/external-download/ytdlp";
 import { parseExternalVideoUrl, type ExternalPlatform, type ExternalVideoInfo, type VideoQuality } from "@/lib/external-download";
 
 export type DownloadSource = { url: string; quality: VideoQuality; label: string; format?: "file" | "hls" };
@@ -204,7 +205,61 @@ async function viaRedgifs(url: string): Promise<ResolvedExternalVideo> {
   }, sources);
 }
 
-async function viaPornhub(url: string): Promise<ResolvedExternalVideo> {
+function nearestQuality(height: unknown): VideoQuality {
+  const pixels = Number(height);
+  if (!Number.isFinite(pixels) || pixels <= 0) return "best";
+  return LEVELS.find(q => pixels >= q) || 240;
+}
+
+async function viaPornhubYtDlp(url: string): Promise<ResolvedExternalVideo> {
+  const metadata = await inspectWithYtDlp(url);
+  const formats: YtDlpFormat[] = Array.isArray(metadata.formats)
+    ? metadata.formats.filter((v): v is YtDlpFormat => !!v && typeof v === "object" && !Array.isArray(v)).slice(0, 100)
+    : [];
+  if (!formats.length) formats.push(metadata);
+
+  const sources: DownloadSource[] = [];
+  for (const item of formats) {
+    const raw = item.url;
+    const hasVideo = item.vcodec !== "none";
+    if (!hasVideo) continue;
+    const height = nearestQuality(item.height);
+    if (isSafeHlsSource(raw)) {
+      sources.push({
+        url: raw, quality: height,
+        label: height === "best" ? "HLS" : height + "p HLS",
+        format: "hls",
+      });
+      continue;
+    }
+    // Only progressive MP4s with audio. Separate video/audio streams must
+    // be merged first and are not safe to label as complete downloaded files.
+    if (item.ext === "mp4" && item.acodec !== "none") {
+      const mp4 = usableMediaUrl(raw, "video mp4");
+      if (mp4 && isSafeProxySource(mp4, "pornhub")) {
+        sources.push({
+          url: mp4, quality: height,
+          label: height === "best" ? "MP4" : height + "p",
+          format: "file",
+        });
+      }
+    }
+  }
+
+  if (!sources.length) {
+    throw new ExtractorError(
+      "yt-dlp could not identify a usable MP4 or HLS stream for this Pornhub video. It may be unavailable, protected or restricted.");
+  }
+
+  return makeResult("pornhub", {
+    title: metadata.title,
+    uploader: metadata.uploader,
+    duration: metadata.duration,
+    thumbnail: metadata.thumbnail,
+  }, sources);
+}
+
+async function viaPornhubPackage(url: string): Promise<ResolvedExternalVideo> {
   const { PornHub } = await import("pornhub.js");
   const data = obj(await deadline(new PornHub().video(url)));
   const definitions = Array.isArray(data.mediaDefinitions) ? data.mediaDefinitions : [];
@@ -213,25 +268,49 @@ async function viaPornhub(url: string): Promise<ResolvedExternalVideo> {
     const entry = obj(candidate);
     const format = String(entry.format || "").toLowerCase();
     const value = typeof entry.videoUrl === "string" ? entry.videoUrl : "";
-    const pathname = (() => {try{return new URL(value).pathname}catch{return ""}})();
-    const match = /(?:^|[\/_])(?:1080|720|480|360|240)p(?:[_./]|$)/i.exec(pathname);
-    const filenameQuality = match ? guessQuality(null, match[0]) : "best";
-    const quality = filenameQuality !== "best" ? filenameQuality :
-      typeof entry.quality === "number" ? guessQuality(entry) : "best";
+    const quality = guessQuality(entry);
     if (format === "mp4") {
-      const mediaUrl = usableMediaUrl(value, "video");
-      if (mediaUrl) sources.push({url: mediaUrl, quality, label: quality === "best" ? "MP4" : quality + "p", format: "file"});
+      const media = usableMediaUrl(value, "video");
+      if (media && isSafeProxySource(media, "pornhub")) {
+        sources.push({ url: media, quality, label: "MP4", format: "file" });
+      }
     }
     if (format === "hls" && isSafeHlsSource(value)) {
-      sources.push({url: value, quality, label: quality === "best" ? "HLS" : quality + "p", format: "hls"});
+      sources.push({ url: value, quality, label: "HLS", format: "hls" });
     }
   }
-  if (sources.length === 0) throw new ExtractorError(
-    "Pornhub did not provide a downloadable source. Its verification checks may block access to the original video.");
+  if (!sources.length) {
+    throw new ExtractorError("Pornhub did not return any accessible media streams.");
+  }
   return makeResult("pornhub", {
     title: data.title, uploader: obj(data.provider).username || data.author || data.username,
     duration: data.duration, thumbnail: data.thumb || data.thumbnail,
   }, sources);
+}
+
+async function viaPornhub(url: string): Promise<ResolvedExternalVideo> {
+  let primaryFailure: unknown;
+  try {
+    return await viaPornhubYtDlp(url);
+  } catch (error) {
+    primaryFailure = error;
+  }
+
+  // The package is retained as a lightweight fallback for videos still
+  // resolvable by its public metadata method.
+  try {
+    return await viaPornhubPackage(url);
+  } catch {
+    const reason = primaryFailure instanceof Error ? primaryFailure.message : "";
+    if (reason === "YT_DLP_NOT_INSTALLED" || reason === "YT_DLP_EXEC_FAILED") {
+      throw new ExtractorError("The yt-dlp executable is unavailable in this Goongram deployment.", 503);
+    }
+    if (reason === "YT_DLP_TIMEOUT") {
+      throw new ExtractorError("The video extractor timed out while requesting Pornhub. Try again later.", 504);
+    }
+    throw new ExtractorError(
+      "Pornhub did not provide an accessible media stream to yt-dlp. Its website may require verification or block requests from this server.");
+  }
 }
 
 export async function resolveExternalVideo(raw: unknown): Promise<ResolvedExternalVideo> {
