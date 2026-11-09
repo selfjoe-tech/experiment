@@ -14,18 +14,10 @@ import {
 
 const MAX_BROWSER_FILE_BYTES = 200 * 1024 * 1024;
 
-function PlatformLogo({ platform }: { platform: "x" | "pornhub" | "redgifs" }) {
+function PlatformLogo({ platform }: { platform: "x" | "redgifs" }) {
   if (platform === "x") {
     return <span className="flex h-10 w-10 items-center justify-center text-white" aria-label="X">
       <XIcon />
-    </span>;
-  }
-  if (platform === "pornhub") {
-    return <span className="flex h-11 w-[118px] items-center justify-center rounded-lg bg-white px-2" aria-label="Pornhub">
-      {/* Wikimedia Commons original brand SVG. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="https://upload.wikimedia.org/wikipedia/commons/f/f1/Pornhub-logo.svg"
-        width={102} height={36} alt="Pornhub logo" className="block max-h-[34px] w-auto max-w-full object-contain"/>
     </span>;
   }
   return <span className="flex h-11 w-[118px] items-center justify-center" aria-label="Redgifs">
@@ -161,7 +153,6 @@ export default function UrlDownloaderClient() {
   const [status, setStatus] = useState<"idle" | "inspecting" | "downloading">("idle");
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState("");
-  const [restrictedPornhubUrl, setRestrictedPornhubUrl] = useState<string | null>(null);
   const [downloadStarted, setDownloadStarted] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -172,7 +163,6 @@ export default function UrlDownloaderClient() {
     setUrl(next);
     setTarget(null);
     setError("");
-    setRestrictedPornhubUrl(null);
     setProgress(null);
     setDownloadStarted(false);
   }
@@ -181,12 +171,11 @@ export default function UrlDownloaderClient() {
     event.preventDefault();
     if (status !== "idle") return;
     setError("");
-    setRestrictedPornhubUrl(null);
     setTarget(null);
     setDownloadStarted(false);
     const parsed = classifyUrl(url);
     if (!parsed) {
-      setError("Enter a Goongram video link, an X, Pornhub or Redgifs post URL, or a direct HTTPS video-file link.");
+      setError("Enter a Goongram video link, an X or Redgifs post URL, or a direct HTTPS video-file link.");
       return;
     }
     if (parsed.kind !== "social") {
@@ -200,12 +189,7 @@ export default function UrlDownloaderClient() {
       setTarget({ kind: "external", url: parsed.url, info });
       setQuality("best");
     } catch (cause) {
-      if (parsed.kind === "social" && parseExternalVideoUrl(parsed.url)?.platform === "pornhub") {
-        setRestrictedPornhubUrl(parsed.url);
-        setError("Pornhub did not provide a downloadable video source. Its verification checks may prevent Goongram from accessing the original media.");
-      } else {
-        setError(cause instanceof Error ? cause.message : "Unable to inspect that link.");
-      }
+      setError(cause instanceof Error ? cause.message : "Unable to inspect that link.");
     } finally {
       setStatus("idle");
     }
@@ -294,7 +278,7 @@ export default function UrlDownloaderClient() {
         className="rounded-2xl border border-white/10 bg-[#14151a] p-5 shadow-[0_16px_60px_rgba(0,0,0,.28)] sm:p-7">
         <label htmlFor="external-video-url" className="block text-[14px] font-semibold text-white">Video link</label>
         <p className="mt-1 text-[13px] leading-6 text-white/50">
-          Paste a Goongram, X, Pornhub or Redgifs video link, or a direct video-file URL.
+          Paste a Goongram, X or Redgifs video link, or a direct video-file URL.
         </p>
         <div className="mt-5 flex min-w-0 items-center gap-3 rounded-xl border border-white/15 bg-[#0b0d10] px-3.5 focus-within:border-pink-400/70">
           <Link2 className="shrink-0 text-white/45" size={19} />
@@ -317,7 +301,7 @@ export default function UrlDownloaderClient() {
           {status === "inspecting" ? "Checking link..." : "Get video"}
         </button>
         <p className="mt-4 text-[11px] leading-5 text-white/40">
-          X and Redgifs downloads are available for supported public videos. Pornhub downloads depend on whether the platform permits access to the source stream.
+          Supported public videos from X and Redgifs can be downloaded alongside Goongram and direct video files.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           {EXTERNAL_VIDEO_PLATFORMS.map((site) => (
@@ -333,24 +317,6 @@ export default function UrlDownloaderClient() {
         className="flex gap-3 rounded-xl border border-rose-500/25 bg-rose-500/[.08] p-4 text-[13px] leading-6 text-rose-100">
         <CircleAlert size={18} className="mt-0.5 shrink-0" /><p>{error}</p>
       </div>}
-
-      {!!restrictedPornhubUrl && <section aria-label="Pornhub link options"
-        className="space-y-3 rounded-xl border border-white/10 bg-[#14151a] p-5">
-        <h2 className="text-sm font-semibold text-white">Other options</h2>
-        <p className="text-[13px] leading-6 text-white/60">
-          You can open the original post on Pornhub. Goongram cannot download a video when its source is restricted. If you own the video, you can upload the original file to Goongram instead.
-        </p>
-        <div className="flex flex-wrap items-center gap-3">
-          <a href={restrictedPornhubUrl} target="_blank" rel="noopener noreferrer"
-            className="inline-flex h-10 items-center gap-2 rounded-lg border border-white/15 px-4 text-xs font-semibold text-white transition hover:bg-white/10">
-            Open original post <ExternalLink size={15}/>
-          </a>
-          <a href="/upload"
-            className="inline-flex h-10 items-center rounded-lg bg-pink-500 px-4 text-xs font-semibold text-white transition hover:bg-pink-400">
-            Upload your own video
-          </a>
-        </div>
-      </section>}
 
       {!!target && <section aria-label="Video download options"
         className="overflow-hidden rounded-2xl border border-white/10 bg-[#14151a]">
