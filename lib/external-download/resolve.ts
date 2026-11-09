@@ -171,6 +171,56 @@ async function viaBtch(url: string, platform: "x" | "instagram"): Promise<Resolv
   }, collectSources(data));
 }
 
+async function viaInstagramDirect(url: string): Promise<ResolvedExternalVideo> {
+  const { instagramGetUrl } = await import("instagram-url-direct");
+  const payload = obj(await deadline(instagramGetUrl(url)));
+  const details = Array.isArray(payload.media_details) ? payload.media_details : [];
+  const sources: DownloadSource[] = [];
+  for (const raw of details.slice(0, 12)) {
+    const item = obj(raw);
+    if (item.type !== "video") continue;
+    const direct = usableMediaUrl(item.url, "video");
+    if (direct) sources.push({
+      url: direct, quality: guessQuality(obj(item.dimensions), "video"),
+      label: "Video",
+    });
+  }
+  if (!sources.length && Array.isArray(payload.url_list)) {
+    for (const item of payload.url_list.slice(0, 12)) {
+      const direct = usableMediaUrl(item, "video");
+      if (direct) sources.push({url: direct, quality: "best", label: "Video"});
+    }
+  }
+  return makeResult("instagram", {
+    title: "Instagram video",
+    uploader: obj(payload.post_info).owner_username,
+    thumbnail: obj(details[0]).thumbnail,
+  }, sources);
+}
+
+// Some public Instagram posts expose their video directly in the HTML metadata,
+// without credentials. Use this only as a last-resort public-page fallback.
+async function viaInstagramPage(url: string): Promise<ResolvedExternalVideo> {
+  const response = await fetch(url, {
+    headers: { "User-Agent": UA, Accept: "text/html", "Accept-Language": "en-US,en;q=0.9" },
+    cache: "no-store", signal: AbortSignal.timeout(12000), redirect: "error",
+  });
+  if (!response.ok) throw new ExtractorError("Instagram did not allow public access to this post.");
+  const html = (await response.text()).slice(0, 3_000_000);
+  const urls: DownloadSource[] = [];
+  const candidates = [
+    ...html.matchAll(/<meta[^>]+(?:property|name)=["']og:video(?::secure_url)?["'][^>]+content=["']([^"']+)["']/gi),
+    ...html.matchAll(/"video_url"\s*:\s*"([^"]+)"/gi),
+  ];
+  for (const match of candidates.slice(0, 8)) {
+    let raw = match[1].replace(/&amp;/g, "&").replace(/\\u0026/g, "&").replace(/\\\//g, "/");
+    const direct = usableMediaUrl(raw, "video");
+    if (direct) urls.push({url: direct, quality: "best", label: "Video"});
+  }
+  const titleMatch = /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)/i.exec(html);
+  return makeResult("instagram", {title: titleMatch?.[1] || "Instagram video"}, urls);
+}
+
 async function viaRedgifs(url: string): Promise<ResolvedExternalVideo> {
   const id = new URL(url).pathname.match(/^\/watch\/([a-zA-Z0-9_-]+)/)?.[1];
   if (!id) throw new ExtractorError("Invalid Redgifs URL.");
@@ -219,7 +269,13 @@ export async function resolveExternalVideo(raw: unknown): Promise<ResolvedExtern
   try {
     if (parsed.platform === "redgifs") return await viaRedgifs(parsed.url);
     if (parsed.platform === "pornhub") return await viaPornhub(parsed.url);
-    if (parsed.platform === "instagram") return await viaBtch(parsed.url, "instagram");
+    if (parsed.platform === "instagram") {
+      try { return await viaBtch(parsed.url, "instagram"); }
+      catch {
+        try { return await viaInstagramDirect(parsed.url); }
+        catch { return await viaInstagramPage(parsed.url); }
+      }
+    }
     try { return await viaBtch(parsed.url, "x"); }
     catch { return await viaFxTwitter(parsed.url); }
   } catch (error) {
