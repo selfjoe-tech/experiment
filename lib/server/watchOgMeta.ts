@@ -10,6 +10,7 @@ const FALLBACK_THUMBNAIL =
 
 function buildPublicUrl(bucket: string, objectPath: string): string {
   const supabase = getSupabaseAdmin();
+  if (/^https:\/\//i.test(objectPath)) return objectPath;
   const { data } = supabase.storage.from(bucket).getPublicUrl(objectPath);
   return data.publicUrl;
 }

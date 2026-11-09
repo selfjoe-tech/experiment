@@ -1,6 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
+import { uploadFileToR2 } from "@/lib/client/r2Upload";
 
 const supabase = createClient();
 
@@ -98,34 +99,7 @@ export async function uploadAdForSlot(args: {
     throw new Error("Enter a valid HTTP or HTTPS landing URL.");
   }
 
-  const folder =
-    mediaType === "video"
-      ? "videos"
-      : mediaType === "banner"
-      ? "banners"
-      : "images";
-
-  const extMatch = file.name.match(/\.([a-zA-Z0-9]+)$/);
-  const ext =
-    extMatch?.[1]?.toLowerCase() ??
-    (mediaType === "video" ? "mp4" : "jpg");
-
-  // The second folder segment is always the authenticated user's UUID.
-  const storagePath =
-    `ads/${user.id}/${slotId}/${folder}/${crypto.randomUUID()}.${ext}`;
-
-  const { error: uploadError } = await supabase.storage
-    .from("media")
-    .upload(storagePath, file, {
-      cacheControl: "3600",
-      upsert: false,
-      contentType: file.type || undefined,
-    });
-
-  if (uploadError) {
-    console.error("uploadAdForSlot storage error", uploadError);
-    throw new Error(uploadError.message || "Failed to upload ad file.");
-  }
+  const storagePath = await uploadFileToR2(file);
 
   const { error: insertError } = await supabase.from("ads").insert({
     owner_id: user.id,
@@ -137,7 +111,7 @@ export async function uploadAdForSlot(args: {
 
   if (insertError) {
     console.error("uploadAdForSlot insert error", insertError);
-    await supabase.storage.from("media").remove([storagePath]);
+    // R2 orphan cleanup can be retried; never delete an unrelated object using browser credentials.
     throw new Error(insertError.message || "Failed to save ad in the database.");
   }
 

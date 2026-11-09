@@ -264,34 +264,14 @@ export async function deleteManagedMedia(args: {
   storagePath: string | null;
   isAd?: boolean;
 }): Promise<{ ok: boolean; error?: string }> {
-  const { id, storagePath, isAd } = args;
-
-  const table = isAd ? "ads" : "media";
-  // Ad assets are stored in the same public media bucket.
-  const bucket: "media" = "media";
-
-  const { error: deleteError } = await supabase
-    .from(table)
-    .delete()
-    .eq("id", id);
-
-  if (deleteError) {
-    console.error("deleteManagedMedia DB error", deleteError);
-    return { ok: false, error: deleteError.message };
-  }
-
-  if (storagePath) {
-    const { error: storageError } = await supabase.storage
-      .from(bucket)
-      .remove([storagePath]);
-    if (storageError) {
-      console.error("deleteManagedMedia storage error", storageError);
-      // not fatal for UI, but we report it
-      return { ok: true, error: storageError.message };
-    }
-  }
-
-  return { ok: true };
+  const response = await fetch("/api/media-delete", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: args.id, isAd: Boolean(args.isAd) }),
+  });
+  const result = await response.json() as { ok?: boolean; error?: string; warning?: string };
+  return { ok: Boolean(result.ok), error: result.error ?? result.warning };
 }
 
 /** Search user media or ads by description/tags/(landing_url for ads) */

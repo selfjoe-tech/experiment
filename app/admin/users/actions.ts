@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireAdmin } from "@/lib/server/requireAdmin";
+import { deleteR2Object, r2KeyFromPublicUrl } from "@/lib/server/r2";
 
 const MEDIA_BUCKET =
   process.env.NEXT_PUBLIC_SUPABASE_MEDIA_BUCKET ?? "media";
@@ -63,16 +64,27 @@ async function removeExactStoragePaths(
   bucket: string,
   paths: Array<string | null | undefined>
 ) {
-  const uniquePaths = Array.from(
-    new Set(paths.filter((path): path is string => Boolean(path)))
-  );
-
-  if (!uniquePaths.length) return;
-
-  const { error } = await supabase.storage.from(bucket).remove(uniquePaths);
-  if (error) {
-    throw new Error(`Could not remove files from ${bucket}: ${error.message}`);
+  const uniquePaths = Array.from(new Set(paths.filter((path): path is string => Boolean(path))));
+  const legacy: string[] = [];
+  for (const path of uniquePaths) {
+    if (path.startsWith("r2-private:")) {
+      await deleteR2Object(path.slice("r2-private:".length), true);
+      continue;
+    }
+    const key = r2KeyFromPublicUrl(path);
+    if (key) {
+      await deleteR2Object(key);
+      continue;
+    }
+    if (/^https?:\/\//i.test(path)) {
+      // Do not delete unrecognized external assets.
+      continue;
+    }
+    legacy.push(path);
   }
+  if (!legacy.length) return;
+  const { error } = await supabase.storage.from(bucket).remove(legacy);
+  if (error) throw new Error(`Could not remove files from ${bucket}: ${error.message}`);
 }
 
 export async function deleteUser(userId: string) {
@@ -87,16 +99,17 @@ export async function deleteUser(userId: string) {
 
   try {
     // Capture non-user-folder object paths before deleting the associated rows.
-    const [mediaRows, adRows, verificationRows] = await Promise.all([
+    const [mediaRows, adRows, verificationRows, profileRow] = await Promise.all([
       supabase.from("media").select("storage_path").eq("owner_id", id),
       supabase.from("ads").select("storage_path").eq("owner_id", id),
       supabase
         .from("verify")
         .select("storage_path, selfie_path")
         .eq("creator_id", id),
+      supabase.from("profiles").select("avatar_url").eq("id", id).maybeSingle(),
     ]);
 
-    for (const result of [mediaRows, adRows, verificationRows]) {
+    for (const result of [mediaRows, adRows, verificationRows, profileRow]) {
       if (result.error) throw new Error(result.error.message);
     }
 
@@ -124,6 +137,7 @@ export async function deleteUser(userId: string) {
         MEDIA_BUCKET,
         mediaRows.data?.map((row) => row.storage_path) ?? []
       ),
+      removeExactStoragePaths(supabase, MEDIA_BUCKET, [profileRow.data?.avatar_url]),
       removeExactStoragePaths(
         supabase,
         MEDIA_BUCKET,

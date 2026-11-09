@@ -4,6 +4,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
+import { uploadFileToR2 } from "@/lib/client/r2Upload";
 
 const supabase = createClient();
 
@@ -33,12 +34,14 @@ export type VideoUploadFormValues = {
   title?: string;
   description?: string;
   audience: AudienceType;
+  tags?: string[];
 };
 
 export type ImageUploadFormValues = {
   title?: string;
   description?: string;
   audience: AudienceType;
+  tags?: string[];
 };
 
 // Should match what VideoTrimEditor passes to UploadFlow
@@ -57,36 +60,6 @@ type InsertedMediaRow = {
 // ----------------- helpers -----------------
 
 
-
-function makeStoragePath(
-  kind: "video" | "image",
-  ownerId: string,
-  file: File
-): string {
-  const extRaw = file.name.split(".").pop();
-  const ext =
-    (extRaw && extRaw.toLowerCase()) || (kind === "video" ? "mp4" : "jpg");
-
-  const random =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : Math.random().toString(36).slice(2);
-
-  const folder = kind === "video" ? "videos" : "images";
-  return `${folder}/${ownerId}/${random}.${ext}`;
-}
-
-async function uploadToStorage(path: string, file: File): Promise<void> {
-  const { error } = await supabase.storage.from("media").upload(path, file, {
-    cacheControl: "3600",
-    upsert: false,
-  });
-
-  if (error) {
-    console.error("Storage upload error", error);
-    throw new Error("Failed to upload file to storage.");
-  }
-}
 
 async function insertMediaRow(params: {
   ownerId: string;
@@ -147,9 +120,7 @@ export async function uploadTrimmedVideo(
         );
   const ownerId = await getCurrentUserId()
 
-  const storagePath = makeStoragePath("video", ownerId, clip.file);
-
-  await uploadToStorage(storagePath, clip.file);
+  const storagePath = await uploadFileToR2(clip.file);
 
   const durationSeconds = Math.max(0, clip.end - clip.start);
 
@@ -174,9 +145,7 @@ export async function uploadSingleImage(
   form: ImageUploadFormValues
 ): Promise<InsertedMediaRow> {
   const ownerId = await getCurrentUserId();
-  const storagePath = makeStoragePath("image", ownerId, file);
-
-  await uploadToStorage(storagePath, file);
+  const storagePath = await uploadFileToR2(file);
 
   const row = await insertMediaRow({
     ownerId,
@@ -209,8 +178,7 @@ export async function uploadImagesBatch(
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     try {
-      const storagePath = makeStoragePath("image", ownerId, file);
-      await uploadToStorage(storagePath, file);
+      const storagePath = await uploadFileToR2(file);
 
       const row = await insertMediaRow({
         ownerId,

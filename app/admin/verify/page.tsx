@@ -2,6 +2,7 @@
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireAdmin } from "@/lib/server/requireAdmin";
 import VerifyClient from "./VerifyClient";
+import { presignR2 } from "@/lib/server/r2";
 
 const PAGE_SIZE = 20;
 
@@ -91,7 +92,9 @@ export default async function AdminVerifyPage({
       const path = request.storage_path ?? request.selfie_path ?? null;
       let selfieUrl: string | null = null;
 
-      if (path) {
+      if (path?.startsWith("r2-private:")) {
+        selfieUrl = presignR2({ key: path.slice("r2-private:".length), method: "GET", isPrivate: true, expires: 600 });
+      } else if (path) {
         const { data: privateUrl, error: privateError } = await supabase.storage
           .from("verification")
           .createSignedUrl(path, 60 * 10);

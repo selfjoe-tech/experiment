@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { putR2Object, deleteR2Object, r2PublicUrl } from "@/lib/server/r2";
 
 export type SettingsProfile = {
   username: string | null;
@@ -164,40 +165,28 @@ export async function updateAvatarAction(
   };
   const path = `avatars/${auth.user.id}/${crypto.randomUUID()}.${extByType[file.type]}`;
 
-  const { error: uploadError } = await auth.supabase.storage
-    .from("media")
-    .upload(path, file, {
-      upsert: false,
-      contentType: file.type,
-      cacheControl: "3600",
-    });
-
-  if (uploadError) {
-    console.error("updateAvatarAction upload error", uploadError);
-    return {
-      success: false,
-      message: "Failed to upload your avatar. Please try again.",
-    };
+  try {
+    await putR2Object(path, Buffer.from(await file.arrayBuffer()), file.type);
+  } catch (error) {
+    console.error("updateAvatarAction R2 upload error", error);
+    return { success: false, message: "Failed to upload your avatar." };
   }
-
-  const { data: urlData } = auth.supabase.storage
-    .from("media")
-    .getPublicUrl(path);
+  const avatarUrl = r2PublicUrl(path);
 
   const { error: updateError } = await auth.supabase
     .from("profiles")
-    .update({ avatar_url: urlData.publicUrl })
+    .update({ avatar_url: avatarUrl })
     .eq("id", auth.user.id);
 
   if (updateError) {
     console.error("updateAvatarAction profile update error", updateError);
-    await auth.supabase.storage.from("media").remove([path]);
+    await deleteR2Object(path).catch((error) => console.error("Avatar rollback failed", error));
     return { success: false, message: "Failed to save your avatar." };
   }
 
   revalidatePath("/");
   revalidatePath("/settings");
-  return { success: true, avatarUrl: urlData.publicUrl };
+  return { success: true, avatarUrl };
 }
 
 export async function changePasswordAction(
