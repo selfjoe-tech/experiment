@@ -1,44 +1,64 @@
-# Goongram Cloudflare R2 migration (staging branch)
+# Goongram R2 migration — deployment checklist
 
-This branch is **not production-ready** until credentials, domain setup, migration verification and full site-wide storage audit are complete.
+**Status: WIP. Do not merge to production until credentials, data backfill and preview tests are complete.**
 
-## Cloudflare resources
+## Resources configured
+- Public R2 bucket: goongram-media (Standard, WEUR)
+- Custom CDN hostname: https://media.goongram.com (SSL active)
+- Private R2 bucket: goongram-private (no public hostname, verification selfies)
+- Vercel: experiment-iitq, GitHub: selfjoe-tech/experiment
+- Supabase source: tkplsmxyouexyirhkqlf; 7 videos + 1 avatar (~108 MB) at inventory; verification and staging empty.
 
-- Account: `65ca42da1b9474dcc4e329177d793b07`
-- Bucket: `goongram-media` (Standard, WEUR)
-- Test-only public domain: `https://pub-e5af36c8b6704171aea10099e184c95c.r2.dev`
-- Preferred production delivery: `https://media.goongram.com` (add goongram.com as an active Cloudflare zone before attaching this custom R2 domain)
-- Bucket CORS allows PUT/GET/HEAD for goongram.com, www.goongram.com, and localhost:3000.
+## Vercel environment variables
 
-## Required Vercel variables
+Already installed: R2_ACCOUNT_ID, R2_BUCKET_NAME, R2_PRIVATE_BUCKET_NAME, NEXT_PUBLIC_R2_PUBLIC_URL.
 
-Configure **server-only**:
-- `R2_ACCOUNT_ID=65ca42da1b9474dcc4e329177d793b07`
-- `R2_BUCKET_NAME=goongram-media`
-- `R2_ACCESS_KEY_ID`: R2 object read/write scoped token's access key ID
-- `R2_SECRET_ACCESS_KEY`: matching secret, NEVER exposed with NEXT_PUBLIC_
+**Still missing, and must be entered privately in Vercel Settings > Environment Variables:**
+- R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY (S3 object Read & Write token for goongram-media).
+- R2_PRIVATE_ACCESS_KEY_ID and R2_PRIVATE_SECRET_ACCESS_KEY (separate S3 object Read & Write token for goongram-private).
 
-Configure **public**:
-- `NEXT_PUBLIC_R2_PUBLIC_URL=https://media.goongram.com` once the custom domain is configured.
-  Temporarily use the test-only r2.dev domain on preview deployments.
+If a token was scoped only to goongram-media it will not work for goongram-private. Never use NEXT_PUBLIC_ for credentials.
 
-Install AWS SDK packages and update/commit the project lockfile:
-```sh
-npm install @aws-sdk/client-s3 @aws-sdk/s3-request-presigner
-```
+The PR has no new npm dependencies. R2 S3 URL signing uses Node's built-in crypto.
 
-## Migration and rollout (do not skip)
+## Updated code
 
-1. Freeze old writes or enable dual-read until the backfill and new upload deployment can coexist.
-2. Copy all **eight** objects from Supabase's public `media` bucket to the same keys in R2, preserving Content-Type. Source inventory is 7 videos + 1 image (~108 MB). The two private buckets are empty at audit time; keep private buckets private if files appear later.
-3. Verify every destination using HEAD (size, Content-Type) and sampled GET/range requests for videos. Do not assume copying R2 bytes automatically changes the database.
-4. For each row in public.media, replace `storage_path` with the HTTPS R2 URL only after its R2 object passes validation. Update profiles.avatar_url similarly. Preserve IDs and all other fields. Check all other URL/path columns before treating the migration as complete.
-5. Audit all other Supabase Storage writers/readers and deletion flows, including verification media, ad uploads, watermark/trim/staging routes, and account deletion. New writes must not use Supabase Storage.
-6. Test video seeking, download, thumbnail, images, avatars, embeds, SEO, admin deletion, upload progress, and authorization on both mobile and desktop.
-7. Release to production only after all fetches work against R2 and no write path still points to Supabase Storage. Keep originals until a verified rollback window has passed.
+- Videos and images: direct browser PUT to R2 with signed URLs, followed by authenticated R2 HEAD size/MIME validation.
+- Ads and avatars: direct/server-side R2 uploads.
+- Verification selfies: private R2 object key prefixed with r2-private: in Supabase database, temporary signed GET only for admin review.
+- R2-aware deletion for ordinary uploads, reports, and user cleanup. Legacy object paths still supported.
+- No schema changes: media.storage_path and thumbnail_path, ads.storage_path, profiles.avatar_url stay in Supabase.
+- Legacy stage-upload and trim-video API routes retired (the current upload screen does not use them).
+- Existing read paths accept full HTTPS URLs for Reels, images, download, embeds and SEO.
 
-## Notes
+## Data backfill — Windows / local computer
 
-This migration deliberately does NOT delete or modify any current Supabase object or database row.
-Presigned uploads require **S3 R2 API credentials**, which are separate from the Cloudflare account connector login.
-`r2.dev` is intended only for development/testing and is rate limited; a production R2 custom domain is required.
+This tool environment cannot download Supabase binary objects (outbound network access denied). Use the committed script locally with Node 20+.
+
+Set these private environment values in your terminal, without committing secrets:
+SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, NEXT_PUBLIC_R2_PUBLIC_URL.
+
+From the migration branch:
+1. Run: node scripts/migrate-supabase-r2.mjs
+   Dry-run, inventory only.
+2. Run: node scripts/migrate-supabase-r2.mjs --execute
+   Copy every original public-media object and HEAD-verify size and MIME. NO database URLs changed.
+3. Inspect report and check video Range playback, thumbnails, and avatars.
+4. Run: node scripts/migrate-supabase-r2.mjs --execute --update-db
+   Verify again, then atomically condition each row update on its old value. Updates media, ads, thumbnails and avatars.
+5. Repeat source inventory to catch uploads since initial listing. Keep Supabase originals for rollback.
+
+## Final release gates
+
+- [ ] Public and private R2 secrets set server-side in Vercel.
+- [ ] Branch preview build passes.
+- [ ] Browser PUT signatures, object HEAD verification and upload progress tested.
+- [ ] Private selfies cannot be viewed publicly.
+- [ ] 8 old files copied and verified, references changed; recheck for new files.
+- [ ] All user upload, verification, advertising, download, delete and moderator flows tested.
+- [ ] Video streaming and Range seeking verified; CDN caching configured.
+- [ ] No critical Supabase Storage writes remain in active endpoints.
+- [ ] Main branch merged only after working preview is approved.
+- [ ] Disable r2.dev once the custom CDN has been proven.
+
+Never delete the Supabase source objects during the initial migration.
