@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Build-time yt-dlp executable; pinned & verified in scripts/install-yt-dlp.mjs
+/bin/yt-dlp
