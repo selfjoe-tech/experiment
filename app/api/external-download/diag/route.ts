@@ -24,5 +24,9 @@ export async function GET(request: Request) {
     }catch(e){examples.push({format:d.format,quality:d.quality,error:String(e).slice(0,150)})}
   }
   const ffmpegResult = ffmpegPath ? (()=>{try{return execFileSync(ffmpegPath,["-version"],{timeout:4000}).toString().split("\n")[0]}catch(e){return "Failed: "+String(e).slice(0,120)}})() : "missing";
-  return Response.json({ffmpegResult,ffmpegPath:ffmpegPath ? {exists:existsSync(ffmpegPath),path:ffmpegPath.split("/").slice(-3).join("/")} : null, definitions:definitions.map(d=>({format:d.format,quality:d.quality,host:typeof d.videoUrl==="string"?new URL(d.videoUrl).hostname:null})),examples});
+  const rawPage = await fetch("https://www.pornhub.com/view_video.php?viewkey=" + key, {
+    headers: {"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36","Accept-Language":"en-US,en;q=0.9","Cookie":"accessAgeDisclaimerPH=2"},
+    cache:"no-store",signal:AbortSignal.timeout(10000)
+  }).then(async r=>({status:r.status,url:r.url.slice(0,160),type:r.headers.get("content-type"),bodyMarkers:(await r.text()).slice(0,600000).match(/flashvars_|mediaDefinitions|cf-chl|access denied|human|not available|captcha/ig)?.slice(0,10)||[]})).catch(e=>({error:String(e).slice(0,160)}));
+  return Response.json({videoTitle:video.title,rawPage,ffmpegResult,ffmpegPath:ffmpegPath ? {exists:existsSync(ffmpegPath),path:ffmpegPath.split("/").slice(-3).join("/")} : null, definitions:definitions.map(d=>({format:d.format,quality:d.quality,host:typeof d.videoUrl==="string"?new URL(d.videoUrl).hostname:null})),examples});
 }
