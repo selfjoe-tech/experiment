@@ -8,9 +8,6 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["ffmpeg-static", "nodemailer"],
   outputFileTracingIncludes: {
     "/api/trim-video": ["./node_modules/ffmpeg-static/**"],
-    "/api/external-download/inspect": ["./bin/yt-dlp"],
-    "/api/external-download/link": ["./bin/yt-dlp"],
-    "/api/external-download/file": ["./bin/yt-dlp"],
   },
   eslint: {
     ignoreDuringBuilds: true,
