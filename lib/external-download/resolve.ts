@@ -227,7 +227,7 @@ async function viaPornhub(url: string): Promise<ResolvedExternalVideo> {
     }
   }
   if (sources.length === 0) throw new ExtractorError(
-    "Pornhub is not exposing this video to Goongram. It may require a browser challenge or be restricted; try another public link.");
+    "Pornhub did not provide a downloadable source. Its verification checks may block access to the original video.");
   return makeResult("pornhub", {
     title: data.title, uploader: obj(data.provider).username || data.author || data.username,
     duration: data.duration, thumbnail: data.thumb || data.thumbnail,
