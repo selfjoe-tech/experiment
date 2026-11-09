@@ -165,7 +165,7 @@ if (!updateDb) {
   console.log(dry ? "Dry-run complete. No files or database rows changed." : "Copy complete. Run again with --execute --update-db to switch references.");
   process.exit(0);
 }
-const media = await tableRows("media", "id,storage_path");
+const media = await tableRows("media", "id,storage_path,thumbnail_path");
 const ads = await tableRows("ads", "id,storage_path");
 const profiles = await tableRows("profiles", "id,avatar_url");
 const updates = [];
@@ -177,6 +177,17 @@ for (const row of [...media.map(x => ({ ...x, table: "media" })), ...ads.map(x =
   const path = row.storage_path;
   if (!path || /^https:\/\//i.test(path)) continue;
   addUpdate(row.table, row.id, "storage_path", path, path);
+}
+for (const row of media) {
+  if (row.thumbnail_path && !/^https:\/\//i.test(row.thumbnail_path)) {
+    addUpdate("media", row.id, "thumbnail_path", row.thumbnail_path, row.thumbnail_path);
+  } else if (row.thumbnail_path &&
+    row.thumbnail_path.startsWith(sourceRoot + "/storage/v1/object/public/media/")) {
+    const key = decodeURIComponent(
+      row.thumbnail_path.slice((sourceRoot + "/storage/v1/object/public/media/").length)
+    );
+    addUpdate("media", row.id, "thumbnail_path", row.thumbnail_path, key);
+  }
 }
 for (const row of profiles) {
   if (!row.avatar_url || !row.avatar_url.startsWith(sourceRoot + "/storage/v1/object/public/media/")) continue;
