@@ -93,7 +93,9 @@ function makeResult(
   }).sort((a, b) => (b.quality === "best" ? 2000 : b.quality) - (a.quality === "best" ? 2000 : a.quality)).slice(0, 12);
   if (!sources.length) throw new ExtractorError(platform === "pornhub"
     ? "This Pornhub video only exposes HLS playlists, not a directly downloadable MP4. Converting HLS requires additional processing."
-    : "No downloadable video file was found. The post may be unavailable or restricted.");
+    : platform === "instagram"
+      ? "Instagram did not expose a public MP4 for this post. It may require login or restrict access from servers. Try another public post or a direct MP4 link."
+      : "No downloadable video file was found. The post may be unavailable or restricted.");
   const q: VideoQuality[] = sources.map(source => source.quality);
   const thumb = txt(details.thumbnail, 4096);
   return {
