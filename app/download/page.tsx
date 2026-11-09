@@ -8,7 +8,7 @@ import UrlDownloaderClient from "./UrlDownloaderClient";
 
 export const metadata: Metadata = {
   title: "Video Downloader for X, Pornhub, Redgifs and Goongram",
-  description: "Download permitted public videos from X, Pornhub and Redgifs, alongside Goongram videos and direct media files.",
+  description: "Save supported public videos from X, Redgifs and Goongram. Pornhub links depend on provider access to the original video.",
   alternates: { canonical: "https://goongram.com/download" },
 };
 
@@ -28,8 +28,8 @@ export default function DownloadPage() {
               Download a video with a link.
             </h1>
             <p className="mt-4 max-w-[580px] text-[14px] leading-7 text-white/55 sm:text-[15px]">
-              Save public videos from Goongram, X, Pornhub and Redgifs.
-              Paste a link, choose a quality, and download.
+              Save supported public videos from Goongram, X and Redgifs.
+              Pornhub downloads are available only when the source is accessible.
             </p>
           </header>
 
