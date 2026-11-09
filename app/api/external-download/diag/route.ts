@@ -1,6 +1,7 @@
 import { PornHub } from "pornhub.js";
 import ffmpegPath from "ffmpeg-static";
 import { existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,5 +23,6 @@ export async function GET(request: Request) {
       examples.push({format:d.format, quality:d.quality,host:new URL(u).hostname,status:r.status,ct:r.headers.get("content-type"),size:t.length,lineTypes:t.split("\n").slice(0,18).map(x=>x.startsWith("#")?x:/"?https?:\/\//.test(x)?"[absolute-url]":x.length>140?"[long-segment-path]":x)});
     }catch(e){examples.push({format:d.format,quality:d.quality,error:String(e).slice(0,150)})}
   }
-  return Response.json({ffmpegPath:ffmpegPath ? {exists:existsSync(ffmpegPath),path:ffmpegPath.split("/").slice(-3).join("/")} : null, definitions:definitions.map(d=>({format:d.format,quality:d.quality,host:typeof d.videoUrl==="string"?new URL(d.videoUrl).hostname:null})),examples});
+  const ffmpegResult = ffmpegPath ? (()=>{try{return execFileSync(ffmpegPath,["-version"],{timeout:4000}).toString().split("\n")[0]}catch(e){return "Failed: "+String(e).slice(0,120)}})() : "missing";
+  return Response.json({ffmpegResult,ffmpegPath:ffmpegPath ? {exists:existsSync(ffmpegPath),path:ffmpegPath.split("/").slice(-3).join("/")} : null, definitions:definitions.map(d=>({format:d.format,quality:d.quality,host:typeof d.videoUrl==="string"?new URL(d.videoUrl).hostname:null})),examples});
 }
