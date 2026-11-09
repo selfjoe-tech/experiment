@@ -7,8 +7,8 @@ import WatchBottomAds from "@/app/components/ads/WatchBottomAds";
 import UrlDownloaderClient from "./UrlDownloaderClient";
 
 export const metadata: Metadata = {
-  title: "Video Downloader for X, Pornhub, Redgifs and Goongram",
-  description: "Save supported public videos from X, Redgifs and Goongram. Pornhub links depend on provider access to the original video.",
+  title: "Video Downloader for X, Redgifs and Goongram",
+  description: "Save supported public video files from Goongram, X and Redgifs, without a separate downloader server.",
   alternates: { canonical: "https://goongram.com/download" },
 };
 
@@ -29,7 +29,7 @@ export default function DownloadPage() {
             </h1>
             <p className="mt-4 max-w-[580px] text-[14px] leading-7 text-white/55 sm:text-[15px]">
               Save supported public videos from Goongram, X and Redgifs.
-              Pornhub downloads are available only when the source is accessible.
+              Paste a video link, choose a quality and download.
             </p>
           </header>
 
