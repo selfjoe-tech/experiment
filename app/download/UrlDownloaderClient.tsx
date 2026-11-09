@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { XIcon } from "@/app/components/ui/ContactUs";
 import {
   ArrowDownToLine, Check, CircleAlert, ExternalLink, Link2, LoaderCircle, ShieldCheck,
 } from "lucide-react";
@@ -12,6 +13,29 @@ import {
 } from "@/lib/external-download";
 
 const MAX_BROWSER_FILE_BYTES = 200 * 1024 * 1024;
+
+function PlatformLogo({ platform }: { platform: "x" | "pornhub" | "redgifs" }) {
+  if (platform === "x") {
+    return <span className="flex h-10 w-10 items-center justify-center text-white" aria-label="X">
+      <XIcon />
+    </span>;
+  }
+  if (platform === "pornhub") {
+    return <span className="flex h-11 w-[118px] items-center justify-center rounded-lg bg-white px-2" aria-label="Pornhub">
+      {/* Wikimedia Commons original brand SVG. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="https://upload.wikimedia.org/wikipedia/commons/f/f1/Pornhub-logo.svg"
+        width={102} height={36} alt="Pornhub logo" className="block max-h-[34px] w-auto max-w-full object-contain"/>
+    </span>;
+  }
+  return <span className="flex h-11 w-[118px] items-center justify-center" aria-label="Redgifs">
+    {/* Official Redgifs brand SVG. */}
+    {/* eslint-disable-next-line @next/next/no-img-element */}
+    <img src="https://www.redgifs.com/static/logo-full-red-C9X7m0yF.svg"
+      width={112} height={28} alt="Redgifs logo" className="block max-h-9 w-full object-contain"/>
+  </span>;
+}
+
 
 type Target =
   | { kind: "goongram"; id: number; url: string }
@@ -159,7 +183,7 @@ export default function UrlDownloaderClient() {
     setDownloadStarted(false);
     const parsed = classifyUrl(url);
     if (!parsed) {
-      setError("Enter a Goongram video link, a direct HTTPS video-file URL (.mp4, .webm, .mov or .m4v), or a supported social-media post link.");
+      setError("Enter a Goongram video link, an X, Pornhub or Redgifs post URL, or a direct HTTPS video-file link.");
       return;
     }
     if (parsed.kind !== "social") {
@@ -201,12 +225,25 @@ export default function UrlDownloaderClient() {
         // function, then transfer video bytes using the visitor's browser.
         const data = await postJson("/api/external-download/link", {
           url: target.url, quality,
-        }) as { downloadUrl?: string; filename?: string; fallbackUrl?: string | null };
+        }) as { downloadUrl?: string; filename?: string; fallbackUrl?: string | null; kind?: "hls" | "file" };
         if (!data.downloadUrl) throw new Error("The extractor did not return a video file.");
 
+        const filename = data.filename || "goongram-video.mp4";
+        if (data.kind === "hls") {
+          // HLS is remuxed to MP4 by FFmpeg on a Vercel function and streamed
+          // as an attachment, without loading the whole file into browser RAM.
+          const anchor = document.createElement("a");
+          anchor.href = data.downloadUrl;
+          anchor.download = filename;
+          anchor.style.display = "none";
+          document.body.appendChild(anchor);
+          anchor.click();
+          anchor.remove();
+          setDownloadStarted(true);
+          return;
+        }
         const controller = new AbortController();
         abortRef.current = controller;
-        const filename = data.filename || "goongram-video.mp4";
         try {
           await downloadInBrowser(data.downloadUrl, filename, controller.signal, setProgress);
         } catch (directError) {
@@ -249,7 +286,7 @@ export default function UrlDownloaderClient() {
         className="rounded-2xl border border-white/10 bg-[#14151a] p-5 shadow-[0_16px_60px_rgba(0,0,0,.28)] sm:p-7">
         <label htmlFor="external-video-url" className="block text-[14px] font-semibold text-white">Video link</label>
         <p className="mt-1 text-[13px] leading-6 text-white/50">
-          Paste a Goongram, X, Instagram, Redgifs or Pornhub video link, or a direct video-file URL.
+          Paste a Goongram, X, Pornhub or Redgifs video link, or a direct video-file URL.
         </p>
         <div className="mt-5 flex min-w-0 items-center gap-3 rounded-xl border border-white/15 bg-[#0b0d10] px-3.5 focus-within:border-pink-400/70">
           <Link2 className="shrink-0 text-white/45" size={19} />
@@ -272,13 +309,14 @@ export default function UrlDownloaderClient() {
           {status === "inspecting" ? "Checking link..." : "Get video"}
         </button>
         <p className="mt-4 text-[11px] leading-5 text-white/40">
-          Goongram resolves public video links using built-in extractors. X and Redgifs are supported. Instagram may block access; Pornhub works only when a direct MP4 exists.
+          Public X and Redgifs posts are resolved directly. Pornhub HLS streams are converted to MP4 when accessible. No separate VPS is required.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           {EXTERNAL_VIDEO_PLATFORMS.map((site) => (
-            <span key={site.key} className="rounded-full border border-white/10 px-3 py-1.5 text-[11px] font-medium text-white/45">
-              {site.name} · extractor required
-            </span>
+            <div key={site.key} aria-label={"Supported platform: " + site.name}
+              className="flex h-[58px] min-w-[126px] items-center justify-center rounded-xl border border-white/10 bg-white/[.035] px-3 transition-colors hover:border-white/25 hover:bg-white/[.07]">
+              <PlatformLogo platform={site.key}/>
+            </div>
           ))}
         </div>
       </form>
@@ -330,7 +368,7 @@ export default function UrlDownloaderClient() {
             </p>
           )}
           {downloadStarted && <p role="status" className="mt-3 text-xs leading-5 text-white/65">
-            Video download sent to your browser.
+            Download requested. HLS conversion, when needed, may take additional time.
           </p>}
           {target.kind === "direct" && <a href={target.url} target="_blank" rel="noopener noreferrer"
             className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-white/60 underline underline-offset-2 hover:text-white">

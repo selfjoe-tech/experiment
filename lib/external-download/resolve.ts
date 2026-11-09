@@ -1,7 +1,7 @@
 import "server-only";
 import { parseExternalVideoUrl, type ExternalPlatform, type ExternalVideoInfo, type VideoQuality } from "@/lib/external-download";
 
-export type DownloadSource = { url: string; quality: VideoQuality; label: string };
+export type DownloadSource = { url: string; quality: VideoQuality; label: string; format?: "file" | "hls" };
 export type ResolvedExternalVideo = ExternalVideoInfo & { sources: DownloadSource[] };
 
 export class ExtractorError extends Error {
@@ -31,8 +31,19 @@ function usableMediaUrl(input: unknown, context = ""): string | null {
   if (/thumbnail|poster|cover|avatar|image|photo|preview/i.test(context)) return null;
   const extension = /\.(mp4|webm|mov|m4v)(?:[?#]|$)/i.test(url.href);
   const stream = /(?:mime|content_type|format)=video(?:%2[fF]|\/|_)(?:mp4|webm)/i.test(url.search);
-  const knownHost = host === "video.twimg.com" || /\.(?:fbcdn\.net|cdninstagram\.com|redgifs\.com|phncdn\.com)$/.test(host) || /(?:cdn|video|media|files|stream)/i.test(host);
+  const knownHost = host === "video.twimg.com" || /\.(?:redgifs\.com|phncdn\.com|phprcdn\.com)$/.test(host) || /(?:cdn|video|media|files|stream)/i.test(host);
   return extension || stream || (knownHost && /\b(video|play|download|hd|sd|media|source|file)\b/i.test(context)) ? url.href : null;
+}
+
+export function isSafeHlsSource(value: unknown): value is string {
+  if (typeof value !== "string" || value.length > 4096) return false;
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    return url.protocol === "https:" && !url.username && !url.password && !url.port &&
+      (host === "phncdn.com" || host.endsWith(".phncdn.com") || host === "phprcdn.com" || host.endsWith(".phprcdn.com")) &&
+      /\.m3u8$/i.test(url.pathname);
+  } catch { return false; }
 }
 
 function guessQuality(entry: unknown, path = ""): VideoQuality {
@@ -87,15 +98,13 @@ function makeResult(
 ): ResolvedExternalVideo {
   const seen = new Set<string>();
   const sources = input.filter(item => {
-    if (!usableMediaUrl(item.url, "video") || seen.has(item.url)) return false;
+    if (!(item.format === "hls" ? isSafeHlsSource(item.url) : usableMediaUrl(item.url, "video")) || seen.has(item.url)) return false;
     seen.add(item.url);
     return true;
   }).sort((a, b) => (b.quality === "best" ? 2000 : b.quality) - (a.quality === "best" ? 2000 : a.quality)).slice(0, 12);
   if (!sources.length) throw new ExtractorError(platform === "pornhub"
     ? "This Pornhub video only exposes HLS playlists, not a directly downloadable MP4. Converting HLS requires additional processing."
-    : platform === "instagram"
-      ? "Instagram did not expose a public MP4 for this post. It may require login or restrict access from servers. Try another public post or a direct MP4 link."
-      : "No downloadable video file was found. The post may be unavailable or restricted.");
+    :  "No downloadable video file was found. The post may be unavailable or restricted.");
   const q: VideoQuality[] = sources.map(source => source.quality);
   const thumb = txt(details.thumbnail, 4096);
   return {
@@ -159,9 +168,9 @@ async function viaFxTwitter(url: string): Promise<ResolvedExternalVideo> {
   }, sources);
 }
 
-async function viaBtch(url: string, platform: "x" | "instagram"): Promise<ResolvedExternalVideo> {
+async function viaBtch(url: string, platform: "x"): Promise<ResolvedExternalVideo> {
   const sdk = await import("btch-downloader");
-  const data: unknown = await deadline(platform === "x" ? sdk.twitter(url) : sdk.igdl(url));
+  const data: unknown = await deadline(sdk.twitter(url));
   const root = obj(data);
   const inner = obj(root.data);
   const first = Array.isArray(root.data) ? obj(root.data[0]) : inner;
@@ -171,56 +180,6 @@ async function viaBtch(url: string, platform: "x" | "instagram"): Promise<Resolv
     duration: root.duration || inner.duration || first.duration,
     thumbnail: root.thumbnail || inner.thumbnail || first.thumbnail,
   }, collectSources(data));
-}
-
-async function viaInstagramDirect(url: string): Promise<ResolvedExternalVideo> {
-  const { instagramGetUrl } = await import("instagram-url-direct");
-  const payload = obj(await deadline(instagramGetUrl(url)));
-  const details = Array.isArray(payload.media_details) ? payload.media_details : [];
-  const sources: DownloadSource[] = [];
-  for (const raw of details.slice(0, 12)) {
-    const item = obj(raw);
-    if (item.type !== "video") continue;
-    const direct = usableMediaUrl(item.url, "video");
-    if (direct) sources.push({
-      url: direct, quality: guessQuality(obj(item.dimensions), "video"),
-      label: "Video",
-    });
-  }
-  if (!sources.length && Array.isArray(payload.url_list)) {
-    for (const item of payload.url_list.slice(0, 12)) {
-      const direct = usableMediaUrl(item, "video");
-      if (direct) sources.push({url: direct, quality: "best", label: "Video"});
-    }
-  }
-  return makeResult("instagram", {
-    title: "Instagram video",
-    uploader: obj(payload.post_info).owner_username,
-    thumbnail: obj(details[0]).thumbnail,
-  }, sources);
-}
-
-// Some public Instagram posts expose their video directly in the HTML metadata,
-// without credentials. Use this only as a last-resort public-page fallback.
-async function viaInstagramPage(url: string): Promise<ResolvedExternalVideo> {
-  const response = await fetch(url, {
-    headers: { "User-Agent": UA, Accept: "text/html", "Accept-Language": "en-US,en;q=0.9" },
-    cache: "no-store", signal: AbortSignal.timeout(12000), redirect: "error",
-  });
-  if (!response.ok) throw new ExtractorError("Instagram did not allow public access to this post.");
-  const html = (await response.text()).slice(0, 3_000_000);
-  const urls: DownloadSource[] = [];
-  const candidates = [
-    ...html.matchAll(/<meta[^>]+(?:property|name)=["']og:video(?::secure_url)?["'][^>]+content=["']([^"']+)["']/gi),
-    ...html.matchAll(/"video_url"\s*:\s*"([^"]+)"/gi),
-  ];
-  for (const match of candidates.slice(0, 8)) {
-    let raw = match[1].replace(/&amp;/g, "&").replace(/\\u0026/g, "&").replace(/\\\//g, "/");
-    const direct = usableMediaUrl(raw, "video");
-    if (direct) urls.push({url: direct, quality: "best", label: "Video"});
-  }
-  const titleMatch = /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)/i.exec(html);
-  return makeResult("instagram", {title: titleMatch?.[1] || "Instagram video"}, urls);
 }
 
 async function viaRedgifs(url: string): Promise<ResolvedExternalVideo> {
@@ -252,15 +211,25 @@ async function viaPornhub(url: string): Promise<ResolvedExternalVideo> {
   const sources: DownloadSource[] = [];
   for (const candidate of definitions) {
     const entry = obj(candidate);
-    if (entry.format !== "mp4") continue;
-    const mediaUrl = usableMediaUrl(entry.videoUrl, "video");
-    if (mediaUrl) sources.push({
-      url: mediaUrl, quality: guessQuality(entry),
-      label: String(entry.quality || "MP4"),
-    });
+    const format = String(entry.format || "").toLowerCase();
+    const value = typeof entry.videoUrl === "string" ? entry.videoUrl : "";
+    const pathname = (() => {try{return new URL(value).pathname}catch{return ""}})();
+    const match = /(?:^|[\/_])(?:1080|720|480|360|240)p(?:[_./]|$)/i.exec(pathname);
+    const filenameQuality = match ? guessQuality(null, match[0]) : "best";
+    const quality = filenameQuality !== "best" ? filenameQuality :
+      typeof entry.quality === "number" ? guessQuality(entry) : "best";
+    if (format === "mp4") {
+      const mediaUrl = usableMediaUrl(value, "video");
+      if (mediaUrl) sources.push({url: mediaUrl, quality, label: quality === "best" ? "MP4" : quality + "p", format: "file"});
+    }
+    if (format === "hls" && isSafeHlsSource(value)) {
+      sources.push({url: value, quality, label: quality === "best" ? "HLS" : quality + "p", format: "hls"});
+    }
   }
+  if (sources.length === 0) throw new ExtractorError(
+    "Pornhub is not exposing this video to Goongram. It may require a browser challenge or be restricted; try another public link.");
   return makeResult("pornhub", {
-    title: data.title, uploader: data.author || data.username,
+    title: data.title, uploader: obj(data.provider).username || data.author || data.username,
     duration: data.duration, thumbnail: data.thumb || data.thumbnail,
   }, sources);
 }
@@ -271,13 +240,6 @@ export async function resolveExternalVideo(raw: unknown): Promise<ResolvedExtern
   try {
     if (parsed.platform === "redgifs") return await viaRedgifs(parsed.url);
     if (parsed.platform === "pornhub") return await viaPornhub(parsed.url);
-    if (parsed.platform === "instagram") {
-      try { return await viaBtch(parsed.url, "instagram"); }
-      catch {
-        try { return await viaInstagramDirect(parsed.url); }
-        catch { return await viaInstagramPage(parsed.url); }
-      }
-    }
     try { return await viaBtch(parsed.url, "x"); }
     catch { return await viaFxTwitter(parsed.url); }
   } catch (error) {
@@ -298,9 +260,8 @@ export function isSafeProxySource(input: string, platform: ExternalPlatform) {
   const host = new URL(url).hostname.toLowerCase();
   const suffix = (domain: string) => host === domain || host.endsWith("." + domain);
   if (platform === "x") return suffix("twimg.com");
-  if (platform === "instagram") return suffix("cdninstagram.com") || suffix("fbcdn.net");
   if (platform === "redgifs") return suffix("redgifs.com");
-  return suffix("phncdn.com");
+  return suffix("phncdn.com") || suffix("phprcdn.com");
 }
 
 export function downloadFilename(platform: ExternalPlatform, input: string) {

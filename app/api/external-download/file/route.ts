@@ -1,13 +1,14 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { parseExternalVideoUrl, type VideoQuality } from "@/lib/external-download";
+import { streamHlsAsMp4 } from "@/lib/external-download/hls";
 import {
   downloadFilename, EXTRACTOR_USER_AGENT, isSafeProxySource,
-  resolveExternalVideo, selectSource,
+  resolveExternalVideo, selectSource, isSafeHlsSource,
 } from "@/lib/external-download/resolve";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 const MAX_RELAY_BYTES = 150 * 1024 * 1024;
 const Q = ["best", "1080", "720", "480", "360", "240"];
@@ -43,6 +44,11 @@ export async function GET(request: Request) {
   try {
     const info = await resolveExternalVideo(parsed.url);
     const source = selectSource(info, quality === "best" ? "best" : Number(quality) as VideoQuality);
+    if (parsed.platform === "pornhub" && source.format === "hls") {
+      if (!isSafeHlsSource(source.url)) return bad("Invalid HLS source.", 422);
+      const filename = downloadFilename(parsed.platform, parsed.url);
+      return streamHlsAsMp4(source.url, filename, request.signal);
+    }
     if (!isSafeProxySource(source.url, parsed.platform)) return bad("This media host does not support the download relay.", 422);
 
     let currentUrl = source.url;
@@ -53,7 +59,6 @@ export async function GET(request: Request) {
           "User-Agent": EXTRACTOR_USER_AGENT,
           Accept: "video/mp4,video/webm,application/octet-stream,*/*",
           Referer: parsed.platform === "redgifs" ? "https://www.redgifs.com/" :
-            parsed.platform === "instagram" ? "https://www.instagram.com/" :
             parsed.platform === "x" ? "https://x.com/" : "https://www.pornhub.com/",
         },
         cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(90000),
