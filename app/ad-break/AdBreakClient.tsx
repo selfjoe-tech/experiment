@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import StaticPageAdPair from "@/app/components/ads/StaticPageAdPair";
 import WatchBottomAds from "@/app/components/ads/WatchBottomAds";
 
-const WAIT_MS = 3000;
+const WAIT_SECONDS = 5;
+const WAIT_MS = WAIT_SECONDS * 1000;
 
 /**
  * Reuses seven unique ad placements:
@@ -15,7 +16,7 @@ const WAIT_MS = 3000;
  * Never duplicate the floating zone or trigger watch earnings on this page.
  */
 export default function AdBreakClient({ destination }: { destination: string }) {
-  const [secondsLeft, setSecondsLeft] = useState(3);
+  const [secondsLeft, setSecondsLeft] = useState(WAIT_SECONDS);
 
   useEffect(() => {
     const startedAt = Date.now();
@@ -50,13 +51,13 @@ export default function AdBreakClient({ destination }: { destination: string }) 
             role="progressbar"
             aria-label="Redirect countdown"
             aria-valuemin={0}
-            aria-valuemax={3}
-            aria-valuenow={3 - secondsLeft}
+            aria-valuemax={WAIT_SECONDS}
+            aria-valuenow={WAIT_SECONDS - secondsLeft}
             className="mt-5 h-1.5 w-full max-w-lg overflow-hidden rounded-full bg-white/10"
           >
             <div
               className="h-full bg-pink-500 transition-[width] duration-150 ease-linear"
-              style={{ width: String(((3 - secondsLeft) / 3) * 100) + "%" }}
+              style={{ width: String(((WAIT_SECONDS - secondsLeft) / WAIT_SECONDS) * 100) + "%" }}
             />
           </div>
           <a
