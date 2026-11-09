@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import AdDismissButton from "@/app/components/ads/AdDismissButton";
 import InlineContentAd from "@/app/components/ads/InlineContentAd";
 
 /**
@@ -18,6 +19,7 @@ declare global {
 
 function WatchFooterBannerAd() {
   const requested = useRef(false);
+  const [closed, setClosed] = useState(false);
 
   useEffect(() => {
     if (requested.current) return;
@@ -34,13 +36,18 @@ function WatchFooterBannerAd() {
     }
   }, []);
 
+  if (closed) return null;
+
   return (
     <section
       aria-label="Sponsored banner advertisement"
       className="w-[312px] max-w-full min-w-0 rounded-lg border border-white/10 bg-[#101115] p-[5px]"
     >
-      <div className="pb-1 text-[9px] font-medium uppercase tracking-wider text-white/50">
-        Sponsored
+      <div className="mb-1 flex min-h-11 items-center justify-between gap-2">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-white/65">
+          Sponsored
+        </span>
+        <AdDismissButton onClick={() => setClosed(true)} label="Close banner advertisement" />
       </div>
       <div className="w-full overflow-x-auto">
         <ins

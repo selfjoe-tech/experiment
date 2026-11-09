@@ -2,15 +2,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Mail, X } from "lucide-react";
-import { RedditIcon, XIcon } from "@/app/components/ui/ContactUs";
+import { Mail } from "lucide-react";
+import { usePathname } from "next/navigation";
+import AdDismissButton from "@/app/components/ads/AdDismissButton";
+import { XIcon } from "@/app/components/ui/ContactUs";
 
 /**
  * Four existing JuicyAds publisher zones.
  * Original 308×2592 dimensions are preserved.
  *
- * Development only:
- * A close button dismisses the entire ad container.
+ * Every placement stays mounted once per page. The visible close button
+ * dismisses this group without reloading ads or removing home-only links.
  */
 
 type Zone = {
@@ -131,86 +133,75 @@ export default function StaticPageAdPair({
   compactOnMobile?: boolean;
 } = {}) {
   const [closed, setClosed] = useState(false);
+  const pathname = usePathname();
+  const showHomeLinks = pathname === "/";
 
-  const isDevelopment =
-    process.env.NODE_ENV === "development";
-
-  // Dismissing the ad group never removes the social links below it.
-  const adsVisible = !(isDevelopment && closed);
+  // If no content is left on a non-home page, remove the ad section entirely.
+  if (closed && !showHomeLinks) return null;
 
   return (
     <aside
       aria-label="Sponsored advertisements"
-      className={`
-        relative isolate z-0 w-full min-w-0
-        ${isDevelopment && adsVisible ? "pt-8" : ""}
-      `}
+      className="relative isolate z-0 w-full min-w-0"
     >
-      {/* Development-only close button */}
-      {isDevelopment && adsVisible && (
-        <button
-          type="button"
-          onClick={() => setClosed(true)}
-          aria-label="Close all advertisements"
-          title="Close advertisements"
-          className="
-            absolute left-0 top-0 z-30
-            flex h-7 w-7 items-center
-            justify-center rounded-full
-            border border-white/15
-            bg-[#202126] text-white/80
-            shadow-lg
-            transition-all duration-200
-            hover:bg-[#35363b]
-            hover:text-white
-            active:scale-95
-          "
-        >
-          <X size={16} strokeWidth={2} />
-        </button>
+      {!closed && (
+        <>
+          <div className="mb-2 flex min-h-11 items-center justify-between gap-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-white/65">
+              Sponsored advertisements
+            </span>
+            <AdDismissButton
+              onClick={() => setClosed(true)}
+              label="Close all advertisements"
+            />
+          </div>
+
+          {/* The four original publisher zones are mounted at most once per page. */}
+          <div
+            className="flex w-full flex-nowrap items-stretch gap-3 overflow-x-auto overscroll-x-contain pb-3 snap-x snap-mandatory [scrollbar-width:thin]"
+          >
+            {ZONES.map((zone) => (
+              <StaticAd
+                key={zone.key}
+                zone={zone}
+                compactOnMobile={compactOnMobile}
+              />
+            ))}
+          </div>
+        </>
       )}
 
-      {/* Keep the four original ad zones mounted as one group until dismissed. */}
-      {adsVisible && <div
-        className="
-          flex w-full flex-nowrap
-          items-stretch gap-3
-          overflow-x-auto overscroll-x-contain
-          pb-3 snap-x snap-mandatory
-          [scrollbar-width:thin]
-        "
-      >
-        {ZONES.map((zone) => (
-          <StaticAd
-            key={zone.key}
-            zone={zone}
-            compactOnMobile={compactOnMobile}
-          />
-        ))}
-      </div>}
-
-      {/* Links to the same accounts already used by the site Contact Us panel. */}
-      <nav aria-label="Follow and contact Goon Gram" className="mt-3 w-full min-w-0 border-t border-white/10 pt-3">
-        <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-white/50">
-          Connect with us
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <a href="https://x.com/gooongram" target="_blank" rel="noopener noreferrer"
-            aria-label="Goon Gram on X"
-            className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[.045] px-2 py-3 text-[12px] font-medium text-white/85 transition hover:border-white/25 hover:bg-white/10 hover:text-white">
-            <XIcon /><span>X</span>
-          </a>
-          {/* <a href="https://www.reddit.com/r/goongram/" target="_blank" rel="noopener noreferrer"
-            aria-label="Goon Gram on Reddit"
-            className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[.045] px-2 py-3 text-[12px] font-medium text-white/85 transition hover:border-white/25 hover:bg-white/10 hover:text-white">
-            <RedditIcon /><span>Reddit</span>
-          </a> */}
-          <a href="mailto:contact@goongram.com" aria-label="Email Goon Gram"
-            className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[.045] px-2 py-3 text-[12px] font-medium text-white/85 transition hover:border-white/25 hover:bg-white/10 hover:text-white">
-            <Mail size={21} aria-hidden="true" /><span>Email</span>
-          </a>
-        </div>
-      </nav>
+      {/* These links belong to the home page, not the shared ad placement. */}
+      {showHomeLinks && (
+        <nav
+          aria-label="Follow and contact Goon Gram"
+          className="mt-3 w-full min-w-0 border-t border-white/10 pt-3"
+        >
+          <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-white/50">
+            Connect with us
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <a
+              href="https://x.com/gooongram"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Goon Gram on X"
+              className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[.045] px-2 py-3 text-[12px] font-medium text-white/85 transition hover:border-white/25 hover:bg-white/10 hover:text-white"
+            >
+              <XIcon />
+              <span>X</span>
+            </a>
+            <a
+              href="mailto:contact@goongram.com"
+              aria-label="Email Goon Gram"
+              className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[.045] px-2 py-3 text-[12px] font-medium text-white/85 transition hover:border-white/25 hover:bg-white/10 hover:text-white"
+            >
+              <Mail size={21} aria-hidden="true" />
+              <span>Email</span>
+            </a>
+          </div>
+        </nav>
+      )}
     </aside>
   );
 }
