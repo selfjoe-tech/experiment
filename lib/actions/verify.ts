@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { putR2Object, deleteR2Object } from "@/lib/server/r2";
 
 export type VerificationLinks = {
   onlyfans?: string;
@@ -79,29 +80,20 @@ export async function submitVerificationRequest(formData: FormData) {
 
   const filePath = `verify-selfies/${userId}/${crypto.randomUUID()}.${extension}`;
 
-  const { error: uploadError } = await supabase.storage
-    .from("verification")
-    .upload(filePath, selfie, {
-      cacheControl: "3600",
-      upsert: false,
-      contentType: selfie.type,
-    });
-
-  if (uploadError) {
-    console.error("submitVerificationRequest upload error", uploadError);
-    throw new Error("Failed to upload verification photo.");
-  }
+  await putR2Object(filePath, Buffer.from(await selfie.arrayBuffer()), selfie.type, true);
+  // Prefix differentiates private R2 keys from legacy Supabase Storage keys.
+  const privatePath = "r2-private:" + filePath;
 
   const { error: insertError } = await supabase.from("verify").insert({
     creator_id: userId,
     links,
-    selfie_path: filePath,
-    storage_path: filePath,
+    selfie_path: privatePath,
+    storage_path: privatePath,
   });
 
   if (insertError) {
     console.error("submitVerificationRequest insert error", insertError);
-    await supabase.storage.from("verification").remove([filePath]);
+    await deleteR2Object(filePath, true).catch((error) => console.error("Verification cleanup failed", error));
     throw new Error("Failed to create verification request.");
   }
 
