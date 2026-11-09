@@ -17,10 +17,11 @@ export async function uploadFileToR2(
   const payload = await response.json() as {
     signedUrl?: string;
     publicUrl?: string;
+    key?: string;
     contentType?: string;
     error?: string;
   };
-  if (!response.ok || !payload.signedUrl || !payload.publicUrl) {
+  if (!response.ok || !payload.signedUrl || !payload.publicUrl || !payload.key) {
     throw new Error(payload.error || "Could not authorize R2 upload.");
   }
 
@@ -28,7 +29,7 @@ export async function uploadFileToR2(
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", payload.signedUrl!, true);
-    xhr.timeout = 180000;
+    xhr.timeout = 300000;
     xhr.setRequestHeader("Content-Type", payload.contentType!);
     xhr.upload.onprogress = event => {
       if (event.lengthComputable && event.total > 0) {
@@ -45,5 +46,15 @@ export async function uploadFileToR2(
     xhr.send(file);
   });
   onProgress?.(99);
+  const verified = await fetch("/api/r2-upload/complete", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key: payload.key, size: file.size, contentType: file.type }),
+  });
+  if (!verified.ok) {
+    const data = await verified.json().catch(() => ({})) as { error?: string };
+    throw new Error(data.error || "Could not verify R2 object.");
+  }
   return payload.publicUrl;
 }
