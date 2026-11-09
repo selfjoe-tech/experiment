@@ -6,9 +6,11 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-export async function GET() {
+export async function GET(request: Request) {
   if (process.env.VERCEL_ENV !== "preview") return new Response(null,{status:404});
-  const video = await new PornHub().video("https://www.pornhub.com/view_video.php?viewkey=ph5ac81eabe203d");
+  const requested = new URL(request.url).searchParams.get("key") || "68e8cbb868555";
+  const key = ["ph5ac81eabe203d","68e8cbb868555","681b7cd6a1965","6a8c66583bb41","6a24ab54eb912"].includes(requested) ? requested : "68e8cbb868555";
+  const video = await new PornHub().video("https://www.pornhub.com/view_video.php?viewkey=" + key);
   const definitions = Array.isArray(video.mediaDefinitions) ? video.mediaDefinitions : [];
   const examples=[];
   for (const d of definitions.slice(0,4)) {
