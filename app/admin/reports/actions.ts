@@ -3,6 +3,7 @@
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireAdmin } from "@/lib/server/requireAdmin";
 import { revalidatePath } from "next/cache";
+import { deleteR2Object, r2KeyFromPublicUrl } from "@/lib/server/r2";
 
 const MEDIA_BUCKET =
   process.env.NEXT_PUBLIC_SUPABASE_MEDIA_BUCKET ?? "media";
@@ -25,13 +26,13 @@ export async function removeMediaFromReport(formData: FormData) {
   if (mediaError) {
     console.error("Failed to load media for deletion", mediaError);
   } else if (media?.storage_path) {
-    // 2) Delete from storage bucket
-    const { error: storageError } = await supabase.storage
-      .from(MEDIA_BUCKET)
-      .remove([media.storage_path]);
-
-    if (storageError) {
-      console.error("Failed to delete media from storage", storageError);
+    const r2Key = r2KeyFromPublicUrl(media.storage_path);
+    if (r2Key) {
+      await deleteR2Object(r2Key);
+    } else if (!/^https?:\/\//i.test(media.storage_path)) {
+      const { error: storageError } = await supabase.storage
+        .from(MEDIA_BUCKET).remove([media.storage_path]);
+      if (storageError) throw new Error(storageError.message);
     }
   }
 
