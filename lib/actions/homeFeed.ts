@@ -12,6 +12,7 @@ export type HomePost = {
   id: number;
   type: "video" | "image";
   src: string;
+  poster?: string | null;
   title: string;
   description: string;
   username: string;
@@ -60,7 +61,7 @@ export async function fetchHomeFeedBatch(options: {
   let query = supabase
     .from("media")
     .select(`
-      id, media_type, storage_path, title, description, created_at,
+      id, media_type, storage_path, thumbnail_path, title, description, created_at,
       width, height, duration_seconds, like_count, view_count, tags, audience,
       owner:profiles!media_owner_id_fkey (
         id, username, avatar_url, verified
@@ -109,6 +110,7 @@ export async function fetchHomeFeedBatch(options: {
     id: number;
     media_type: string;
     storage_path: string;
+    thumbnail_path: string | null;
     title: string | null;
     description: string | null;
     created_at: string;
@@ -143,6 +145,7 @@ export async function fetchHomeFeedBatch(options: {
       id: Number(row.id),
       type: row.media_type as "video" | "image",
       src: publicMediaUrl(row.storage_path),
+      poster: row.thumbnail_path ? publicMediaUrl(row.thumbnail_path) : null,
       title: row.title ?? "",
       description: row.description ?? "",
       username: row.owner?.username ?? "unknown",
@@ -221,6 +224,7 @@ export async function fetchHomePostById(id: number): Promise<HomePost | null> {
     id: Number(row.id),
     type: row.media_type as "video" | "image",
     src: publicMediaUrl(row.storage_path),
+    poster: row.thumbnail_path ? publicMediaUrl(row.thumbnail_path) : null,
     title: row.title ?? "",
     description: row.description ?? "",
     username: owner?.username ?? "unknown",
