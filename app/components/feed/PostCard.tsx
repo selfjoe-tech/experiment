@@ -108,7 +108,18 @@ export default function PostCard({ post, viewerId }: { post: HomePost; viewerId:
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    if (visible && !previewEnded) video.play().catch(() => {});
+
+    // The Home feed can contain many posts. Only the visible video should
+    // hold a media URL and decoder buffers on mobile.
+    if (!visible) {
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+      setPlaying(false);
+      return;
+    }
+
+    if (!previewEnded) void video.play().catch(() => {});
     else video.pause();
   }, [visible, previewEnded]);
 
@@ -264,7 +275,7 @@ export default function PostCard({ post, viewerId }: { post: HomePost; viewerId:
 
     <div ref={mediaRef} className={`relative flex aspect-[4/5] max-h-[650px] w-full items-center justify-center overflow-hidden rounded-md ${post.type === "image" ? "mt-2 bg-[#090a0c]" : "bg-black"}`} onDoubleClick={doubleClickVideo}>
       {post.type === "video" ?
-        <video ref={videoRef} src={post.src} loop playsInline muted={muted} preload="metadata"
+        <video ref={videoRef} src={visible ? post.src : undefined} loop playsInline muted={muted} preload={visible ? "metadata" : "none"}
           onLoadedMetadata={event => {
             const duration = event.currentTarget.duration;
             if (Number.isFinite(duration) && duration > 0) setVideoDuration(duration);
@@ -273,7 +284,7 @@ export default function PostCard({ post, viewerId }: { post: HomePost; viewerId:
           onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}
           onClick={clickVideo}
           className="absolute inset-0 h-full w-full cursor-pointer object-cover" aria-label={post.title || "Video post"} /> :
-        <Image unoptimized src={post.src} alt={post.title || "Image post"} fill sizes="(max-width: 640px) 100vw, 520px" className="object-contain" />}
+        <Image src={post.src} alt={post.title || "Image post"} fill sizes="(max-width: 640px) 100vw, 520px" loading="lazy" className="object-contain" />}
       {post.type === "video" && <>
         {/* Creator information and original runtime sit ON the video, not outside it. */}
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-28 bg-gradient-to-b from-black/65 via-black/20 to-transparent" aria-hidden="true" />
