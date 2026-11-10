@@ -29,9 +29,6 @@ import {
 //   watermarkVideoFile,
 // } from "@/lib/client/watermarkVideo";
 
-import { getUserProfileFromCookies } from "@/lib/actions/auth";
-import { useUploadStatus } from "@/app/components/upload/UploadStatusProvider";
-import OverlayPortal from "@/app/components/ui/OverlayPortal";
 
 const ACCENT = "pink";
 
@@ -46,7 +43,6 @@ type PostFlow =
 export default function UploadPage() {
   const router = useRouter();
   const sp = useSearchParams();
-  const { startUpload } = useUploadStatus();
 
   // Only accept same-site destinations, never external post-upload redirects.
   const requestedRedirect = sp.get("redirect");
@@ -63,26 +59,65 @@ export default function UploadPage() {
   const [processingError, setProcessingError] =
     useState<string | null>(null);
 
-  const [wmUsername, setWmUsername] = useState<string>("");
+  // Uploads are owned by /upload, never by the root layout.
+  // Only protect a page reload/close while a transfer is genuinely active.
+  const activeUploadRef = useRef(false);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const prof = await getUserProfileFromCookies();
-
-        if (prof.username) {
-          setWmUsername(prof.username);
-        }
-
-        console.log(prof, "<<<<<<<<<< new");
-      } catch (e) {
-        console.error(
-          "failed to get username for watermark",
-          e
-        );
-      }
-    })();
+    const warnWhileUploading = (event: BeforeUnloadEvent) => {
+      if (!activeUploadRef.current || window.location.pathname !== "/upload") return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnWhileUploading);
+    return () => window.removeEventListener("beforeunload", warnWhileUploading);
   }, []);
+
+  const runUploadOnPage = async (
+    kind: "video" | "images",
+    work: (controls: {
+      onUploadProgress: (percent: number) => void;
+      onStageChange: (stage: "preparing" | "uploading" | "saving") => void;
+    }) => Promise<void>,
+  ) => {
+    if (activeUploadRef.current) {
+      throw new Error("An upload is already running. Finish it before starting another.");
+    }
+
+    activeUploadRef.current = true;
+    setProcessing(true);
+    setProgress(0);
+    setProcessingError(null);
+    setProgressLabel("Preparing upload…");
+
+    const subject = kind === "video" ? "video" : "images";
+    try {
+      await work({
+        onUploadProgress: (percent) => {
+          const safe = Math.max(0, Math.min(99, Math.round(percent)));
+          setProgress((current) => Math.max(current, safe));
+        },
+        onStageChange: (stage) => {
+          setProgressLabel(
+            stage === "preparing" ? "Preparing upload…" :
+            stage === "uploading" ? `Uploading ${subject}…` : `Saving ${subject}…`,
+          );
+        },
+      });
+    } catch (error) {
+      activeUploadRef.current = false;
+      setProcessing(false);
+      setProcessingError(error instanceof Error ? error.message : "Upload failed. Please retry.");
+      throw error;
+    }
+
+    // A successful media row save is the ONLY point at which redirect is
+    // allowed. Clear the refresh guard before this deliberate navigation.
+    activeUploadRef.current = false;
+    setProgress(100);
+    setProgressLabel("Upload complete. Redirecting…");
+    router.replace(redirect);
+  };
 
   const videoInputRef =
     useRef<HTMLInputElement | null>(null);
@@ -290,27 +325,20 @@ export default function UploadPage() {
       processingLabel={progressLabel}
       onCancel={() => setPostFlow(null)}
       onSubmit={async formValues => {
-        // Keep the original File in the root upload manager's task closure:
-        // navigation unmounts this page, but the browser request continues.
         const clip = postFlow.clip;
-        const started = startUpload("video", async ({ onProgress, onStageChange }) => {
+        await runUploadOnPage("video", async (controls) => {
           await uploadTrimmedVideo(clip, {
             title: formValues.description?.slice(0, 80) ?? "",
             description: formValues.description ?? "",
             audience: formValues.audience,
             tags: formValues.tags ?? [],
-          }, {
-            onUploadProgress: onProgress,
-            onStageChange,
-          });
+          }, controls);
         });
-        if (!started) throw new Error("Another upload is in progress. Finish it before starting a new one.");
-        router.push(redirect);
       }}
     />;
   }
 
-  // Images use the same background UI and aggregate progress across files.
+  // Images remain on /upload while the full batch transfers and saves.
   if (postFlow?.kind === "images") {
     return <UploadFlow
       variant="images"
@@ -322,23 +350,18 @@ export default function UploadPage() {
       processingLabel={progressLabel}
       onSubmit={async formValues => {
         const files = [...postFlow.images.files];
-        const started = startUpload("images", async ({ onProgress, onStageChange }) => {
+        await runUploadOnPage("images", async (controls) => {
           const { successes, failures } = await uploadImagesBatch(files, {
             description: formValues.description,
             audience: formValues.audience,
             tags: formValues.tags ?? [],
-          }, {
-            onUploadProgress: onProgress,
-            onStageChange,
-          });
+          }, controls);
           if (failures.length > 0) {
             throw new Error(
               `${failures.length} image(s) failed; ${successes.length} uploaded. Re-select only failed files to avoid duplicates.`
             );
           }
         });
-        if (!started) throw new Error("Another upload is in progress. Finish it before starting a new one.");
-        router.push(redirect);
       }}
     />;
   }
@@ -347,31 +370,15 @@ export default function UploadPage() {
   // 3C) BULK IMAGE SUMMARY
   // ============================================================
 
-  async function uploadImageToSupabase(
-    file: File,
-    onProgress: (p: number) => void
-  ) {
-    const row =
-      await uploadSingleImage(
-        file,
-        {
-          audience: "straight",
-          description: "",
-          title: file.name,
-        },
-        {
-          onUploadProgress: onProgress,
-        }
-      );
-
-    return row.storage_path ?? "";
-  }
-
   if (bulkFiles.length > 0) {
     return (
       <BulkImageSummary
         files={bulkFiles}
-        onBack={() => setBulkFiles([])}
+        onBack={() => {
+          activeUploadRef.current = false;
+          setBulkFiles([]);
+        }}
+        onFinished={() => { activeUploadRef.current = false; }}
         uploadFn={uploadImageToSupabase}
       />
     );
@@ -383,43 +390,6 @@ export default function UploadPage() {
 
   return (
     <div className="relative isolate min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
-      {processing && (
-        <OverlayPortal>
-          <div className="fixed inset-0 z-[9999] pointer-events-none">
-            <div className="absolute bottom-4 left-1/2 w-full max-w-md -translate-x-1/2 px-4 pointer-events-auto">
-              <div className="rounded-2xl border border-white/15 bg-black/80 p-4 space-y-2 shadow-xl backdrop-blur">
-                <div className="flex justify-between text-xs text-white/80">
-                  <span>
-                    Processing video…
-                  </span>
-
-                  <span>
-                    {progress}%
-                  </span>
-                </div>
-
-                <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${progress}%`,
-                      background:
-                        "linear-gradient(90deg, rgb(236,72,153), rgb(251,191,36))",
-                    }}
-                  />
-                </div>
-
-                {processingError && (
-                  <p className="text-xs text-red-400 mt-1">
-                    {processingError}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        </OverlayPortal>
-      )}
-
       <header className="sticky top-0 z-10 flex items-center justify-center h-14 bg-black/80 backdrop-blur border-b border-white/10">
         <button
           onClick={onClose}
@@ -558,9 +528,9 @@ export default function UploadPage() {
 
               e.currentTarget.value = "";
 
-              setBulkFiles(
-                selected.slice(0, 50)
-              );
+              const chosen = selected.slice(0, 50);
+              if (chosen.length) activeUploadRef.current = true;
+              setBulkFiles(chosen);
             }}
           />
         </Card>
@@ -583,6 +553,19 @@ export default function UploadPage() {
       )}
     </div>
   );
+}
+
+
+async function uploadImageToSupabase(
+  file: File,
+  onProgress: (p: number) => void,
+) {
+  const row = await uploadSingleImage(file, {
+    audience: "straight",
+    description: "",
+    title: file.name,
+  }, { onUploadProgress: onProgress });
+  return row.storage_path ?? "";
 }
 
 function BigOutlineButton({

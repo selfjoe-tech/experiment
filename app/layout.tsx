@@ -6,7 +6,6 @@ import JuicyAdsLoader from "@/app/components/ads/JuicyAdsLoader";
 import AdDocumentNavigation from "@/app/components/ads/AdDocumentNavigation";
 import SitewideAd from "@/app/components/ads/SitewideAd";
 import AdultAgeGate from "@/app/components/age/AdultAgeGate";
-import UploadStatusProvider from "@/app/components/upload/UploadStatusProvider";
 
 
 const geistSans = Geist({
@@ -134,12 +133,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         <SiteJsonLd />
         <AdultAgeGate>
-          <UploadStatusProvider>
-            <AdDocumentNavigation />
-            <JuicyAdsLoader />
-            <SitewideAd />
-            {children}
-          </UploadStatusProvider>
+          <AdDocumentNavigation />
+          <JuicyAdsLoader />
+          <SitewideAd />
+          {children}
         </AdultAgeGate>
       </body>
     </html>
