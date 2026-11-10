@@ -21,21 +21,23 @@ let TUNING: DeviceTuning | null = null;
 function getTuning(): DeviceTuning {
   if (TUNING) return TUNING;
 
-  const mem = (typeof navigator !== "undefined" && (navigator as any).deviceMemory) ? (navigator as any).deviceMemory : 4;
-  const conn = (typeof navigator !== "undefined" && (navigator as any).connection) ? (navigator as any).connection : null;
+  const isTouch = typeof window !== "undefined" &&
+    window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+  // deviceMemory is absent on iOS Safari. Default touch devices to a
+  // conservative budget instead of assuming a desktop-class 4 GB device.
+  const reportedMemory = typeof navigator !== "undefined" && (navigator as any).deviceMemory
+    ? Number((navigator as any).deviceMemory) : null;
+  const mem = reportedMemory ?? (isTouch ? 2 : 4);
+  const conn = typeof navigator !== "undefined" ? (navigator as any).connection : null;
   const saveData = !!conn?.saveData;
   const effectiveType = String(conn?.effectiveType ?? "");
-
   const lowEnd = mem <= 2 || saveData || /2g|slow-2g/i.test(effectiveType);
 
-  // Keep cache smaller on mobile/low-end to reduce memory spikes
-  const maxThumbs = lowEnd ? 60 : mem >= 8 ? 200 : mem >= 4 ? 130 : 90;
-
-  // Concurrency is a big source of OOM on mobile: keep conservative
-  const concurrency = lowEnd ? 1 : mem >= 8 ? 3 : mem >= 4 ? 2 : 1;
-
-  // Smaller thumbs = much faster canvas + blob encode
-  const defaultThumbSize = lowEnd ? 160 : 192;
+  // On phones, a few dozen thumbnails are sufficient for a scrolled grid.
+  // Avoid retaining 100+ decoded images/object URLs in mobile Safari.
+  const maxThumbs = isTouch ? 24 : lowEnd ? 32 : mem >= 8 ? 140 : 80;
+  const concurrency = isTouch || lowEnd ? 1 : mem >= 8 ? 3 : 2;
+  const defaultThumbSize = isTouch ? 144 : lowEnd ? 160 : 192;
 
   TUNING = {
     mem,
@@ -357,6 +359,14 @@ function pumpQueue() {
           .then((url) => task.resolve(url))
           .catch((err) => task.reject(err))
           .finally(() => {
+            // Release media decoders and network buffers even when seeking,
+            // CORS or canvas encoding throws. Otherwise failed mobile tiles
+            // can keep an invisible MP4 alive in the worker pool.
+            try {
+              worker.video.pause();
+              worker.video.removeAttribute("src");
+              worker.video.load();
+            } catch { /* already released */ }
             worker.busy = false;
             pumpQueue(); // continue draining
           });
