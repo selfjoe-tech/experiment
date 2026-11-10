@@ -108,12 +108,12 @@ export default async function MonetizationInfoPage() {
           <div className="mt-7 grid gap-px overflow-hidden rounded-xl border border-white/10 bg-white/10 sm:grid-cols-2">
             <div className="bg-[#111317] p-6 sm:p-8">
               <p className="text-sm text-white/55">All creators</p>
-              <div className="mt-2 text-[46px] font-semibold tracking-[-0.06em]">{`${CREATOR_RATE_PER_1000.unverified.toFixed(2)}`}</div>
+              <div className="mt-2 text-[46px] font-semibold tracking-[-0.06em]">{"$"}{CREATOR_RATE_PER_1000.unverified.toFixed(2)}</div>
               <p className="mt-1 text-xs text-white/45">No verification needed</p>
             </div>
             <div className="bg-[#111317] p-6 sm:p-8">
               <p className="text-sm text-white/55">Verified creators</p>
-              <div className="mt-2 text-[46px] font-semibold tracking-[-0.06em]">{`${CREATOR_RATE_PER_1000.verified.toFixed(2)}`}</div>
+              <div className="mt-2 text-[46px] font-semibold tracking-[-0.06em]">{"$"}{CREATOR_RATE_PER_1000.verified.toFixed(2)}</div>
               <p className="mt-1 text-xs text-white/45">Verification is an optional higher rate</p>
             </div>
           </div>
