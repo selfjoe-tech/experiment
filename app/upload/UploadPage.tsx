@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -370,18 +370,6 @@ export default function UploadPage() {
   // 3C) BULK IMAGE SUMMARY
   // ============================================================
 
-  const uploadImageToSupabase = useCallback(async (
-    file: File,
-    onProgress: (p: number) => void,
-  ) => {
-    const row = await uploadSingleImage(file, {
-      audience: "straight",
-      description: "",
-      title: file.name,
-    }, { onUploadProgress: onProgress });
-    return row.storage_path ?? "";
-  }, []);
-
   if (bulkFiles.length > 0) {
     return (
       <BulkImageSummary
@@ -565,6 +553,19 @@ export default function UploadPage() {
       )}
     </div>
   );
+}
+
+
+async function uploadImageToSupabase(
+  file: File,
+  onProgress: (p: number) => void,
+) {
+  const row = await uploadSingleImage(file, {
+    audience: "straight",
+    description: "",
+    title: file.name,
+  }, { onUploadProgress: onProgress });
+  return row.storage_path ?? "";
 }
 
 function BigOutlineButton({
