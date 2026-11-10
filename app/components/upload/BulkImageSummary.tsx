@@ -13,6 +13,7 @@ type UploadFn = (file: File, onProgress: (p: number) => void) => Promise<string>
 type Props = {
   files: File[];
   onBack: () => void;
+  onFinished?: () => void;
   /** Provide your backend uploader. If omitted, uses a local mock with progress. */
   uploadFn?: UploadFn;
 };
@@ -26,9 +27,11 @@ type Item = {
   error?: string;
 };
 
-export default function BulkImageSummary({ files, onBack, uploadFn }: Props) {
+export default function BulkImageSummary({ files, onBack, onFinished, uploadFn }: Props) {
   const [items, setItems] = React.useState<Item[]>([]);
   const [allDone, setAllDone] = React.useState(false);
+  const onFinishedRef = React.useRef(onFinished);
+  onFinishedRef.current = onFinished;
 
   // build previews
   React.useEffect(() => {
@@ -81,6 +84,7 @@ export default function BulkImageSummary({ files, onBack, uploadFn }: Props) {
       }
       if (active === 0 && idx >= items.length && !cancelled) {
         setAllDone(true);
+        onFinishedRef.current?.();
       }
     };
 
@@ -139,7 +143,8 @@ export default function BulkImageSummary({ files, onBack, uploadFn }: Props) {
         <div className="flex items-center gap-2 p-4 border-b border-white/10">
           <button
             onClick={onBack}
-            className="rounded-full p-2 hover:bg-white/10 bg-white"
+            disabled={!allDone}
+            className={`rounded-full p-2 hover:bg-white/10 bg-white ${!allDone ? "cursor-not-allowed opacity-40" : ""}` }
             aria-label="Back"
           >
             <ChevronLeft className="h-5 w-5" />
