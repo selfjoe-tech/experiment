@@ -45,7 +45,7 @@ export async function getHomeInitialFeed(): Promise<{
     if (!preferences.length) preferences = ["straight"];
 
     let query = db.from("media").select(
-      "id,media_type,storage_path,title,description,created_at,width,height," +
+      "id,media_type,storage_path,thumbnail_path,title,description,created_at,width,height," +
       "duration_seconds,like_count,view_count,tags," +
       "owner:profiles!media_owner_id_fkey(id,username,avatar_url,verified)"
     ).in("media_type", ["image", "video"])
@@ -83,6 +83,7 @@ export async function getHomeInitialFeed(): Promise<{
           id: Number(row.id),
           type: row.media_type as "video" | "image",
           src: publicMediaUrl(row.storage_path),
+          poster: row.thumbnail_path ? publicMediaUrl(row.thumbnail_path) : null,
           title: row.title ?? "",
           description: row.description ?? "",
           username: owner?.username ?? "unknown",
