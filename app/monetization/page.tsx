@@ -4,6 +4,7 @@ import MobileChrome from "@/app/components/feed/layout/MobileChrome";
 import { createClient } from "@/lib/supabase/server";
 import { ArrowRight, ArrowUpRight, Check } from "lucide-react";
 import WatchLinkExample from "./WatchLinkExample";
+import { CREATOR_RATE_PER_1000 } from "@/lib/creator-monetization-rates";
 
 export const metadata: Metadata = {
   title: "Creator monetization",
@@ -102,22 +103,22 @@ export default async function MonetizationInfoPage() {
         <section className="border-b border-white/10 py-10 sm:py-14" aria-labelledby="rates-heading">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <h2 id="rates-heading" className="text-2xl font-semibold tracking-tight sm:text-3xl">Your earning rate</h2>
-            <span className="text-xs text-white/45">USD per 1,000 page views</span>
+            <span className="text-xs text-white/45">USD per 1,000 qualifying Watch-page visits</span>
           </div>
           <div className="mt-7 grid gap-px overflow-hidden rounded-xl border border-white/10 bg-white/10 sm:grid-cols-2">
             <div className="bg-[#111317] p-6 sm:p-8">
               <p className="text-sm text-white/55">All creators</p>
-              <div className="mt-2 text-[46px] font-semibold tracking-[-0.06em]">$0.25</div>
+              <div className="mt-2 text-[46px] font-semibold tracking-[-0.06em]">{"$"}{CREATOR_RATE_PER_1000.unverified.toFixed(2)}</div>
               <p className="mt-1 text-xs text-white/45">No verification needed</p>
             </div>
             <div className="bg-[#111317] p-6 sm:p-8">
               <p className="text-sm text-white/55">Verified creators</p>
-              <div className="mt-2 text-[46px] font-semibold tracking-[-0.06em]">$0.37</div>
+              <div className="mt-2 text-[46px] font-semibold tracking-[-0.06em]">{"$"}{CREATOR_RATE_PER_1000.verified.toFixed(2)}</div>
               <p className="mt-1 text-xs text-white/45">Verification is an optional higher rate</p>
             </div>
           </div>
           <p className="mt-4 text-xs leading-5 text-white/50">
-            These are rates for qualifying visits, not a guarantee for every click or video view.
+            Rates apply only to qualifying visits to each individual video Watch page, not every click or video view.
             Estimates are reviewed against advertising reports before manual payment.
           </p>
         </section>

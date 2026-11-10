@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { creatorRatePer1000 } from "@/lib/creator-monetization-rates";
 
 export type VideoEarning = {
   mediaId: number;
@@ -64,7 +65,7 @@ export async function getEarnDashboard(): Promise<EarnDashboardData> {
   if (payoutsResult.error) throw new Error(payoutsResult.error.message);
 
   const verified = Boolean(profileResult.data?.verified);
-  const rate = verified ? 0.37 : 0.25;
+  const rate = creatorRatePer1000(verified);
   const videos: VideoEarning[] = ((videosResult.data ?? []) as Array<{
     media_id: number; title: string; duration_seconds: number | null;
     qualified_views: number; earned_usd: number; unpaid_usd: number;
