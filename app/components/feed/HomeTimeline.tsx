@@ -21,28 +21,30 @@ function PostSkeleton() {
   </div>;
 }
 
-export default function HomeTimeline() {
+export default function HomeTimeline({ initial }: { initial?: { posts: HomePost[]; viewerId: string | null } | null }) {
   const hideFeedTabs = useAutoHideHeader();
   const [mode, setMode] = useState<HomeFeedMode>("forYou");
-  const [viewerId, setViewerId] = useState<string | null>(null);
-  const [viewerLoaded, setViewerLoaded] = useState(false);
-  const [posts, setPosts] = useState<HomePost[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [more, setMore] = useState(true);
+  const [viewerId, setViewerId] = useState<string | null>(initial?.viewerId ?? null);
+  const [viewerLoaded, setViewerLoaded] = useState(Boolean(initial));
+  const [posts, setPosts] = useState<HomePost[]>(initial?.posts ?? []);
+  const [loading, setLoading] = useState(!initial);
+  const [more, setMore] = useState(initial ? initial.posts.length === 7 : true);
   const [error, setError] = useState<string | null>(null);
   const sentinel = useRef<HTMLDivElement>(null);
-  const page = useRef(0);
+  const page = useRef(initial ? 1 : 0);
+  const skipFirstLoad = useRef(Boolean(initial));
   const loadingRef = useRef(false);
-  const moreRef = useRef(true);
+  const moreRef = useRef(initial ? initial.posts.length === 7 : true);
   const session = useRef(0);
 
   useEffect(() => {
+    if (initial) return;
     let active = true;
     getUserIdFromCookies()
       .then(id => { if (active) { setViewerId(id); setViewerLoaded(true); } })
       .catch(() => { if (active) setViewerLoaded(true); });
     return () => { active = false; };
-  }, []);
+  }, [initial]);
 
   const loadMore = useCallback(async (feedMode: HomeFeedMode, token: number) => {
     if (loadingRef.current || !moreRef.current) return;
@@ -70,6 +72,11 @@ export default function HomeTimeline() {
 
   useEffect(() => {
     if (!viewerLoaded) return;
+    if (skipFirstLoad.current && mode === "forYou") {
+      skipFirstLoad.current = false;
+      // The initial server-rendered batch already represents page zero.
+      return;
+    }
     session.current += 1;
     const token = session.current;
     page.current = 0;
@@ -120,7 +127,7 @@ export default function HomeTimeline() {
               <a href="/auth/login" className="mt-6 inline-block rounded-lg bg-[#8ea4ff] px-5 py-2.5 text-sm font-semibold text-black">Log in</a>
             </div> :
             <>
-              {posts.map(post => <PostCard post={post} viewerId={viewerId} key={post.id}/>)}
+              {posts.map((post, index) => <PostCard post={post} viewerId={viewerId} key={post.id} prioritizeImage={index === 0}/>)}
               {loading && (posts.length === 0 ? <><PostSkeleton/><PostSkeleton/></> : <div className="flex justify-center py-8"><Loader2 className="animate-spin text-white/55" size={23}/></div>)}
               {!loading && error && <div className="flex flex-col items-center gap-3 py-12 text-center"><p className="text-sm text-white/55">{error}</p><button className="flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm" onClick={() => void loadMore(mode, session.current)}><RefreshCw size={16}/> Try again</button></div>}
               {!loading && !error && !more && posts.length === 0 && <div className="py-24 text-center"><h2 className="text-lg font-semibold">No posts yet</h2><p className="mt-2 text-sm text-white/50">{mode==="following"?"Follow creators to see their posts here.":"Explore the community or check back later."}</p><a href="/explore/gifs" className="mt-5 inline-block text-sm text-[#8ea4ff]">Explore posts</a></div>}
