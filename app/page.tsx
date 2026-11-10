@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import HomeTimeline from "@/app/components/feed/HomeTimeline";
+import { getHomeInitialFeed } from "@/lib/server/homeInitialFeed";
 
 export const metadata: Metadata = {
   title: "Home | Goon Gram",
@@ -7,6 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://goongram.com/" },
 };
 
-export default function HomePage() {
-  return <HomeTimeline />;
+export default async function HomePage() {
+  const initial = await getHomeInitialFeed();
+  return <HomeTimeline initial={initial} />;
 }
